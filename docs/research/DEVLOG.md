@@ -19479,3 +19479,31 @@ console's 0.5 % feed deficit uses about half the corrector's authority (the host
 **Not done, on purpose.** The perceptual run is not authorised; the latency `L(T, A)` of the native path is not derived (RUN 53's ingestion does it from
 the measured levels, as a range, never one number); the nulling's first jump from a low target to a grid start still cannot fill the ring (pre-existing,
 now `fill_short`).
+
+## 2026-09-29 — Issue #137: RUN 53 ingested; reproducing its drain overturned two readings (`HARDWARE_TESTS.md` §V28.15, `GBP-HW-362`, `U-GBP-050`)
+
+**Goal.** Ingest RUN 53 against the pre-registered predictions, then find what the host model was missing for the AHEAD-1 hold's drain, reproduce it on the host, and say whether the two
+marginal TARGET failures share the cause.
+
+**Done.** The redesign's continuity gate passes in every GATE row. Item 12 failed. The host was not missing a mechanism: it had been fed the wrong deficit. I derived "0.5 %, half the corrector's
+authority" from `V28CORR mean_x100`, a counter that saturates at its cap; the direct measurement, `blocks_in` over the decode window, is 0.984 of nominal in three runs, 1.6 %, twice the authority
+(k = 16 is 0.78 %). Fed 0.9843 the calibrated host reproduces, unfitted, the 3a rows' `dup`, `starved` and underruns, the T2048 row, 3b's mean ring, chunk start and minimum, the 16 underruns not in 3a's rows and the sweep
+landing. The mechanism: the ring falls onto the production gate (2049), `target` is unreachable, and the 3a "floor" 2304/2336 is `gate + BAND`.
+
+**Two things worth their own lines.**
+
+1. **I read a saturating counter as a magnitude.** `V28CORR mean` of 11 out of a cap of 16 read as "70 % of the authority"; it says only that demand was at least that. The rate was already in the log (`blocks_in`),
+   and the 3a rows (`dup` 99 % of the maximum at every depth) said so in three runs. A counter with a cap is a lower bound on demand.
+2. **An unwired hook made "clean" mean "unobserved", and I missed the sibling.** `gbp_v28_3b_underrun_observed()` has no caller. I recorded the same gap for 3a in §V28.7 and did not check 3b. Three
+   "clean AHEAD-1 holds" and two "reversal condition fired" lines rest on a flag that could not be set; the AHEAD-1 statuses of `GBP-HW-357`/`GBP-HW-359` are retracted in `GBP-HW-362`. The tool now says
+   "clean" is unobserved and prints the underruns 3a's rows do not carry.
+
+**Also recorded.** Round 3 removed a feed-rate estimate from the landing because it turned a delivery gap into an error and "gained nothing at the console's 0.5 % deficit": that premise was the error above. At the true
+deficit the estimate would have centred the landing; it stays removed until a robust form (n >= 3 boundaries, a tight clamp) is decided together with the remedy for the deficit itself.
+
+**Tests.** `tests/host/test_v28verdict.py` learns the underrun accounting; the full gate is recorded in the closeout on Issue #137.
+
+**Not done, on purpose.** No firmware change, no rebuild, nothing to hardware. The host favours a larger `k` (64: chunk start at `target - BAND`, no underrun, holds a 2.5 % deficit); audibility and `GBP-HW-349`'s `k = 16`
+are untested, and the loss's own cause (`U-GBP-050`) is open. The choice is the Orchestrator's.
+
+**Next.** The Orchestrator's decision on the remedy; then the SD-only instrument that would have prevented this (the unwired hooks, per-phase `blocks_in`/taps/underruns/`dup`/`starved`), and the landing design sized on the measured deficit.

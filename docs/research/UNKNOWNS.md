@@ -2854,3 +2854,16 @@ corrector's authority. Two things are unknown, and both matter for anything buil
    is written into the ladder table.
 
 STAYS OPEN.
+
+
+## U-GBP-050 (P1, opened 2026-09-29, Issue #137) — why do about 1.6 % of the AUDIO blocks never reach the ring, and what sets the loss?
+
+`V28C2 blocks_in` over the decode window is 0.9841 / 0.9839 / 0.9843 of the nominal 4096 blocks/s in RUN 51, 52 and 53 (`HARDWARE_TESTS.md` §V28.15): 4031 a second, about 65 blocks (1040 samples) a second
+short, stable to 0.05 % across three runs of one build. The corrector's authority is 0.78 % (16 corrections of 2048 per chunk), so the ring falls onto the production gate (2049) and `target`
+sets nothing (`GBP-HW-362`). Earlier records put a smaller loss on the composed runtime (25.4 blocks a second in RUN 38, `GBP-HW-329`) and tied it to the size of production steps (half-size steps cut it
+to 0.341 of its value, `GBP-HW-332`), so the loss is workload-coupled, not a clock ratio: this build's pump slot (a 128-push production step, the label, the walker) costs about 2.5 times that.
+Open: (1) where the blocks go (the drain reads fewer than the HSP delivers, or a tap is refused or short: `live_taps`, `live_taps_failed`, `live_wrong_len` exist in `main.c` and are never logged);
+(2) whether it varies by phase (per-phase `blocks_in` is not in any log; the three runs give one mean); (3) whether smaller production steps, a leaner pump slot or a larger `k` is the right remedy.
+Supersedes `U-GBP-049`'s premise (a 0.5 % deficit "half the corrector's authority"), which was read from a saturating counter.
+
+STAYS OPEN.

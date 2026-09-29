@@ -11775,3 +11775,38 @@ anything about the perceptual run, which stays unauthorised.
 
 **What this does NOT establish.** That the sweep will pass on the console; anything about audibility; that the console's deficit is
 systematic; the latency `L(T, A)` of the native path (pending, RUN 53's ingestion); the perceptual run, which stays unauthorised.
+
+
+### GBP-HW-362 — RUN 53: the redesign's continuity gate passes; the pre-registered steady-level prediction FAILED; the feed deficit is 1.6 % against a corrector authority of 0.78 %; the 3a "floor" is the production gate plus BAND; the AHEAD-1 "clean" hold was never observed — supersedes the AHEAD-1 and floor statuses of `GBP-HW-357`/`GBP-HW-359` and the deficit of `GBP-HW-361` (Issue #137)
+
+**Source.** `HARDWARE_TESTS.md` §V28.15; `logs/run53/...log` sha256 `96b4c2e3c9d8a8c752ba21797367841994e2b17d95e0170cf959eca4f680be88`;
+`logs/run51`, `logs/run52` for the arithmetic. Nothing earlier is edited; this entry says which of its lines are superseded.
+
+- **FACT of the log: the continuity gate.** Every GATE row of the sweep carries `cut_rel = -2`, `dwell_cut = 0`, `fill_short = 0`, `late = 0`;
+  `tools/v28verdict.py`: "no cut after unmute -- PASS in every GATE row". The three RUN 52 failures of the old mechanism pass. **OPERATOR OBSERVATION:**
+  "o silencio parece silencios limpos... como se tivesse tirado aquele pedaço da musica" (before any figure). CORROBORATED that the redesign removes the
+  post-unmute cut (the gate's records and the Operator's ear agree, one run); audibility as such is not established.
+- **The sweep verdict FAIL, 16 of 18 GATE: HYPOTHESIS, strongly supported.** The two failures (n=1 -286, n=13 -272; INFO n=20 -272) are the tail of a landing
+  distribution whose centre the design placed for a 0.5 % deficit; the true deficit puts it at -224 (host, deterministic), the console's 28 landings span -167..-286,
+  median about -206, and the band's lower edge is -256.
+- **FACT of the log's arithmetic: the feed deficit is 1.6 %.** `blocks_in` over the decode window is 0.9841 / 0.9839 / 0.9843 of 4096 blocks/s in RUN 51 / 52 / 53.
+  **Where the blocks go is UNKNOWN** (`U-GBP-050`). `GBP-HW-361`'s "about 0.5 %" and `U-GBP-049`'s "half the corrector's authority" are WRONG: they were read from
+  `V28CORR mean_x100`, a counter that saturates at its cap of 16 (my error).
+- **HYPOTHESIS, strongly supported (reproduced on the host with the one measured input): the corrector's authority (`k = 16`, 0.78 %) is below the deficit, so the ring
+  sits on the production gate (`PUSHES + 1 = 2049`) and `target` is unreachable.** Seven console observables reproduced without fitting (`HARDWARE_TESTS.md` §V28.15
+  table): the 3a rows' `dup`, `starved` and underruns, the T2048 row, 3b's mean ring, mean chunk start and minimum, the 16 unattributed underruns, the sweep landing. Not
+  CORROBORATED only because the reproduction is one model of one console and the loss's cause is unknown.
+- **The dead-band model of `GBP-HW-361` (chunk start held at `target - BAND`) is REFUTED on the console.** Item 12's prediction (about 3830) failed: `mean_cs` 2136.
+- **HYPOTHESIS, strongly supported: the 3a bracket lo 2304 / hi 2336 is `gate + BAND`.** The corrector adds a DUP only while `fill < target - BAND`; with the ring on the gate
+  that stops at `target <= 2305`. The host flips there (`dup` 3040 at T2560, 7 at T2048; console 12 at T2048). The bracket, as a record of three boots, stays FACT; its
+  reading as "the lowest depth the path holds" is REFUTED. This retracts the "3a floor bracket CORROBORATED" of `GBP-HW-357`/`GBP-HW-359` as a statement about the path.
+- **RETRACTED: "the AHEAD-1 hold at T256 is CORROBORATED, strengthened" (`GBP-HW-357`/`GBP-HW-359`).** `gbp_v28_3b_underrun_observed()` has no caller, so `underrun_seen`
+  could not be set in RUN 51, 52 or 53: the hold's "clean" is UNOBSERVED. The session's underruns less 3a's rows leave 16 in every run; the host predicts 14-15 in a 60 s
+  AHEAD-1 hold at this deficit. **UNKNOWN whether any of the three holds was clean; HYPOTHESIS that each underran about 0.25 times a second.** `GBP-HW-351`'s "reversal
+  condition FIRED" line, computed from that flag, is void. `GBP-HW-351` stays NOT ESTABLISHED.
+- **The two marginal TARGET failures share the steady-level cause,** through the deficit and not through the ring's level: the design's `want` assumes the nominal feed.
+- **OPERATOR OBSERVATION and a second miss of mine (recorded, not excused):** the 3a unwired hook was noted in §V28.7 and its 3b sibling not checked.
+
+**What this does NOT establish.** Why 1.6 % of the blocks do not reach the ring; that the remedies the host favours (a larger `k`) are audible-safe or physically effective;
+that any of the three AHEAD-1 holds underran; the latency of any rung (`target` does not set it while the ring sits on the gate); anything about the perceptual run, which stays
+unauthorised.
