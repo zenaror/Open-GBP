@@ -150,42 +150,24 @@ _Static_assert(GBP_V28_START_MUTE > GBP_V28_STEP_MUTE,
 #define GBP_V28_OLD_P3_START   384u
 #define GBP_V28_OLD_P3_STEP     32u
 #define GBP_V28_OLD_P3_MIN     128u
-#define GBP_V28_OLD_P2_LO      384u
-#define GBP_V28_OLD_P2_HI     3584u
-#define GBP_V28_OLD_P2_STEP    128u
 
 #define GBP_V28_P3_START   (GBP_V28_OLD_P3_START * GBP_V28_NATIVE_RATIO)   /* 6144 */
 #define GBP_V28_P3_STEP    (GBP_V28_OLD_P3_STEP  * GBP_V28_NATIVE_RATIO)   /*  512 */
 #define GBP_V28_P3_MIN     (GBP_V28_OLD_P3_MIN   * GBP_V28_NATIVE_RATIO)   /* 2048 == GBP_APLAY2_TARGET_MIN */
-#define GBP_V28_P2_LO      (GBP_V28_OLD_P2_LO    * GBP_V28_NATIVE_RATIO)   /*  6144 */
-#define GBP_V28_P2_HI      (GBP_V28_OLD_P2_HI    * GBP_V28_NATIVE_RATIO)   /* 57344 */
-#define GBP_V28_P2_STEP    (GBP_V28_OLD_P2_STEP  * GBP_V28_NATIVE_RATIO)   /*  2048 */
+/* Issue #141: there is NO P2 grid any more. The first nulling handler was a port of gbp_async's Phase 2 (TARGET only, 6144..57344 in 2048 steps, at whatever AHEAD was in force);
+ * it did not belong to the frozen design, which nulls on the eight-rung ladder below (GBP_V28_RUNG). Its floor was a rung above the validated one and its far starts landed short;
+ * the constants that described it (GBP_V28_P2_LO/HI/STEP, and the un-derived-P2_HI test they needed) are removed so nobody takes them for part of the design. */
 
-/* the grid's own endpoints must be reachable TARGETs, same as every ladder rung above.
- *
- * KNOWN GAP, stated rather than hidden: unlike the ladder's own T-values (all well under
- * TARGET_MIN when read literally), GBP_V28_OLD_P2_HI (3584) already numerically falls inside
- * [TARGET_MIN, TARGET_MAX] on its own -- so this bounds check alone would NOT catch a slip that
- * left P2_HI un-derived while P2_LO/P2_STEP stayed correct. The divisibility check right below
- * this one is what catches that specific case (3584 does not land on the grid P2_LO/P2_STEP
- * derive), and tests/host/test_v28_ladder.py proves it does. */
+/* 3a's descent grid endpoints must be reachable TARGETs, same as every ladder rung above. */
 _Static_assert(GBP_V28_P3_START >= GBP_APLAY2_TARGET_MIN && GBP_V28_P3_START <= GBP_APLAY2_TARGET_MAX,
     "GBP_V28_P3_START is out of GBP_APLAY2's TARGET bounds");
 _Static_assert(GBP_V28_P3_MIN >= GBP_APLAY2_TARGET_MIN && GBP_V28_P3_MIN <= GBP_APLAY2_TARGET_MAX,
     "GBP_V28_P3_MIN is out of GBP_APLAY2's TARGET bounds");
-_Static_assert(GBP_V28_P2_LO >= GBP_APLAY2_TARGET_MIN && GBP_V28_P2_LO <= GBP_APLAY2_TARGET_MAX,
-    "GBP_V28_P2_LO is out of GBP_APLAY2's TARGET bounds");
-_Static_assert(GBP_V28_P2_HI >= GBP_APLAY2_TARGET_MIN && GBP_V28_P2_HI <= GBP_APLAY2_TARGET_MAX,
-    "GBP_V28_P2_HI is out of GBP_APLAY2's TARGET bounds");
 
 /* the descent/scan must land exactly on its own floor/ceiling -- a non-exact step would silently
  * drift the search grid away from the values above. */
 _Static_assert((GBP_V28_P3_START - GBP_V28_P3_MIN) % GBP_V28_P3_STEP == 0u,
     "GBP_V28_P3_START..P3_MIN is not an exact number of P3_STEPs");
-_Static_assert(GBP_V28_P2_STEP <= GBP_APLAY2_PUSHES,
-    "gbp_v28_ladder: the nulling step climbs more than one chunk -- GBP_V28_STEP_NEED must grow (Issue #136)");
-_Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
-    "GBP_V28_P2_LO..P2_HI is not an exact number of P2_STEPs");
 
 /* ---- 3a's bisection width -- the SECOND unit gap found by reading, not the first (the
  * Orchestrator, #129/#130): p3_bisect_width (2, old-path units) is compared directly against
@@ -206,7 +188,7 @@ _Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
  * current text, not from memory.
  *
  *   TARGET-domain, derived x16 above:
- *     p2_lo, p2_hi, p2_step         (nulling's scan grid)              GBP_V28_P2_LO/HI/STEP
+ *     p2_lo, p2_hi, p2_step         (the OLD nulling grid)             NOT DERIVED: removed in Issue #141 -- the perceptual nulling walks GBP_V28_RUNG, not a grid
  *     p3_start, p3_step, p3_min     (3a's descent grid)                GBP_V28_P3_START/STEP/MIN
  *     p3_bisect_width               (3a's bisection convergence width) GBP_V28_P3_BISECT_WIDTH
  *
@@ -292,6 +274,22 @@ static inline const char *gbp_v28_anchor_source_name(enum gbp_v28_anchor_source 
     default:                     return "?";
     }
 }
+
+/* ---- THE PERCEPTUAL LADDER: the eight rungs the perceptual run's nulling walks (Issue #128 section 3, "the final ladder"; Issue #139 / #141, the nulling handler rebuilt on it).
+ * Ordered DEEPEST FIRST: index 0 is the most latency, index GBP_V28_RUNGS - 1 the least (the validated floor, T256 at AHEAD 1). These are the sweep's own eight rungs
+ * (gbp_v28_sweep.c's GATE rows 1-7: T704A4 -> T576A4 -> T448A4 -> T320A4 -> T256A4 -> T256A3 -> T256A2 -> T256A1), each held or stepped to by the validation run
+ * (RUN 55, 56: the sweep 18 of 18, the AHEAD-1 hold clean). tests/host/test_v28_run57_perceptual.py pins this table against the sweep's own list.
+ *
+ * L(T, A), tools/v28latency.py (INFERENCE, "assumed DMA semantics" until RUN 57): 324.4 / 293.1 / 261.7 / 230.4 / 214.7 / 183.5 / 152.2 / 121.0 ms, or +31.222 ms each. */
+#define GBP_V28_RUNGS 8u
+struct gbp_v28_rung { uint32_t target, ahead; };
+static const struct gbp_v28_rung GBP_V28_RUNG[GBP_V28_RUNGS] = {
+    { GBP_V28_T704, GBP_V28_A4 }, { GBP_V28_T576, GBP_V28_A4 }, { GBP_V28_T448, GBP_V28_A4 }, { GBP_V28_T320, GBP_V28_A4 },
+    { GBP_V28_T256, GBP_V28_A4 }, { GBP_V28_T256, GBP_V28_A3 }, { GBP_V28_T256, GBP_V28_A2 }, { GBP_V28_T256, GBP_V28_A1 },
+};
+/* the largest climb between any two rungs is the one START_MUTE was built from: T256 -> T704 */
+_Static_assert(GBP_V28_T704 - GBP_V28_T256 <= GBP_V28_START_PAUSE * GBP_APLAY2_PUSHES,
+    "gbp_v28_ladder: the widest rung-to-rung climb no longer fits GBP_V28_START_MUTE's derivation");
 
 #ifdef __cplusplus
 }

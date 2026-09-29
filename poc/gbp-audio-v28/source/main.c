@@ -758,6 +758,13 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
  *   address == the chunk returned at the PREVIOUS callback, bytes left near 4 000 (the block has just started)  -> AHEAD + 1 (the table stands);
  *   address == the chunk returned TWO callbacks ago                                                             -> AHEAD + 2 (every L +31.2 ms);
  *   address == the previous chunk but bytes left near 0 (the block has just FINISHED, nothing playing)          -> AHEAD (every L -31.2 ms). */
+/* Issue #141 (the perceptual image): the reads, the classifier and the marked block are NOT in perceptual_no_phase1. That image exists for the Operator's judgement, not for
+ * instrumentation: its callback is RUN 55's exactly (the hand-off and AUDIO_InitDMA), which the validation runs exercised, and nothing here adds a load to the interrupt.
+ * (RUN 56's per-phase loss read 0.01-0.02 points above RUN 55's with the reads in; whether they caused it is not known, and the perceptual image need not carry the question.) */
+#if defined(GBP_V28_DMA_MARK) && !defined(GBP_V28_PLAN_VALIDATION)
+#error "GBP_V28_DMA_MARK (the marked DMA block) belongs to the validation_run plan alone: it must never be in the perceptual image"
+#endif
+#if !defined(GBP_V28_PLAN_PERCEPTUAL)
 static struct gbp_v28_dma v28_dma;      /* zero + left_min at the maximum: gbp_v28_dma_init() in main(), before the DMA can start */
 
 /* ---- Issue #139: THE MARKED BLOCK (validation_run only, GBP_V28_DMA_MARK). -------------------------------------------------------------------------------------------------
@@ -765,9 +772,6 @@ static struct gbp_v28_dma v28_dma;      /* zero + left_min at the maximum: gbp_v
  * a different LENGTH can: the first SILENT hand-off of each mute programs a block 256 bytes (2.0 ms) shorter, and the callback at which the bytes-left register reads the shorter block
  * (and the interval to the next callback is 2.0 ms short) is the callback its start is at. Silence only, at a mute's first hand-off: nothing audible is shortened. Off in every other plan
  * (the Makefile defines the macro for validation_run alone, and the #error below refuses any other plan that defines it). */
-#if defined(GBP_V28_DMA_MARK) && !defined(GBP_V28_PLAN_VALIDATION)
-#error "GBP_V28_DMA_MARK (the marked DMA block) belongs to the validation_run plan alone: it must never be in the perceptual image"
-#endif
 _Static_assert(GBP_APLAY2_CHUNK_BYTES - GBP_V28_DMA_MARK_SHORT > 0u && (GBP_APLAY2_CHUNK_BYTES - GBP_V28_DMA_MARK_SHORT) % 32u == 0u,
                "a marked block is a whole number of 32-byte AI DMA units");
 
@@ -793,6 +797,14 @@ static void live_dma_cb(void)
     AUDIO_InitDMA((u32)(size_t)c, dma_block_bytes(c));
     gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c, (uint32_t)AUDIO_GetDMAStartAddr());   /* the third read, AFTER the init: does the register read back what was just written? */
 }
+#else
+/* THE AI DMA CALLBACK of the perceptual image -- RUN 55's: interrupt context, native handoff, nothing else. */
+static void live_dma_cb(void)
+{
+    const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, gettime());
+    AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES);
+}
+#endif
 
 /* ---- Issue #27: the per-change KEY record (unchanged domain) --------------------------------- */
 static struct ringlog *keylog_rl;
@@ -1370,7 +1382,9 @@ static void live_step(void)
             ap2.playing = 1u;
             first = gbp_aplay2_irq_handoff(&ap2, now);
             ap2.measuring = 1u;
+#if !defined(GBP_V28_PLAN_PERCEPTUAL)
             gbp_v28_dma_seed(&v28_dma, first);
+#endif
             AUDIO_InitDMA((u32)(size_t)first, GBP_APLAY2_CHUNK_BYTES);
             AUDIO_StartDMA();
         }
@@ -1817,9 +1831,11 @@ int main(void)
     gbp_adec2_init(&adec2, adec2_ring, GBP_APLAY2_RING);
     gbp_aplay2_init(&ap2, ap2_pool, ap2_silence, NULL, NULL);   /* no L2 keep, no store -- same as sync-0001 */
     gbp_atrans2_init(&tr);
+#if !defined(GBP_V28_PLAN_PERCEPTUAL)
     gbp_v28_dma_init(&v28_dma);
 #ifdef GBP_V28_DMA_MARK
     gbp_v28_dma_marks_enable(&v28_dma);
+#endif
 #endif
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
     gbp_v28_hists_init(loss_hist);
@@ -1862,7 +1878,7 @@ int main(void)
     ringlog_init(&rl, log_storage, LOG_LINE_LEN, LOG_LINES);
     ringlog_printf(&rl, "IDENT test=%s app=%s build=%s commit=%s libogc=%s", TEST_ID,
                    OPENGBP_APP_NAME, OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT, _V_STRING);
-    ringlog_printf(&rl, "V28CFG plan=%s session_cap_s=%lu wall_s=%lu step_mute=%u start_mute=%u p2_lo=%lu p2_hi=%lu p2_step=%lu",
+    ringlog_printf(&rl, "V28CFG plan=%s session_cap_s=%lu wall_s=%lu step_mute=%u start_mute=%u rungs=%u",
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
                    "perceptual_no_phase1",
 #elif defined(GBP_V28_PLAN_DIAG_LOSS)
@@ -1871,8 +1887,7 @@ int main(void)
                    "validation_run",
 #endif
                    (unsigned long)V28_SESSION_CAP_S, (unsigned long)V28_WALL_S, (unsigned)GBP_V28_STEP_MUTE,
-                   (unsigned)GBP_V28_START_MUTE, (unsigned long)GBP_V28_P2_LO, (unsigned long)GBP_V28_P2_HI,
-                   (unsigned long)GBP_V28_P2_STEP);
+                   (unsigned)GBP_V28_START_MUTE, (unsigned)GBP_V28_RUNGS);
     ringlog_printf(&rl, "ENVPLAY safety_s=%lu max_deliveries=%lu session_end=Z_or_walker hold_ms=%lu",
                    (unsigned long)PLAY_SAFETY_SECONDS, (unsigned long)PLAY_MAX_DELIVERIES,
                    (unsigned long)PLAY_SESSION_END_HOLD_MS);
@@ -1986,6 +2001,7 @@ int main(void)
                        (unsigned long)label_ticks_max);
         /* Issue #137: the tap counters the live/sync images printed as LIVEN and this image never did -- so a loss could not be told
          * from a refused or short tap. taps == blocks_in with zero failed/wrong is what RUN 38-43 showed. */
+#if !defined(GBP_V28_PLAN_PERCEPTUAL)
         {   /* Issue #139: the AI DMA's hand-off semantics, as READ at every callback's entry (SD only) */
             uint32_t q;
             ringlog_printf(&rl, "V28DMA n=%lu prev1=%lu prev2=%lu none=%lu same12=%lu left_min=%lu left_max=%lu left_mean=%lu bins=%lu,%lu,%lu,%lu,%lu,%lu",
@@ -2011,6 +2027,7 @@ int main(void)
                                (unsigned long)v28_dma.raw[q].ret1, (unsigned long)v28_dma.raw[q].ret2,
                                (unsigned long)v28_dma.raw[q].dt);
         }
+#endif
         ringlog_printf(&rl, "V28TAPS taps=%lu taps_failed=%lu wrong_len=%lu blocks_in=%lu gap_max=%llu gap_at=%llx",
                        (unsigned long)live_taps, (unsigned long)live_taps_failed, (unsigned long)live_wrong_len,
                        (unsigned long)adec2.blocks_in, (unsigned long long)live_gap_max, (unsigned long long)live_gap_at);
@@ -2078,10 +2095,15 @@ int main(void)
 #else
         for (j = 0u; j < nulling.settings_n && j < GBP_V28_NULLING_CAP; j++) {
             const struct gbp_v28_nulling_setting *s = gbp_v28_nulling_record(&nulling, j);
-            ringlog_printf(&rl, "V28_NULL n=%lu start=%lu dir=%u steps=%lu deeper=%lu shallower=%lu target=%lu t=%llx",
+            /* Issue #141: the nulling walks the eight-rung ladder: the START rung, the rung confirmed and its (T, A), the presses against each end (the CENSORED operand) */
+            ringlog_printf(&rl, "V28_NULL n=%lu start=%lu dir=%u steps=%lu deeper=%lu shallower=%lu floor_refused=%lu top_refused=%lu rung=%lu target=%lu ahead=%lu t=%llx",
                            (unsigned long)j, (unsigned long)s->start, (unsigned)s->direction, (unsigned long)s->steps,
-                           (unsigned long)s->steps_deeper, (unsigned long)s->steps_shallower, (unsigned long)s->target,
+                           (unsigned long)s->steps_deeper, (unsigned long)s->steps_shallower, (unsigned long)s->refused_floor,
+                           (unsigned long)s->refused_top, (unsigned long)s->rung, (unsigned long)s->target, (unsigned long)s->ahead,
                            (unsigned long long)s->t);
+            /* the mechanistic gate (HARDWARE_TESTS.md V28.28): at the confirm, the ring's level and the READY chunks, and what went wrong DURING the setting */
+            ringlog_printf(&rl, "V28_NULLM n=%lu ring=%lu ready=%lu underruns=%lu overflow=%lu", (unsigned long)j, (unsigned long)s->ring, (unsigned long)s->ready,
+                           (unsigned long)s->underruns, (unsigned long)s->overflow);
         }
 #endif
         /* the backstop: EVERY phase index, INCLUDING 0 (sync-0001's own bug, section 7: its loop

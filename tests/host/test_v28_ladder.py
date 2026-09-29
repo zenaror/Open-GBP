@@ -22,12 +22,11 @@ What is held here:
     actually catches the class of error it exists for, not just that its text is present. This is
     checked in Python, not as a second real compile, so it needs no gcc and cannot itself be swept
     into Issue #82's "every hostcc compile must succeed" convention;
-  * the SAME derivation and bounds treatment, extended to 3a's descent grid and nulling's scan
-    grid (gbp_async_cfg_default's p3_start/p3_step/p3_min and p2_lo/p2_hi/p2_step, also old-path
-    sample counts) -- including a KNOWN, DOCUMENTED GAP: GBP_V28_OLD_P2_HI (3584) already falls
-    inside [TARGET_MIN, TARGET_MAX] numerically, so the bounds assert alone would not catch an
-    un-derived P2_HI; the grid's own divisibility assert is what catches that specific slip, and
-    is proven to do so here rather than assumed.
+  * the SAME derivation and bounds treatment, extended to 3a's descent grid (gbp_async_cfg_default's
+    p3_start/p3_step/p3_min, also old-path sample counts). (Until Issue #141 this also covered a
+    nulling scan grid, p2_lo/p2_hi/p2_step, and a KNOWN GAP in it; that grid did not belong to the
+    design, was replaced by the eight-rung ladder, and its constants and tests are gone -- one test
+    asserts they stay gone.)
 """
 import os
 import re
@@ -55,13 +54,10 @@ FROZEN = {                       # #128 §3 / Amendment A's own table
 GRID_BOUNDED = {                 # 3a's descent floor/ceiling, nulling's scan floor/ceiling
     "GBP_V28_P3_START": 6144,
     "GBP_V28_P3_MIN": 2048,
-    "GBP_V28_P2_LO": 6144,
-    "GBP_V28_P2_HI": 57344,
 }
 
 GRID_STEPS = {                   # the grids' own step sizes, and 3a's bisection width -- not
     "GBP_V28_P3_STEP": 512,       # TARGETs themselves, no bounds assert
-    "GBP_V28_P2_STEP": 2048,
     "GBP_V28_P3_BISECT_WIDTH": 32,
 }
 
@@ -186,45 +182,20 @@ class TheGridsGetTheSameTreatmentAsTheLadder(unittest.TestCase):
             a = "_Static_assert(%s >= GBP_APLAY2_TARGET_MIN && %s <= GBP_APLAY2_TARGET_MAX," % (name, name)
             self.assertIn(a, scrubbed, "%s is missing its bounds assert" % name)
 
-    def test_both_grids_have_a_divisibility_assert(self):
+    def test_the_descent_grid_has_a_divisibility_assert(self):
         body = code(read(LADDER_H))
         self.assertIn("(GBP_V28_P3_START - GBP_V28_P3_MIN) % GBP_V28_P3_STEP == 0u", body)
-        self.assertIn("(GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u", body)
 
-    def test_the_grids_land_exactly_on_their_own_endpoints(self):
+    def test_the_descent_grid_lands_exactly_on_its_own_endpoints(self):
         self.assertEqual((GRID_BOUNDED["GBP_V28_P3_START"] - GRID_BOUNDED["GBP_V28_P3_MIN"]) % GRID_STEPS["GBP_V28_P3_STEP"], 0)
-        self.assertEqual((GRID_BOUNDED["GBP_V28_P2_HI"] - GRID_BOUNDED["GBP_V28_P2_LO"]) % GRID_STEPS["GBP_V28_P2_STEP"], 0)
 
-    def test_p2_hi_is_the_one_grid_endpoint_the_bounds_check_alone_cannot_catch(self):
-        """Documents the gap the header itself calls out: GBP_V28_OLD_P2_HI (3584) already falls
-        inside [TARGET_MIN, TARGET_MAX] numerically, so an un-derived P2_HI would slip past the
-        bounds assert. The divisibility assert is what actually catches it (checked next)."""
-        min_v, max_v = 2048, 65279
-        old_p2_hi = 3584
-        self.assertTrue(min_v <= old_p2_hi <= max_v,
-                         "if this ever becomes False, the header's own KNOWN GAP comment is stale")
-        for name in ("GBP_V28_OLD_P3_START", "GBP_V28_OLD_P3_MIN", "GBP_V28_OLD_P2_LO"):
-            old_v = ALL_DERIVED[name.replace("_OLD", "")] // 16
-            self.assertFalse(min_v <= old_v <= max_v,
-                              "%s (%d) was expected to fall outside bounds like the ladder's own values" %
-                              (name, old_v))
-
-    def test_the_divisibility_assert_catches_the_un_derived_p2_hi(self):
-        """The concrete proof: with P2_LO/P2_STEP correctly derived (real parsed values, not
-        hardcoded) but P2_HI left as the literal old value (3584), the SAME divisibility
-        expression the header compiles in -- evaluated with C's uint32 wraparound -- is nonzero,
-        so it would fail the build."""
-        h = code(read(LADDER_H))
-        lo = GRID_BOUNDED["GBP_V28_P2_LO"]
-        step = GRID_STEPS["GBP_V28_P2_STEP"]
-        m = re.search(r"#define\s+GBP_V28_OLD_P2_HI\s+(\d+)u", h)
-        self.assertIsNotNone(m)
-        old_p2_hi = int(m.group(1))
-        remainder = ((old_p2_hi - lo) % (2 ** 32)) % step
-        self.assertNotEqual(remainder, 0,
-                             "the un-derived P2_HI must NOT land on the grid, or the divisibility "
-                             "assert stops being the thing that catches this slip")
-
+    def test_there_is_no_p2_grid_any_more(self):
+        """Issue #141: the perceptual nulling walks the eight-rung ladder (GBP_V28_RUNG); the P2 grid it was first ported onto did not belong to the design and its constants are gone,
+        so nobody takes them for part of it. A reintroduction fails here."""
+        h = read(LADDER_H)
+        for name in ("GBP_V28_P2_LO", "GBP_V28_P2_HI", "GBP_V28_P2_STEP", "GBP_V28_OLD_P2_LO", "GBP_V28_OLD_P2_HI", "GBP_V28_OLD_P2_STEP"):
+            self.assertNotRegex(code(h), r"\b%s\b" % name)
+        self.assertIn("GBP_V28_RUNG", code(h))
 
 class TheBoundsCheckWouldCatchAnUnconvertedValue(unittest.TestCase):
     """Amendment A's own failure mode, checked arithmetically against the REAL
