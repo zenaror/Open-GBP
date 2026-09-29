@@ -359,7 +359,7 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["21-game2"], "ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa")
         # Issue #117 (2026-09-25): the latency round's image, frozen before its export (§V27.17)
         self.assertEqual(rows["22-sync"], "ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941")
-        # Issue #131 (2026-09-28): the V28 validation round's image. RE-PINNED SIX TIMES (Issue
+        # Issue #131 (2026-09-28): the V28 validation round's image. RE-PINNED SEVEN TIMES (Issue
         # #131/#133): ad01bcef... -> ce1dcf7a... (the missing-start fixes, commit 260d6d7) ->
         # d8a99726... (the moving hand-off marker in the label, commit 394c7a7, RUN 50-prep) ->
         # e7329d9b... (RUN 50's own three defects, commit 4869954) -> af2d4f81... (the GBP-HW-272
@@ -368,9 +368,10 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # ROADMAP/CLAUDE.md sec16) -> 7cd5ac21... (Issue #135: the sweep's INFO reposition, the
         # V28_SWEEPM/3b margin diagnostics and the SYNCPE-end fix, commit e629d96, RUN 52) ->
         # c40412b1... (Issue #136: the step landing's last-period aim, the trim/late/V28_3BM diagnostics,
-        # commit e1eb4bd, RUN 53).
+        # commit e1eb4bd, REVERTED: never run) -> 87d03f81... (Issue #136: the ROTATE level set in silence, the
+        # SPLICE gate, START_MUTE 10 / STEP_MUTE 7, the steady-level diagnostics, commit 33de2db, RUN 53).
         # Reproduced identically across two separate clean Docker rebuilds before each pin.
-        self.assertEqual(rows["23-v28v"], "c40412b126658a54162d6a58fb85bbc0fe0028738120f30e5d1a84db3fbef117")
+        self.assertEqual(rows["23-v28v"], "87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),

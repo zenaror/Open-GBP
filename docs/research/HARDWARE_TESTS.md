@@ -39106,3 +39106,29 @@ holds on the console, `mean_cs` reads about `target - 256` (3830 at T256) and `m
 from `mean_ring`/`mean_cs`/min/max plus READY and the DMA buffer, defined once as AGB sample produced -> played at the
 AI; #128's `L = (c + 128(A + 1) + 8)/4.096 ms` was calibrated on the old 4096 Hz path and is re-derived for the native
 path before any number (122.9 ms at T256 A1 included) reaches the ladder table.
+
+### V28.14 `23-v28v` rebuilt from the redesign, re-pinned a seventh time and re-staged for RUN 53 — 2026-09-28 (Issue #136)
+
+`validation_run` rebuilt from the clean commit `33de2db` (worktree clean, `GIT_DIRTY` empty) through the project Docker
+environment, **twice independently, identical bytes both times**; the build's only warnings are the two pre-existing
+`gbp_startup.h` unused-function ones:
+
+```text
+sha256 87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640
+build  v28-validation-0001, commit 33de2db, slot 23-v28v
+```
+
+`BUILD_ID` is unchanged (the image is identified by commit and hash, `CLAUDE.md` §16). It differs from RUN 52's image
+(`7cd5ac21...7487a`, commit `e629d96`) by: the ROTATE level set in silence and the builds that replace the oldest queued chunk
+(§V28.13), `STEP_MUTE` 7 and `START_MUTE` 10, `fail_reason 4 SPLICE` and the `V28_SWEEPC` line, and `V28_3BM`'s
+`ring0`/`min_ring_late`/`samples_late`/`mean_ring`/`mean_cs`/`chunk_starts`. The image built from the reverted `e1eb4bd`
+(`c40412b1...f117`) was staged on the card for a few hours and never run; it is replaced.
+
+Manifest re-pinned, test pin updated. Local export `--only 23-v28v` matches the pin; card (`/media/rafael/SD_GC/Open-GBP`): `23-v28v/boot.dol`
+copied and read back at `87d03f81...4640`; the other 23 frozen slots hashed before and after, identical; `INDEX.txt` untouched.
+
+**Gate on the committed tree `33de2db`:** `make test-python` 3428 passed / 7 skipped; `make -C tests/unit` exit 0, 55 test
+binaries, 0 failures (an earlier line of §V28.11 said 56: 55 is right). The pin commit changes only the manifest, its test and this
+record; its own gate is in the closeout on Issue #136.
+
+This is the build RUN 53 would run. The perceptual run is not authorised.
