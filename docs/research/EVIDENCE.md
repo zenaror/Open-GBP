@@ -11953,7 +11953,7 @@ A later recount appends its own entry here, at the end of the file, under the ne
 
 ---
 
-### GBP-HW-370 — the latency of the native audio path, `L(T, A)` = (`c` + 2 048 (A + 1) - 2 048 phi) / 65 594 samples a second + 0.122 ms: 120.8 ms at T256 / A1, 105.1 at T192 / A1, 323.7 at T704 / A4, with a floor of 93.6 ms at AHEAD 1 — INFERENCE (derived from the code and RUN 55's levels; no latency was measured); the conservation it rests on is FACT on the real chain on the host; the ring model it is checked with agrees with the console to 0.9 %
+### GBP-HW-370 — the latency of the native audio path, `L(T, A)` = (`c` + 2 048 (A + 1) - 2 048 phi) / 65 594 samples a second + 0.122 ms: 120.8 ms at T256 / A1, 105.1 at T192 / A1, 323.7 at T704 / A4, with a floor of 93.6 ms at AHEAD 1 — INFERENCE (derived from the code and RUN 55's levels; no latency was measured); the conservation it rests on is FACT on the real chain on the host; the ring model it is checked with agrees with the console to 0.9 % — **2026-09-29, Issue #139: an adversarial review corrected its numbers and wording BEFORE any use (the DUP delay adds +0.15 to +0.64 ms: 121.0 ms at T256 / A1, 105.3 at T192 / A1, 324.4 at T704 / A4; the table holds only below about 0.65 % loss; the AI DMA semantics are NOT measured; the status stays INFERENCE), see the amendment below and HARDWARE_TESTS.md §V28.22a**
 
 **Source.** `HARDWARE_TESTS.md` §V28.22; `tools/v28latency.py`; `tests/unit/test_v28_stock.c` (36 checks), `tests/host/test_v28latency.py`; the levels are `GBP-HW-367`'s (RUN 55, 3b hold: mean chunk start 3 828, mean ring 3 097, min ring after 10 s 2 272).
 
