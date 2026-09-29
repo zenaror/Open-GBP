@@ -39873,3 +39873,24 @@ P10 (NEW)          nothing audible or visible changes (the marks are silence): t
 7. **The candidate must be checked for the marks.** The Makefile does not make objects depend on `EXTRA_DEFINES`; the candidate is built from an emptied plan directory and `strings` on the staged DOL must show `V28MARKS` (recorded with the pin). The expected mark count is at least 20: `mute_handed` 215 in RUN 56 is 25 STEP mutes (7) and 4 START mutes (10), i.e. 29 mute runs; the rule needs 10.
 
 **What this does NOT change.** The design, the length (3 744), the thresholds, P1-P10.
+
+### V28.27 `23-v28v` rebuilt with the marked block for RUN 57, re-pinned a tenth time and staged — 2026-09-29 (Issue #139 / #140)
+
+*Appended. §V28.26 and §V28.26a stand as the design and the registered reading rule (P1-P10); this entry names the image. Not run.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=validation_run, build v28-validation-0001, TEST_ID GBP-AUDIO-V28, commit 369dd94 (clean, no -dirty), GBP_V28_DMA_MARK defined (the validation_run branch)
+DOL        build/swiss/23-v28v/boot.dol   sha256 877eac1e176987a85a033f213e52a03f0512c314ca9e8a4a721edee60be8e77c
+replaces   the ninth pin cc2813e322b54f8e467d81fc38135eae6bfa4af0e9d6b654b8d90408f4b6b47f (RUN 56's image, commit 7dc6193)
+rebuilds   two separate clean Docker rebuilds (the plan directory removed between them), byte-identical (cmp), commit=369dd94; bss_end 0x80f9b6d8
+marks      strings on the DOL: V28MARKS and V28MARK present (2); the perceptual image built at the same tree carries none (0), and main.c refuses the macro in every plan but validation_run
+layout     tools/swiss-layout.tsv row 23 (v28v) re-frozen at the new hash; tests/host/test_swiss_export.py pins it
+card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from the card equal to the build's; every other file under Open-GBP/ hashed before and after: the only
+           difference is 23-v28v/boot.dol; INDEX.txt untouched (md5 e66e409d...)
+```
+
+**What the Operator does and sees.** Identical to RUN 56 (§V28.20/§V28.25 and Hardware Issue #140's procedure): the same `validation_run` plan, caps and label, booted from `23-v28v/boot.dol`; the screen shows `build=v28-validation-0001 commit=369dd94`. Nothing on the screen or in the sound is new: the marked blocks are 2.0 ms of silence inside a mute and the records go to the SD log only, at teardown.
+
+**What differs in the log against RUN 56.** `V28MARKS n= short=256 chunk=4000` and up to 48 `V28MARK i= j= left= dur= done=` lines after `V28DMAP`; everything else as RUN 56.
+
+**Stop condition.** The Executor ingests RUN 57 with `tools/v28verdict.py` and `tools/v28latency.py`, unedited: M1 or M2 (at CORROBORATED, §V28.26a) resolves the latency table's direction and lets the perceptual run's Hardware Issue be written; M3 or M4 does not.
