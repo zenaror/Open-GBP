@@ -71,8 +71,7 @@ class TheNoteFollowsTheBuild(unittest.TestCase):
             ok = subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", "4a3c003", "HEAD"], capture_output=True).returncode == 0
         except OSError:
             ok = False
-        if not ok:
-            self.skipTest("this checkout cannot show 4a3c003's ancestry")
+        self.assertTrue(ok, "this checkout must carry 4a3c003 in its history (a shallow clone cannot run this test)")
         head = subprocess.check_output(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"]).decode().strip()
         live, why = v28verdict.hooks_live(log_with([], commit=head))
         self.assertTrue(live)
