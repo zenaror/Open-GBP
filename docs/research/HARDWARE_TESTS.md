@@ -40090,3 +40090,19 @@ layout     no slot in tools/swiss-layout.tsv yet (a perceptual slot is chosen at
 ```
 
 **Gate on the committed tree.** `make test-python` 3 590 passed, 9 skipped; `make -C tests/unit` exit 0 (nulling 640 checks, landing 892), at `22d0328`.
+
+### V28.32 The perceptual candidate PINNED as `26-v28p` and STAGED — 2026-09-29 (Issue #139 / #141; the Orchestrator's go, slot and instruction on #141)
+
+*Appended. §V28.31 names the candidate; this entry pins and stages exactly those bytes (no rebuild: the manifest commit does not touch the DOL). Not run; the Hardware Issue and the Operator's procedure are the Orchestrator's.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=perceptual_no_phase1, build v28-perceptual-0001, TEST_ID GBP-AUDIO-V28, commit 22d0328 (clean, no -dirty); the screen shows build=v28-perceptual-0001 commit=22d0328
+DOL        build/swiss/26-v28p/boot.dol   sha256 4a700dfe55ac48cde085217b489540976aa9ebb3a751b8ed26c94c5b0a37d4d3   (the bytes of §V28.31's candidate; two identical Docker rebuilds)
+layout     tools/swiss-layout.tsv row 26 (v28p) frozen at this hash; tests/host/test_swiss_export.py pins it
+card       /media/rafael/SD_GC/Open-GBP/26-v28p/boot.dol, sha256 read back from the card equal to the build's; every other file under Open-GBP/ hashed before and after: the only difference is the
+           new 26-v28p/boot.dol; INDEX.txt untouched (md5 e66e409d...; the slots since 24-v28d are not listed in it, as before)
+```
+
+**What the Operator sees.** The screen shows only the phase name and a clock (`PHASE 0 <s>s`, then `NULL SET <k> <s>s`, then `DONE <s>s`); the post-run screen shows `V28 nulling` and `setting <k>`. Nothing of the chain, the rung or the presses (the leak rules restated in §V28.29a). The DMA reads and the marked block are not in this image (`strings`: V28MARK 0, V28DMA 0).
+
+**What it logs.** `V28CFG ... rungs=8`, `V28_NULL` and `V28_NULLM` per setting, `V28PHC`/`V28PHD`, `SYNCPE`, `SYNCCS`, `V28TAPS`; raw name reserved by the Hardware Issue. Read with `python3 tools/v28null.py <log> --label M1` and `tools/v28verdict.py`, unedited, after the Operator's declaration is recorded.
