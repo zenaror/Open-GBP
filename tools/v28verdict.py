@@ -154,6 +154,21 @@ def anchor_info(text):
     return {"have": True, "target": int(r["target"]), "source": r["source"]}
 
 
+def underrun_accounting(text):
+    """Issue #137 (RUN 53): the underruns V28C counted over the whole session against the ones 3a's own rows carry.
+
+    3b's `underrun_seen` is set by gbp_v28_3b_underrun_observed(), which poc/gbp-audio-v28/source/main.c never calls (found
+    on Issue #137: the same gap 3a's early exit has), so a 3b hold reads "clean" whatever happened. What the log DOES carry
+    is the session total; what 3a's rows do not account for is left for navigate + 3b + the sweep (whose records carry no
+    UNDERRUN reason when they read clean). The remainder is a fact of the log, not an attribution."""
+    tot = find_last(text, "V28C")
+    if tot is None:
+        return {"have": False}
+    rows = find_all(text, "V28_3A")
+    s3a = sum(int(r["underruns"]) for r in rows)
+    return {"have": True, "total": int(tot["underruns"]), "s3a": s3a, "rest": int(tot["underruns"]) - s3a}
+
+
 def hold_3b(text):
     """AHEAD 1 at the anchor for 60 s; AHEAD 2 only if AHEAD 1 saw an underrun (Issue #128 §2).
     Also the 32-tap reversal condition (GBP-HW-351, Amendment B): recorded as fired/not fired from
@@ -242,7 +257,8 @@ def label_cost(text):
 
 def analyse(text):
     return {"admissibility": admissibility(text), "descent_3a": descent_3a(text),
-            "hold_3b": hold_3b(text), "sweep": sweep(text), "label": label_cost(text)}
+            "hold_3b": hold_3b(text), "underruns": underrun_accounting(text), "sweep": sweep(text),
+            "label": label_cost(text)}
 
 
 FAIL_NAMES = {0: "NONE", 1: "OUT_OF_BAND", 2: "UNDERRUN", 3: "UNMASKED", 4: "SPLICE"}    # gbp_v28_sweep.h's enum
@@ -301,6 +317,11 @@ def render(out):
         else:
             lines.append("3B: AHEAD 1 %s%s" % ("clean" if h["ahead1_clean"] else "UNDERRUN",
                                                " (partial)" if h["ahead1_partial"] else ""))
+            ua = out["underruns"]
+            if ua["have"]:
+                lines.append("3B: NOTE the flag above is set by a hook main.c does not call, so 'clean' means UNOBSERVED. "
+                             "Session underruns %d, 3a's rows carry %d, %d are left for navigate + 3b + sweep"
+                             % (ua["total"], ua["s3a"], ua["rest"]))
             for key, name in (("margin_ahead1", "AHEAD 1"), ("margin_ahead2", "AHEAD 2")):
                 m = h.get(key)
                 if m is not None:

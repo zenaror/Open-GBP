@@ -409,6 +409,16 @@ class Issue135Diagnostics(unittest.TestCase):
         text = v28verdict.render(v28verdict.analyse(self._log_with_cut(5, 0, -100)))
         self.assertIn("-- PASS in every GATE row", text)
 
+    def test_the_underrun_accounting_leaves_the_unattributed_remainder_and_says_the_3b_flag_is_unobserved(self):
+        """Issue #137: 3b's underrun_seen is set by a hook main.c never calls; the log's own total less 3a's rows is what is left."""
+        log = ("V28C underruns=41 overflow=0 silences=41 mute_handed=215 dup=79047 drop=0 produced=5427 handed=5595 ring_gated=1\n"
+               "V28_3A n=0 target=6144 kind=0 partial=0 underruns=7 overflow=0 dup=1 drop=0 starved=1 t_set=1 t_done=2\n"
+               "V28_3A n=1 target=5632 kind=0 partial=0 underruns=2 overflow=0 dup=1 drop=0 starved=1 t_set=1 t_done=2\n")
+        self.assertEqual(v28verdict.underrun_accounting(log), {"have": True, "total": 41, "s3a": 9, "rest": 32})
+        self.assertEqual(v28verdict.underrun_accounting("no V28C here"), {"have": False})
+        text = v28verdict.render(v28verdict.analyse(full_clean_log() + "\n" + log))
+        self.assertIn("'clean' means UNOBSERVED. Session underruns 41, 3a's rows carry", text)
+
     def test_the_worst_case_print_lines_fit_the_console_log_line(self):
         """LOG_LINE_LEN 256, less the 7-character `%06u ` prefix and the terminator: a longer line
         would be silently truncated (ringlog's own snprintf), losing the tail fields first."""
