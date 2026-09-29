@@ -28,7 +28,7 @@ class TheCallbackOnlyReads(unittest.TestCase):
     def test_the_two_reads_come_first_and_the_third_after_the_init_and_the_note_last(self):
         b = self.cb()
         order = [b.index(x) for x in ("AUDIO_GetDMAStartAddr()", "AUDIO_GetDMABytesLeft()", "gbp_aplay2_irq_handoff(&ap2, t)",
-                                      "AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES)",
+                                      "AUDIO_InitDMA((u32)(size_t)c, dma_block_bytes(c))",
                                       "gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c, (uint32_t)AUDIO_GetDMAStartAddr())")]
         self.assertEqual(order, sorted(order), "the note (and its third read) come after the init: the init is delayed only by the two entry reads")
         self.assertEqual(len(re.findall(r"AUDIO_\w+\(", b)), 4, "three reads (two at the entry, one after the init) and the init the callback always made")
@@ -37,7 +37,9 @@ class TheCallbackOnlyReads(unittest.TestCase):
     def test_the_callbacks_behaviour_is_what_it_was(self):
         b = self.cb()
         self.assertIn("const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, t);", b)
-        self.assertIn("AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES);", b)
+        # Issue #139 (the marked block): the length comes from dma_block_bytes(c), which is GBP_APLAY2_CHUNK_BYTES in every plan but validation_run
+        # (tests/host/test_v28_run57_marks.py pins both branches)
+        self.assertIn("AUDIO_InitDMA((u32)(size_t)c, dma_block_bytes(c));", b)
         self.assertEqual(len(re.findall(r"AUDIO_(?:Start|Stop|Set|Register|Init)\w*\(", b)), 1, "no register is written beyond the init it always did")
 
     def test_the_module_never_touches_the_device(self):

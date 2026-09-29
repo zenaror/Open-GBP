@@ -26,9 +26,17 @@ extern "C" {
 #endif
 
 #define GBP_V28_DMA_RAW   32u        /* the first callbacks, kept raw */
+#define GBP_V28_DMA_MARKS 48u        /* the marked blocks a run records */
+#define GBP_V28_DMA_MARK_SHORT 256u  /* a marked block is this many bytes shorter than a chunk: 8 units, 2.0 ms of silence */
 #define GBP_V28_DMA_BINS   6u        /* bytes left: <1000, <2000, <3000, <3500, <4000, >= 4000 */
 
 struct gbp_v28_dma_raw { uint32_t addr, left, ret1, ret2, dt; };
+
+/* One MARKED block (Issue #139, the discriminator between AHEAD + 1 and AHEAD + 2): programmed at callback `j` with a length the others do not have, and what the
+ * next callbacks read. left[i] is the bytes-left read at ENTRY of callback j + i + 1; dur[k] is the duration in ticks of the block that STARTED at callback j + k
+ * (the interval between callback j + k and j + k + 1). A block that is shorter than the rest shows in `left` as a lower reading and in `dur` as a shorter interval,
+ * at the callback its start is at: j + 1 if what a callback programs starts at the NEXT callback (AHEAD + 1), j + 2 if one callback later (AHEAD + 2). */
+struct gbp_v28_dma_mark { uint32_t j, left[3], dur[4], done; };
 
 struct gbp_v28_dma {
     uint32_t n, prev1, prev2, none, same12;
@@ -40,6 +48,8 @@ struct gbp_v28_dma {
     uint32_t seeded;
     uint64_t left_sum, t_last;
     struct gbp_v28_dma_raw raw[GBP_V28_DMA_RAW];
+    uint32_t marks_on, marks_n, mark_pending, mute_run;   /* the marked-block discriminator: enabled, taken, one in flight (index + 1), consecutive mute hand-offs so far */
+    struct gbp_v28_dma_mark mark[GBP_V28_DMA_MARKS];
 };
 
 void gbp_v28_dma_init(struct gbp_v28_dma *d);
@@ -54,6 +64,15 @@ void gbp_v28_dma_seed(struct gbp_v28_dma *d, const void *first);
  * register read again right after that programming. `post` tells a write-through latch (it reads back what was just written: `addr` then only echoes the previous write and cannot
  * separate AHEAD + 1 from AHEAD + 2) from a register that keeps the ACTIVE block's address until the block ends (`post` keeps the entry value: the address arm is informative). */
 void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned, uint32_t post);
+
+/* THE MARKED BLOCK. Off by default; the plan that carries it turns it on once, before the DMA starts.
+ * gbp_v28_dma_len() is called by the callback for EVERY hand-off, after the hand-off and before the block is programmed, with `silence` true exactly when the chunk the
+ * hand-off returned is the silence buffer of a MUTE (never an underrun's). It returns the length to program: `chunk_bytes`, except for the FIRST silent hand-off of each
+ * mute (a run of consecutive mute hand-offs), which is `chunk_bytes - GBP_V28_DMA_MARK_SHORT`, up to GBP_V28_DMA_MARKS times and never while an earlier mark is still being
+ * read. Only silence is ever shortened, and only at the run's first hand-off: the interval the sweep's landing measures from the last two hand-offs of its mute is seven or ten
+ * hand-offs away. */
+void gbp_v28_dma_marks_enable(struct gbp_v28_dma *d);
+uint32_t gbp_v28_dma_len(struct gbp_v28_dma *d, int silence, uint32_t chunk_bytes);
 
 #ifdef __cplusplus
 }

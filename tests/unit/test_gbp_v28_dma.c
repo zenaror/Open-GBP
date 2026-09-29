@@ -139,9 +139,59 @@ static void test_the_register_read_after_the_init(void)
     eqi(d.post_other, 1, "neither the new chunk nor the entry value");
 }
 
+static void test_the_marked_block_scope(void)
+{
+    struct gbp_v28_dma d;
+    uint32_t k, marked = 0u, len;
+    gbp_v28_dma_init(&d);
+    eqi(gbp_v28_dma_len(&d, 1, 4000u), 4000, "marks are off until enabled");
+    eqi(d.marks_n, 0, "and none is recorded");
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_marks_enable(&d);
+    eqi(gbp_v28_dma_len(&d, 0, 4000u), 4000, "a hand-off that is not a mute's silence is never shortened");
+    eqi(d.mark_pending, 0, "");
+    len = gbp_v28_dma_len(&d, 1, 4000u);
+    eqi(len, 3744, "the first silent hand-off of a run is 256 bytes shorter (8 units)");
+    eqi(len % 32u, 0, "a whole number of 32-byte units");
+    eqi(gbp_v28_dma_len(&d, 1, 4000u), 4000, "the second silent hand-off of the same run is not");
+    eqi(gbp_v28_dma_len(&d, 1, 4000u), 4000, "nor the third");
+    eqi(d.marks_n, 1, "one mark so far");
+    eqi(gbp_v28_dma_len(&d, 0, 4000u), 4000, "a run ends on an audible hand-off");
+    eqi(gbp_v28_dma_len(&d, 1, 4000u), 4000, "the next run's first hand-off is refused while the first mark is unread (one in flight)");
+    eqi(d.marks_n, 1, "no second mark");
+    /* the mark is read: four callbacks after it was programmed */
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_marks_enable(&d);
+    (void)gbp_v28_dma_len(&d, 1, 4000u);
+    for (k = 0; k < 5u; k++) gbp_v28_dma_note(&d, 0u, k == 1u ? 3712u : 3968u, 1000u + k * 1000u, pool[0], 0u);   /* k = 0 is the mark's own callback, then j + 1 .. j + 4 */
+    eqi(d.mark[0].done, 1, "read four callbacks after the one that programmed it");
+    eqi(d.mark[0].left[0], 3712, "the read at j + 1");
+    eqi(d.mark[0].left[1], 3968, "at j + 2");
+    eqi(d.mark[0].dur[0], 1000, "an interval is the ticks between two callbacks: the block that started at j");
+    eqi(d.mark[0].dur[3], 1000, "and the block that started at j + 3");
+    eqi(d.mark_pending, 0, "and the next mark may be taken");
+    /* the capacity */
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_marks_enable(&d);
+    for (k = 0; k < 200u; k++) {
+        if (gbp_v28_dma_len(&d, 1, 4000u) != 4000u) marked++;
+        (void)gbp_v28_dma_len(&d, 0, 4000u);
+        gbp_v28_dma_note(&d, 0u, 3968u, 1000u * (k + 1u), pool[0], 0u);
+        gbp_v28_dma_note(&d, 0u, 3968u, 1000u * (k + 1u) + 1u, pool[0], 0u);
+        gbp_v28_dma_note(&d, 0u, 3968u, 1000u * (k + 1u) + 2u, pool[0], 0u);
+        gbp_v28_dma_note(&d, 0u, 3968u, 1000u * (k + 1u) + 3u, pool[0], 0u);
+        gbp_v28_dma_note(&d, 0u, 3968u, 1000u * (k + 1u) + 4u, pool[0], 0u);
+    }
+    eqi(marked, GBP_V28_DMA_MARKS, "at most GBP_V28_DMA_MARKS marks");
+    eqi(d.marks_n, GBP_V28_DMA_MARKS, "");
+    len = gbp_v28_dma_len(&d, 1, 100u);
+    eqi(len, 100, "a chunk no longer than the shortening is never marked (no underflow)");
+}
+
 int main(void)
 {
     printf("test_gbp_v28_dma\n");
+    test_the_marked_block_scope();
     test_an_unexplained_register_in_a_silence_run_is_none_not_same12();
     test_the_register_read_after_the_init();
     test_the_assumed_semantics();

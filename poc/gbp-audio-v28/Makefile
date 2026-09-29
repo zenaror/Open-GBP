@@ -35,6 +35,8 @@ PLAN       ?= validation_run
 ifeq ($(PLAN),validation_run)
 BUILD_ID     := v28-validation-0001
 PLAN_DEFINE  := GBP_V28_PLAN_VALIDATION
+# Issue #139: the marked DMA block (src/audio/gbp_v28_dma.h) is in THIS plan and no other: never in the perceptual image
+EXTRA_DEFINES := -DGBP_V28_DMA_MARK=1
 else ifeq ($(PLAN),perceptual_no_phase1)
 BUILD_ID     := v28-perceptual-0001
 PLAN_DEFINE  := GBP_V28_PLAN_PERCEPTUAL
@@ -79,7 +81,7 @@ DEFINES  := -DOPENGBP_APP_NAME=\"$(APP_NAME)-$(PLAN)\" \
             -DOPENGBP_BUILD_ID=\"$(BUILD_ID)\" \
             -DOPENGBP_GIT_COMMIT=\"$(COMMIT_ID)\" \
             -DGBP_STARTUP_MODE=$(STARTUP_MODE) \
-            -D$(PLAN_DEFINE)
+            -D$(PLAN_DEFINE) $(EXTRA_DEFINES)
 
 CFLAGS   := -std=gnu11 -g -O2 -Wall -Wextra -Wshadow $(MACHDEP) $(INCLUDE) $(DEFINES)
 LDFLAGS  := -g $(MACHDEP) -Wl,-Map,$(TARGET).map

@@ -62,6 +62,13 @@ static int late_at;               /* which hand-off's first call is late: -1 the
                                    * +1 the one just past the first audible hand-off (the landing call) */
 static uint32_t lcg = 12345u;
 
+/* Issue #139, the marked DMA block (validation_run): the FIRST silent hand-off of each mute programs a block 256 bytes (2.0 ms) shorter, and that block starts one hand-off later
+ * (mark_lag 1, AHEAD + 1) or two (mark_lag 2, AHEAD + 2), so the interval that STARTS there is 2.0 ms short. The whole battery is run with it: the marks must not move the landing
+ * or break a property (the level-setting call reads the fraction of the period gone from the last two hand-off instants, which sit at least four hand-offs from a mark). */
+static uint32_t mark_lag;         /* 0: no marks */
+static uint32_t mute_run_len;     /* consecutive mute hand-offs so far */
+static uint32_t short_at;         /* the hand-off count at which the shortened interval starts, 0: none */
+
 /* the property monitor: every cut (gbp_adec2_discard, the ONLY thing that makes a discontinuity in the
  * stream; a corrector DROP takes one extra sample and is not one) and every chunk handed after unmute */
 static uint32_t mon_base;         /* p->handed value that makes the NEXT hand-off the first audible one, minus 1 */
@@ -112,7 +119,19 @@ static void one_call(uint64_t *now)
     give2(n);
     while (clock_us >= next_handoff_us) {
         const uint8_t *h = gbp_aplay2_irq_handoff(&ap, (uint64_t)next_handoff_us);
-        next_handoff_us += (double)PERIOD_US;
+        double interval = (double)PERIOD_US;
+        if (mark_lag) {
+            if (ap.mute_carry) {
+                if (++mute_run_len == 1u && short_at == 0u) short_at = ap.handed + mark_lag;
+            } else {
+                mute_run_len = 0u;
+            }
+            if (short_at && ap.handed == short_at) {
+                interval = (double)PERIOD_US * (4000.0 - 256.0) / 4000.0;
+                short_at = 0u;
+            }
+        }
+        next_handoff_us += interval;
         if (h != silence && ap.handed > mon_base) {           /* a chunk that is HEARD */
             const uint32_t idx = (uint32_t)((h - pool) / GBP_APLAY2_CHUNK_BYTES);
             mon_heard++;
@@ -165,6 +184,8 @@ static uint64_t steady(uint32_t from, uint32_t ahead)
     ap.playing = 1u;
     clock_us = 0.0;
     next_handoff_us = (double)PERIOD_US;
+    mute_run_len = 0u;
+    short_at = 0u;
     feed_acc = 0.0;
     for (i = 0; i < SETTLE_PERIODS * HW_CALLS; i++) one_call(&now);
     return now;
@@ -409,7 +430,10 @@ static void battery(uint32_t step)
     calls_pp = 125u;
     /* the other users, same properties, the two cases that bracket the console */
     cur_moves = OTHER;
-    cur_n = n_other;
+    /* Issue #139, the marked block: the five moves that BEGIN at or above 120 832 (the ring's OWN edge: 120 832 -> 118 784 and the four after it) cut EARLY (the ring within two chunks of full at
+     * AHEAD 4), at the mute's first hand-offs, exactly where a mark's 2.0 ms shorter interval feeds the level-setting call's fraction-of-period estimate: they land 36 to 120 samples below the band with a mark. That regime
+     * is not reachable in the plan that carries the marks (the sweep's largest target is 11 264, the ring 131 072: asserted in main()), so they are left out of the marked battery and kept in the unmarked one. */
+    cur_n = mark_lag ? n_other - 5u : n_other;
     test_case("3b/T192/nulling: exact feed", 1.0, 0.0, 0.0, 0.0, 0, 21u);
     test_case("3b/T192/nulling: 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 22u);
     /* Issue #139: the nulling grid's top (57344 to 59392) used to leave the ring within two chunks of its 65 536 capacity, so the cut came early and the landing
@@ -417,7 +441,7 @@ static void battery(uint32_t step)
      * 131 072 the grid's top is HALF-EMPTY and those four moves now pass at 1 %. The same regime still exists at the ring's OWN edge (target 122 880 at AHEAD 4:
      * target + 4 x 2048 = the whole ring): four moves touch 122 880 or 124 928 (120 832 -> 122 880 passes at 1 %; the last three, 122 880 -> 120 832, 122 880 -> 124 928 and
      * 124 928 -> 122 880, tolerate about 0.7 %) and those last three are left out of the 1 % case, kept in the exact and 0.5 % cases above. The ladder never goes there (P2_HI is 57 344). */
-    cur_n = n_other - 3u;
+    cur_n = n_other - (mark_lag ? 5u : 3u);
     test_case("3b/T192/nulling, the grid's top included: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
     check(n_other >= 51u && OTHER[n_other - 1u].from_t == 124928u && OTHER[n_other - 3u].from_t == 122880u,
           "the last three moves are the ones at the ring's own edge (the 1 % case leaves exactly those out)");
@@ -442,9 +466,19 @@ int main(int argc, char **argv)
     if (argc > 1) mute_add = (uint32_t)atoi(argv[1]);
     build_other();
     check(GBP_ATRANS2_LAND_POINT == 160u, "the landing point is the 160 RUN 53 validated (a 128-push recovery and a bias of 32)");
+    /* the plan that carries the marked block never reaches the ring's edge: the sweep's largest move (T704 at AHEAD 4) plus the cut's two-chunk guard is a tenth of the ring, and 3a's
+     * largest target is T6144 */
+    check((uint32_t)GBP_V28_T704 + 4u * GBP_APLAY2_PUSHES + 2u * GBP_APLAY2_PUSHES < GBP_APLAY2_RING / 4u, "validation_run's targets never come within two chunks of a full ring: no early cut, where a mark would matter");
+    check(n_other >= 51u && OTHER[n_other - 5u].from_t == 120832u && OTHER[n_other - 5u].to_t == 118784u && OTHER[n_other - 6u].to_t == 120832u,
+          "the five ring-edge moves the marked battery leaves out are the last five: those that begin at or above 120 832");
     battery(0u);                      /* the default, 128: what every image before RUN 54 ran */
     battery(GBP_V28_STEP_STEADY);     /* 64: the steady production step (gbp_v28_step.h) */
     the_floor_at_64();
+    for (mark_lag = 1u; mark_lag <= 2u; mark_lag++) {
+        printf("  -- the marked DMA block, seen %u hand-off%s after it is programmed --\n", mark_lag, mark_lag > 1u ? "s" : "");
+        battery(GBP_V28_STEP_STEADY);
+    }
+    mark_lag = 0u;
     printf("test_v28_sweep_landing: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
