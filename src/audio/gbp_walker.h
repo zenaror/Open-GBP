@@ -60,7 +60,8 @@ enum gbp_walker_kind {
     GBP_WALKER_DESCENT_3A,
     GBP_WALKER_HOLD_3B,
     GBP_WALKER_SWEEP,
-    GBP_WALKER_NULLING
+    GBP_WALKER_NULLING,
+    GBP_WALKER_LOSS              /* Issue #137's diagnostic: steady holds, measured against two manipulated factors */
 };
 
 enum gbp_walker_end_reason {

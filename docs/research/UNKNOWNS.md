@@ -2870,3 +2870,10 @@ STAYS OPEN.
 
 **AMENDMENT 2026-09-29 (Issue #137), on top: the ids the entry above should carry.** RUN 38's drain read 4 060-4 081 AUDIO blocks a second, 0.62 % not drained, in losses of at most about two blocks (`GBP-HW-322`, FACT; 25.41 blocks/s, restated 24.50 in
 `GBP-HW-339`); `GBP-HW-332` is the half-size-step result. This build's 1.6 % is about 2.6 times RUN 38's 0.62 %. The entry above cited `GBP-HW-329` for the 25.4 figure; that id is RUN 39's `P` names `produce`, not the loss.
+
+**AMENDMENT 2026-09-29 (Issue #137), second, on top: the baseline is RUN 43's 0.18 %, and what the entry's three open parts now have.** The comparable earlier build is RUN 43 (`sync-0001`, the 8-push step): 261 670
+of 262 144 blocks in its 64 s window, 0.18 %; RUN 38's 0.62 % was the older 16-push build. This build's 1.6 % is about NINE times the last comparable build, not 2.6 (`HARDWARE_TESTS.md` §V28.16). In every live/sync run
+`taps == blocks_in`, `taps_failed 0`, `wrong_len 0` (`LIVEN`): the drain delivered fewer blocks, a refused or short tap did not lose them; part (1) is answered for those builds and stays open for this one until
+the diagnostic reads `V28TAPS`. The audio `SEMGAP` maximum is unchanged across all runs (91 925 to 92 258 ticks): what changed is how often shorter stretches occur. Three candidates, none measured (production call length
+in the pump slot, the GX label's 4 k-tick render, the tap's sixteen `int64` divisions in the drain slot) and the diagnostic that measures all three and manipulates two is registered in §V28.16, with its rule
+(effect > 0.2 points coupled, < 0.05 not, between unresolved). Parts (2) and (3) wait for it. STAYS OPEN.

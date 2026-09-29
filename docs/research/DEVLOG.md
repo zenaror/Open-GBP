@@ -19507,3 +19507,33 @@ deficit the estimate would have centred the landing; it stays removed until a ro
 are untested, and the loss's own cause (`U-GBP-050`) is open. The choice is the Orchestrator's.
 
 **Next.** The Orchestrator's decision on the remedy; then the SD-only instrument that would have prevented this (the unwired hooks, per-phase `blocks_in`/taps/underruns/`dup`/`starved`), and the landing design sized on the measured deficit.
+
+## 2026-09-29 — Issue #137: the loss diagnostic designed, reviewed and built as code (`HARDWARE_TESTS.md` §V28.16, `U-GBP-050`)
+
+**Goal.** The Orchestrator ordered the loss (`U-GBP-050`) investigated before the authority (`k`): check the record for what changed in the tap/service path between RUN 38's build and now, then build a diagnostic
+image (SD only, audio mechanism unchanged) that can confirm or rule a candidate out in the same run, and grow the structural test from the handler headers' own contracts.
+
+**What the record said.** The comparable earlier build is RUN 43's 0.18 %, not RUN 38's 0.62 %: this build's 1.6 % is about nine times it. `taps == blocks_in` with zero failures in every live/sync run, so the drain
+delivered fewer blocks; the audio `SEMGAP` maximum is unchanged in every run, so the change is in how often shorter stretches occur, which no V28 log records. Three candidates (the native production call's length,
+the GX label's render, the tap's decode); none measured.
+
+**Done.** (1) The contract-driven structural test (`TheContractCallsAreMade`): RED on `2be745b` for both underrun hooks, which were then wired (read once a slot as a delta, handed to the phase's handler). (2) A new
+plan `diag_loss` and handler `gbp_v28_loss`: steady holds at one TARGET/AHEAD, a two-factor manipulation (label on/off, production step 128/64) through twelve cell holds after a warm-up, a 60 s AHEAD-1 hold with the
+underrun path counted; six tick histograms; per-hold counter snapshots including the observed operating point. (3) `tools/v28loss.py` applies the rule registered before the build. (4) A fresh read-only reviewer
+found two design weaknesses and eleven smaller ones; all were answered: the plain Gray cycle biases the label effect by -2d under a linear drift (an exhaustive search shows no one-flip walk balances both factors;
+the image uses one that balances the label exactly and the step to a third of that bias), the reader gained a standard error, a stability test, a trend-adjusted estimate and a balance check (all can only weaken a verdict),
+the structural test learned reachability and declarations written any way, and the tap-gap edges moved to half periods.
+
+**Two things worth their own lines.**
+
+1. **The review found a real confound in a design I had already written tests for.** The plain cycle put the label-on holds two hold-positions earlier than the label-off ones. A test of the arithmetic could not find it;
+   an adversary asking "what does a linear drift do to each factor" did, and an exhaustive search of the walks showed the limit (one factor exact, the other to a third).
+2. **The first structural test passed on a token, not a call.** It counted `name(` in `main.c`; a dead static function, or a declaration on its own line, would have passed. The second version walks the functions
+   `main()` can reach.
+
+**Tests.** `tests/unit/test_gbp_v28_loss.c` 2 278 checks; `tests/host/test_v28loss.py`, `test_v28_diag_loss_wiring.py`, `test_v28_plans.py`; the full gate is recorded in the closeout on Issue #137.
+
+**Not done, on purpose.** No candidate is pinned or staged, nothing goes to hardware, the perceptual run stays unauthorised. `validation_run` at this commit is not comparable to RUN 43-53 for 3a's confirm and 3b's
+holds: both underrun hooks are live now (§V28.16).
+
+**Next.** The Orchestrator verifies the entry and the image; then the two identical rebuilds, the pin, the staging, the Operator's run, and the ingestion against the rule.

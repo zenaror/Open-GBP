@@ -46,6 +46,7 @@
 #define OPENGBP_GBP_V28_PLANS_H
 
 #include "gbp_walker.h"
+#include "gbp_v28_loss.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,6 +105,30 @@ _Static_assert(GBP_V28_DIAG_3A_STALL_CAP_S == 180u,
 
 static const struct gbp_walker_plan GBP_V28_DIAG_3A_STALL = {
     GBP_V28_DIAG_3A_STALL_PHASES, 2u, GBP_V28_DIAG_3A_STALL_CAP_S
+};
+
+/* ---- diag_loss: navigate -> loss -- Issue #137 (U-GBP-050), the loss diagnostic ---------------------------------
+ *
+ * The loss phase is gbp_v28_loss's own sequence (gbp_v28_loss.h): a 10 s warm-up, GBP_V28_LOSS_CYCLES cycles of the four
+ * cells at 20 s each, the AHEAD-1 hold at 60 s = GBP_V28_LOSS_HOLDS_S seconds of holds. The two entries (one UNMUTED plan to
+ * AHEAD 4, one ROTATE to AHEAD 1) take a few seconds each, the mute is 7 periods (0.22 s); the phase cap has 38 s over the
+ * holds for them, and for the walker's own cap check to see a hold end first. The cap is SHORT OF the session's 468 s so the
+ * stores validation_run is sized for (tools/v28budget.py, wall 533 s) hold this plan too: the plan's session cap is
+ * p0 60 + loss 348 + slack 60 = 468, the same figure. */
+#define GBP_V28_DIAG_LOSS_PHASE_S  348u
+_Static_assert(GBP_V28_DIAG_LOSS_PHASE_S >= GBP_V28_LOSS_HOLDS_S + 30u,
+    "gbp_v28_plans: diag_loss's phase cap no longer leaves 30 s over its holds for the two entries");
+static const struct gbp_walker_phase_def GBP_V28_DIAG_LOSS_PHASES[2] = {
+    { GBP_WALKER_NAVIGATE, GBP_V28_P0_ALLOWANCE_S },      /* p0, "allowance" */
+    { GBP_WALKER_LOSS,     GBP_V28_DIAG_LOSS_PHASE_S },   /* loss, the holds and the two entries */
+};
+#define GBP_V28_DIAG_LOSS_SUM_S (GBP_V28_P0_ALLOWANCE_S + GBP_V28_DIAG_LOSS_PHASE_S)
+#define GBP_V28_DIAG_LOSS_CAP_S (GBP_V28_DIAG_LOSS_SUM_S + GBP_V28_SLACK_S)
+_Static_assert(GBP_V28_DIAG_LOSS_CAP_S == 468u,
+    "gbp_v28_plans: diag_loss's session cap no longer matches tools/v28budget.py's own 468 (validation_run's stores are sized for it)");
+
+static const struct gbp_walker_plan GBP_V28_DIAG_LOSS = {
+    GBP_V28_DIAG_LOSS_PHASES, 2u, GBP_V28_DIAG_LOSS_CAP_S
 };
 
 #ifdef __cplusplus
