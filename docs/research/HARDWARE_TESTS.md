@@ -39974,3 +39974,58 @@ PERCEPTUAL (the Operator's nulls, recorded as (T, A) and read as L under the lab
 **What a resolved RUN 57 does to the label.** M1: as tabulated, CORROBORATED (the address stage assumed identical to the length stage, §V28.26a). M2: every L +31.222 ms. M3 / M4: the perceptual run waits (the table stays bounded). The (T, A) results do not depend on the label; only their conversion to ms does.
 
 **What this run does NOT do.** It does not change `TARGET` in the runtime (a separate decision with `U-GBP-045`'s cost in hand); it does not measure the audio-versus-video offset in ms (the video path's latency is not here: what the null gives is the audio path's latency at which he judged the two aligned, all else constant); it does not test the splice cue.
+
+### V28.30 RUN 57 EXECUTED AND INGESTED — M1: the length of a block programmed at a callback takes effect at the NEXT callback (29 of 29 marks, both arms); AHEAD + 1 holds and the latency table stands at CORROBORATED; the marks moved nothing — 2026-09-29 (Issue #139, Hardware Issue #141)
+
+*Appended. §V28.26, §V28.26a (the registered design and reading rule), §V28.27 (the image) stand; nothing in them is amended.*
+
+**Files and integrity.**
+
+```text
+raw log     logs/run57/GBP-AUDIO-V28_v28-validation-0001.log     108 108 B  sha256 538406c398854f3841178c9c8dc1dbfb199ed9b57adf5ddc8df29fccceedf95b
+archived    captures/local/GBP-AUDIO-V28_v28-validation-0001-run57.log (hash re-read equal); captures/local/GECKO-GBP-AUDIO-V28-run57.txt
+build       v28-validation-0001, commit 369dd94, slot 23-v28v, boot.dol 877eac1e...e77 (§V28.27); GBP_V28_DMA_MARK defined (`V28MARKS` in the log); the log's IDENT agrees
+session     ok_session_ended, dropped 0 truncated 0; cartridge Yoshi's Island (SMA3), Link Port empty, BBA absent (Hardware Issue #141)
+tools       tools/v28verdict.py and tools/v28latency.py, run on the archive at bc6cb19 (the tool as it stood at 369dd94 plus one label fix: "RUN 55's 3b hold" printed for any log); the verdicts as printed
+```
+
+**THE DISCRIMINATOR (P7): M1, by the registered rule.**
+
+```text
+V28MARKS n=29   29 marks, 29 complete; bytes lag / timing lag: 1/1: 29
+                left at the entries j+1, j+2, j+3:  3712, 3968, 3968 in ALL 29 (marked block just started; ordinary blocks)
+                dur (ticks of the blocks that started at j, j+1, j+2, j+3):  dur[1] = 1 182 177 .. 1 185 860 (29.19-29.28 ms) in all 29; the other three 1 262 272 .. 1 266 829 (31.17-31.28 ms)
+V28DMA          7 162 callbacks, 6 975 classified: prev1 100 %, prev2 0, none 0, same12 187; bytes left min 3 712 (the marked reads) mean 3 966 max 3 968
+V28DMAP         post-init read of the address register: new 6 975, kept 0, ambiguous 187, other 0 (the write-through latch again)
+```
+
+- **FACT (the readings).** Every one of the 29 marked blocks shows itself ONE callback after it was programmed, in both independent arms, and none at two: the bytes-left register reads 3 712 (= 3 744 - one 32-byte unit) at the next callback and 3 968 otherwise, and the interval that contains the marked block is 29.22 ms against 31.22 ms, the 2.0 ms the mark removed. No mark was seen at lag 0, 2 or 3 in either arm.
+- **M1 holds by the registered rule** (at least 10 complete marks, at least 90 % at lag 1 in both arms, none at lag 2): **the LENGTH of a block programmed at a callback takes effect at the next one.** Per §V28.26a the address stage is ASSUMED identical to the length stage (libogc2's `AUDIO_InitDMA` writes both in one call; Dolphin's `DSP.cpp` reloads both at the block end); **so AHEAD + 1 and the latency table STAND at CORROBORATED, not FACT.** The +31.222 ms alternative, open since RUN 56, is closed at that status. From here every L(T, A) figure carries "CORROBORATED: length stage measured, address stage assumed identical" in place of "assumed DMA semantics".
+- **The M3 signature did not occur.** The timing arm never read lag 0 (the length did not apply to the block already playing), and the Operator heard no click at the start of any silence (OPERATOR OBSERVATION, verbatim: *"ouvi o silencio da 2 para 3... mas nem um estalinho perceptivel"*, *"fase 4... e nao noto nenhum estalinho aparente"*; §V28.26's accepted risk did not materialise).
+- **The reading rule needed no exception.** Thresholds (bytes 3 840, interval 1 224 035 ticks) sit 128 below and 40 000 ticks above the observed marked readings; the ordinary readings are 3 968 with no late entries.
+
+**Scored against §V28.26's registered predictions.**
+
+| | registered | measured | |
+|---|---|---|---|
+| P1 | loss 0.10-0.35 % every ended phase, refuted above 0.5 % | p0 0.312, p1 0.332, p2 0.326, p3 0.306 % | HOLDS, all four inside the band (RUN 56: two above it by 0.012 and 0.029) |
+| P2 | 3b mean chunk start about 3 828 +- 15, refuted below 3 000 | 3 830 (-266) | HOLDS |
+| P3 | AHEAD-1 hold full 60 s, `underrun_seen` 0, V28PHC p2 at most 1 a minute | 60.0 s, 0, p2 underruns 0, the hook live: 'clean' is OBSERVED | HOLDS: the THIRD observed clean boot |
+| P4 | first two dwells saturated (3 060-3 110); T6144 3 000-3 110; steady T4608..T2560 1 400-2 300, refuted at 2 800 or more; dup 0 at T2048 | T6144 3 104, T5632 3 072, **T5120 2 896**; T4608 1 762, T4096 1 610, T3584 1 652, T3072 1 712, T2560 1 744; T2048 0 | see below |
+| P5 | sweep 18/18, no cut after unmute, landings -240 .. -120 (the marks must not move them) | 18/18 GATE PASS; landings (ring - target) -199 .. -151, mean -168 (RUN 56: -206 .. -149, mean -168); begin rings -636 .. -416 | HOLDS, the third time |
+| P6 | taps == blocks_in per phase | every phase, 0 failed, 0 wrong; `V28C2` lost 0 | HOLDS |
+| P8 | min ring after 10 s 2 272 +- 60, chunk start 3 828 +- 15, overflow and lost 0, no fault | 2 272, 3 830, 0, 0, `trans_faults` 0, ENVSTORE ok | HOLDS |
+| P9 | at least 20 complete marks; ordinary reads 3 968, marked 3 712; intervals 1 183 6xx / 1 264 5xx +- 5 000 | 29 complete; 3 968 / 3 712 in all; 1 182 177-1 185 860 / 1 262 272-1 266 829 | HOLDS (the first marked interval, 1 182 177, is 1 400 below the registered 1 183 6xx: inside +- 5 000) |
+| P10 | nothing audible or visible changes | the Operator: no click at any silence | HOLDS (OPERATOR OBSERVATION) |
+
+**THE MARKS MOVED NOTHING.** Loss, chunk start, minimum ring, landings, 3a's dwells and the mute count (`V28C mute_handed 215`, as RUN 56) read as the two earlier runs read; the landing battery's prediction (§V28.26) that a mark cannot move the sweep is borne out on the console.
+
+**P4, scored against §V28.23's exact wording and §V28.26's re-registered band, not rescued.** (a) The recovery hypothesis's own criterion (§V28.23: the first two dwells saturated, 2 800 or more): T5632 3 072 and T5120 2 896 HOLD it, a third time, and T6144 (3 104, "about 3 000-3 100") too. (b) §V28.26's narrower range for the first two dwells (3 060-3 110) is MISSED at T5120 (2 896, 164 below): still saturated by the criterion, and the gap to a full 3 072 is new; recorded as a miss of the number, not of the hypothesis. (c) The steady band (1 400-2 100 in §V28.23; 1 400-2 300 as §V28.26 widened it after RUN 56) HOLDS at all five dwells (1 610-1 762): T4608 read 2 240 in RUN 56, 1 568 in RUN 55, 1 762 in RUN 57; why it varies by 700 across three runs is UNKNOWN (the recovery tail extending a dwell would explain RUN 56's, and is not shown). T2048 dup 0 and the 2 304 / 2 336 bracket (n=9 at 2 304 fails; 2 432, 2 368 hold at dup 3 084 / 3 082; the confirm at 2 304 underran once) as before.
+
+**The latency table, as it can now be written into the record** (ring entry -> AI DMA reload, the AUDIO PATH only, not the audio-versus-video offset; INFERENCE for the values, CORROBORATED for the DMA semantics they rest on):
+
+```text
+T256  A4 214.7   A3 183.5   A2 152.2   A1 121.0 ms      T320 A4 230.4   T448 A4 261.7   T576 A4 293.1   T704 A4 324.4 ms
+```
+
+**What this does NOT establish.** The address stage (assumed identical to the length stage); the audio-versus-video offset; audibility of the perceptual ladder; why T4608 varies.
