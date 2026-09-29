@@ -19555,3 +19555,21 @@ Nothing needed the plain cycle back: drift was 0.006 points a hold, and the walk
 **Not done, on purpose.** No firmware change in this entry. The remedies are the next round: choose the production step from this run's histograms, stop the label re-rendering per hand-off, prove on the host that re-partitioning changes only the call count, pre-register the prediction, then `validation_run` with both.
 
 **Next.** The fixes, reviewed heavily before they are built.
+
+## 2026-09-29 — Issue #139: RUN 55 ingested — the corrector holds `target - BAND`, the AHEAD-1 hold is observed clean, the sweep passes 18/18 (`HARDWARE_TESTS.md` §V28.21, `GBP-HW-367`..`369`, `U-GBP-050`)
+
+**Goal.** Score the registered predictions P1-P6 (§V28.19a) against RUN 55, with the tool unedited for the verdicts, and repair what the run showed stale.
+
+**Done.** P1, P2, P3, P5 and P6 hold; P4 is refuted and recorded as refuted. The loss fell from 1.5 % to 0.31-0.36 %; the chunk-start level is 3 828 (target - BAND is 3 840); the AHEAD-1 hold ran its 60 s with a live underrun path and counted none; the sweep passed 18/18 for the first time. `TARGET` sets latency again.
+The tool's 3B note ("a hook main.c does not call") was stale since `4a3c003` and printed a false statement about this run: it is conditioned on evidence now, with a test that a RUN 55-shaped log must not carry it. 3a's first row counted from boot (a zero-initialised local static): the snapshot is re-taken at 3a's start.
+
+**Two things worth their own lines.**
+
+1. **A caveat that outlived its truth.** I wrote the note in #137 when it was true and did not attach the condition that would end it; the same shape as the "trim is masked" comments of #136. What ends a caveat has to be written with it.
+2. **P4 failed because I used the wrong loss, and the honest reading was available in advance.** I computed the band at 0.18 % from RUN 54's clean cell while the label was going to be present; the measured 0.35 % plus the AI clock's 1.8 a chunk gives 1 730, and the five unsaturated dwells average 1 786. It is recorded as refuted; the post-hoc arithmetic is labelled post-hoc.
+
+**Tests.** `tests/host/test_v28_run55_ingest.py`; the two recount tests learn the log (`GBP-HW-369`); the full gate is recorded in the closeout on Issue #139.
+
+**Not done, on purpose.** No image change is shipped; the 3a snapshot fix goes with the next image. The residual 0.16 points is open and not blocking.
+
+**Next.** `L(T, A)` for the native path from the measured levels (`U-GBP-049`), reviewed heavily; then the nulling grid's top.

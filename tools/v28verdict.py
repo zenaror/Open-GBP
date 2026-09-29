@@ -167,7 +167,44 @@ def underrun_accounting(text):
         return {"have": False}
     rows = find_all(text, "V28_3A")
     s3a = sum(int(r["underruns"]) for r in rows)
-    return {"have": True, "total": int(tot["underruns"]), "s3a": s3a, "rest": int(tot["underruns"]) - s3a}
+    out = {"have": True, "total": int(tot["underruns"]), "s3a": s3a, "rest": int(tot["underruns"]) - s3a}
+    # Issue #138 (RUN 55): the per-phase records carry each phase's own count; 3a's FIRST row counts from boot (main.c's per-depth snapshot
+    # starts at zero), so it includes navigate's -- the boundary double count (session 2, p0 1 + 3a rows 2)
+    ph = dict((int(m["p"]), int(m["underruns"])) for m in find_all(text, "V28PHC"))
+    if ph:
+        out["by_phase"] = ph
+        if 0 in ph and 1 in ph:
+            out["boundary_double_count"] = s3a - ph[1] if s3a > ph[1] else 0
+    return out
+
+
+HOOKS_WIRED_AT = "4a3c003"    # Issue #137: the commit that first CALLED gbp_v28_3a/3b_underrun_observed from main.c
+
+
+def ident_commit(text):
+    m = re.search(r"^\d{6} IDENT .*\bcommit=([0-9a-f]+)(-dirty)?", text, re.M)
+    return m.group(1) if m else None
+
+
+def hooks_live(text):
+    """(bool, evidence): does THIS log come from a build that calls the underrun hooks (Issue #138, RUN 55: the 3B note said "a hook main.c does not
+    call" unconditionally, and was false from 4a3c003 on). Evidence, in order: a record only builds descended from that commit print (V28LOSSCFG,
+    V28PHC, V28TAPS: all added after it); else the IDENT commit's ancestry in this repository (git merge-base --is-ancestor); else NOT live -- the
+    caution stays for a log whose build cannot be shown to call them."""
+    for tag in ("V28PHC", "V28LOSSCFG", "V28TAPS"):
+        if find_all(text, tag):
+            return True, "the log carries %s, printed only by builds after %s" % (tag, HOOKS_WIRED_AT)
+    c = ident_commit(text)
+    if c:
+        try:
+            import subprocess
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            r = subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", HOOKS_WIRED_AT, c], capture_output=True)
+            if r.returncode == 0:
+                return True, "the build's commit %s descends from %s" % (c, HOOKS_WIRED_AT)
+        except OSError:
+            pass
+    return False, "no evidence in the log or the repository that the build calls the hooks"
 
 
 def hold_3b(text):
@@ -284,6 +321,12 @@ def phase_loss(text):
 
 
 def analyse(text):
+    out = _analyse(text)
+    out["_text"] = text            # the renderer needs the log's own evidence for the hook note (never printed)
+    return out
+
+
+def _analyse(text):
     return {"admissibility": admissibility(text), "descent_3a": descent_3a(text),
             "hold_3b": hold_3b(text), "underruns": underrun_accounting(text), "sweep": sweep(text),
             "label": label_cost(text), "phase_loss": phase_loss(text)}
@@ -346,10 +389,19 @@ def render(out):
             lines.append("3B: AHEAD 1 %s%s" % ("clean" if h["ahead1_clean"] else "UNDERRUN",
                                                " (partial)" if h["ahead1_partial"] else ""))
             ua = out["underruns"]
-            if ua["have"]:
+            live, why = hooks_live(out["_text"]) if "_text" in out else (False, "")
+            if live:
+                lines.append("3B: the underrun hook is live in this build (%s): 'clean' is OBSERVED" % why)
+            if ua["have"] and not live:
                 lines.append("3B: NOTE the flag above is set by a hook main.c does not call, so 'clean' means UNOBSERVED. "
                              "Session underruns %d, 3a's rows carry %d, %d are left for navigate + 3b + sweep"
                              % (ua["total"], ua["s3a"], ua["rest"]))
+            elif ua["have"] and "by_phase" in ua:
+                lines.append("UNDERRUNS by phase (V28PHC): %s = %d; session %d; 3a's rows carry %d%s"
+                             % (", ".join("p%d %d" % (k, v) for k, v in sorted(ua["by_phase"].items())),
+                                sum(ua["by_phase"].values()), ua["total"], ua["s3a"],
+                                (" (its first row counts from boot and includes navigate's %d)" % ua["boundary_double_count"])
+                                if ua.get("boundary_double_count") else ""))
             for key, name in (("margin_ahead1", "AHEAD 1"), ("margin_ahead2", "AHEAD 2")):
                 m = h.get(key)
                 if m is not None:

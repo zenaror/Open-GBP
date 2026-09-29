@@ -39565,3 +39565,43 @@ card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from 
 disappearing label in this plan. Audible markers are those of RUN 53 (the sweep's short silences).
 
 **Timing.** As RUN 53: navigate (up to 60 s, ended by the C-stick DOWN), 3a (cap 168 s), 3b (cap 120 s), sweep (60 s); RUN 53 ran 25.4 + 54.0 + 60.0 + 35.3 s. If the premise fails, 3a's confirm and 3b's AHEAD-1 hold end early on an underrun and 3b adds an AHEAD-2 hold.
+
+### V28.21 RUN 55 EXECUTED AND INGESTED — the corrector holds `target - BAND`; the AHEAD-1 hold is observed clean; the sweep passes 18/18 — 2026-09-29 (Issue #139)
+
+*Appended. §V28.19, §V28.19a (the registered predictions) and §V28.20 (the image) stand; nothing in them is amended.*
+
+**Files and integrity.**
+
+```text
+raw log     logs/run55/GBP-AUDIO-V28_v28-validation-0001.log     107 014 B  sha256 2d039a9715d892a4b7d9a83b5a5a2646ff8d224dcc8d23ecdc1a6aa47869d857
+archived    captures/local/GBP-AUDIO-V28_v28-validation-0001-run55.log (cmp-identical); captures/local/GECKO-GBP-AUDIO-V28-run55.txt
+build       v28-validation-0001, commit 7e0dc0c, slot 23-v28v, boot.dol 73dcaae9...5290 (§V28.20); the log's IDENT agrees
+log         837 lines, ok_session_ended, dropped=0 truncated=0; SYNCPH p0 navigate, p1 3a, p2 3b, p3 sweep, all complete
+reader      tools/v28verdict.py, unedited for the verdicts; ONE printed line was stale and is repaired below (report sha256 1c05aeec…0a39 is the pre-repair print)
+```
+
+**The registered predictions, scored as registered (§V28.19a):**
+
+| | registered | measured | |
+| --- | --- | --- | --- |
+| P1 | loss 0.10-0.35 % in every ENDED phase; refuted above 0.5 % | p0 0.336, p1 0.353, p2 0.355, p3 0.311 % | HOLDS (p1, p2 sit 0.003-0.005 points above the band's top, nowhere near the refutation line) |
+| P2 | mean chunk start about 3 838 (3 831-3 838), mean ring about 3 060, min late about 2 300; refuted below 3 000 | 3 828 (-268), 3 097, 2 272 | HOLDS (10 below the band's low edge, 828 above the refutation line) |
+| P3 | full 60 s, `underrun_seen` 0, no AHEAD-2 record, `V28PHC` p2 at most 1 a minute | 60.0 s, `underrun_seen` 0, one record, p2 0 (0.0 a minute) | HOLDS |
+| P4 | 3a `dup` per 6 s dwell T5632..T2560 700-1 100; refuted at 2 800 or more; 0 at T2048 | 3 073, 3 072, 1 568, 1 856, 1 931, 1 813, 1 760; 0 at T2048 | REFUTED at T5632 and T5120 (`GBP-HW-368`) |
+| P5 | sweep 18/18, landings about target - 167, continuity PASS | verdict PASS, landings -183..-144 (mean -166), no cut after unmute | HOLDS |
+| P6 | `taps == blocks_in`, 0 failed, 0 wrong-length | 0 / 0 / 0 in every phase | HOLDS |
+
+**The tool's stale note, repaired forward.** `tools/v28verdict.py` printed, unconditionally, "the flag above is set by a hook main.c does not call, so 'clean' means UNOBSERVED". True at `33de2db` (RUN 51-53); false since `4a3c003` wired the hooks; it printed a false statement about this run.
+The note is now conditioned on evidence: the log carries a record only builds after that commit print (`V28PHC`, `V28LOSSCFG`, `V28TAPS`), or the IDENT commit descends from `4a3c003` in this repository; otherwise the caution stays. The recorded verdicts (RUN 51-53's "clean" = unobserved) are untouched.
+`tests/host/test_v28_run55_ingest.py`: a RUN 55-shaped log must not carry the note, an old-shaped one must, and both real archived logs are checked.
+
+**The boundary double count, explained.** Session underruns 2 (`V28C`), `V28PHC` p0 1 + p1 1 = 2, 3a's rows 2. 3a's per-depth delta snapshot was a function-local static that began at zero, so its first row (T6144) counted from boot: it carries navigate's underrun and navigate's 13 088 `dup` (row n=0 `dup` 16 191 against about 3 100 of its own).
+Rows n >= 1 were not affected. Source repaired (the snapshot is re-taken when 3a starts, `main.c`), shipping with the next image; the tool now prints the underruns by phase and names the first row.
+
+**The Operator, verbatim, during the run (OPERATOR OBSERVATION).** "o som parece mais estavel agora....H rodando.... c down ok"; "os H estao so atualizando a cada segundo agora tb parece"; "ouvi uma falha so na mudanca do 2 para 3 ate agora"; "fase 4 agora... ainda ouco os engasgos"; "fase 3 soou limpa".
+The one heard failure falls at the 2 -> 3 change, 3b's entry step: a designed 218.75 ms silence (`STEP_MUTE 7`). "Fase 3 soou limpa" agrees with the observed counter; it is the first time his ear and a working detector agree on a clean AHEAD-1 minute (in RUN 54 both agreed on failures).
+"Fase 4" is the sweep: `V28PHC` p3 counts 0 underruns from the play path, and the sweep's steps carry designed silences (a 7-period mute, 218.75 ms, at every step; 10 periods at the two STARTs); whether the "engasgos" he still hears in that phase are those is UNKNOWN (his own declaration, after the run, is the Orchestrator's).
+
+**Statuses** (`EVIDENCE.md` `GBP-HW-367`, `GBP-HW-368`, `GBP-HW-369`): the measurements FACT; the corrector holds `target - BAND` once the loss is below its authority, and the fixes returned it, CORROBORATED; AHEAD 1 at T256 clean for a minute CORROBORATED on one observed boot; P4 refuted, its cause a HYPOTHESIS; RUN 51-53 unobserved.
+
+**Not established.** Why the loss is 0.34 % and not 0.18 %; a second boot; the latency of any rung (the next entry derives it); audibility; the perceptual run.
