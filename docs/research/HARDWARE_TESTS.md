@@ -39388,3 +39388,26 @@ A reviewer's finding that a dead static function or a declaration written on its
 `tests/host/test_v28_plans.py`.
 
 **Not done, on purpose.** No candidate is pinned or staged; nothing goes to hardware until the Orchestrator has verified this entry and the image; the perceptual run stays unauthorised.
+
+### V28.17 The candidate: `25-v28l` (`diag_loss`), built, pinned and staged — 2026-09-29 (Issue #137)
+
+*Appended. §V28.16 stands as registered; this entry names the image it will be run on. Not run.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=diag_loss, build v28-diagloss-0001, TEST_ID GBP-AUDIO-V28, commit 794297b (clean)
+DOL        build/swiss/25-v28l/boot.dol   sha256 08971b525b3a7c1b94cba0063da154f113d0f196820a4d76c0bc0086f3361b90
+rebuilds   two separate clean Docker rebuilds (the plan directory removed between them), identical sha256, commit=794297b with no -dirty
+layout     tools/swiss-layout.tsv row 25 (v28l), frozen; tests/host/test_swiss_export.py pins the hash
+card       /media/rafael/SD_GC/Open-GBP/25-v28l/boot.dol, sha256 read back from the card equal to the build's; the other 25 files under
+           Open-GBP/ hashed before and after: the only difference is the new file; INDEX.txt untouched (md5 e66e409d...)
+```
+
+**What the Operator can see and hear (from the code, not from arithmetic).** The label (`P2/2 H<handed> RUN <s>s`) is drawn only while the label arm is ON. Over the twelve cell holds it
+follows the cells' label levels: on, off, off, on, on, off, off, on, off, on, on, off, 20 s each; it is on during the warm-up and the final hold. Nothing else on the screen changes: while
+the label is off the screen is the game alone; there is no clock and no other counter. So the liveness of the image during a label-off hold is the label's reappearance at the next label-on hold
+and the game's own sound. Two audible markers, both in the code: the entry to the loss phase is an UNMUTED plan that discards 4 096 samples (a single skip in the music), and the AHEAD-1 hold is
+preceded by a ROTATE entry with a 7-period mute (218.75 ms of silence); nothing audible marks an arm change (the step arm changes only how the same pushes are grouped into calls).
+
+**Timing, from the plan (`gbp_v28_plans.h`, `GBP_V28_DIAG_LOSS`).** Navigate: up to its 60 s allowance, ended earlier by the C-stick DOWN. Then the loss phase: the holds are 10 + 12 x 20 + 60 = 310 s
+(the final hold's 60 s is INSIDE the 310, not on top of it), plus the two entries (a second or so, and the 0.22 s mute), so about 312-315 s; the phase cap is 348 s, the session cap 468 s
+(60 + 348 + 60 slack). If the entries were slow the cap cuts the last hold PARTIAL and the reader says so.
