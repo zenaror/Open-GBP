@@ -19676,3 +19676,15 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `tests/unit/test_gbp_v28_nulling.c` (640), `tests/host/test_v28_run57_perceptual.py`; the full gate is recorded in the closeout on Issue #139.
 
 **Next.** The full gate, two identical rebuilds of `perceptual_no_phase1` and the `strings` check; then wait for the Orchestrator's procedure text.
+
+## 2026-09-29 — Issue #143: the Phase 7 entry assessed, design only (`docs/research/PHASE7_ENTRY.md`)
+
+**Goal.** Prepare Phase 7 so it can open without a cold start, while RUN 58 waits: no build, no hardware, no id, no status, nothing near the card, the slots or the V28 sources and tools.
+
+**Done.** One document in eight sections: what GBA retail media already carries and its boundaries; the vehicle (the V28 chassis composes video, input and the native audio chain, but has no play plan, no long-session stores and no cartridge declaration in the log; the shipping audio setting is decided by RUN 58's ingestion and the document names none); GB/GBC (every one of the four boots stopped at a CONTROL-equality guard written for GBA, so no picture, input or audio exists in that mode; the change is a policy, with its gates first); rumble (the references put it on the internal serial path, so it depends on Phase 10, and the static reading of the Disc and GBI comes before any read-only observation); the matrix skeleton with the Operator's 2026-09-29 declarations as its inventory rows; nine ordered candidate experiments, none pre-registered; the open questions for the Operator.
+
+**Worth its own line.** The Yoshi's Island record has two texts that are not reconciled: §V25.9's procedure says the EZ-Flash is removed for the cartridge, and the Operator's declaration says the EZ-Flash NOR holds the title. Left as one question, not inferred.
+
+**Tests.** `tests/host/test_phase7_entry.py` (the blinding vocabulary, every cited id and range end, the Operator's words verbatim, the open points left open, two code claims read from the tree).
+
+**Next.** The Orchestrator opens the phase or not; the static reading is the only step that costs the Operator nothing.
