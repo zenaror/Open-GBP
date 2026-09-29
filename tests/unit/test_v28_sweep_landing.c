@@ -270,6 +270,17 @@ static void build_other(void)
     }
 }
 
+/* the first nulling start: from navigate's end state, T256 A1, to each of the eight rungs */
+static struct move FIRST[GBP_V28_RUNGS];
+static void build_first(void)
+{
+    uint32_t j;
+    for (j = 0; j < GBP_V28_RUNGS; j++) {
+        FIRST[j].name = "first START from navigate's end"; FIRST[j].from_t = GBP_V28_T256; FIRST[j].from_a = GBP_V28_A1;
+        FIRST[j].to_t = GBP_V28_RUNG[j].target; FIRST[j].to_a = GBP_V28_RUNG[j].ahead; FIRST[j].mute = GBP_V28_START_MUTE;
+    }
+}
+
 static const struct move *cur_moves = MOVES;
 static uint32_t cur_n = 18u;
 
@@ -298,6 +309,10 @@ static uint32_t mute_add;
 /* Issue #138: with the loss back near 0.18 % the corrector holds the ring near target, so a move BEGINS within one band of it, not 956-2666 below as in
  * RUN 51-53. 0 = the console's measured begin rings (BEGIN_OFF), 1 = near target (0..-256): a higher begin ring only makes the cut larger. */
 static int begin_near;
+/* Issue #141: the perceptual run's FIRST start begins from navigate's end state, not from a rung the corrector held: RUN 56's phase 0 ended with the ring at 7 456 at the default
+ * target 4 096, AHEAD 1 (V28PHC p0 `ring 16 -> 7456`), i.e. 3 360 ABOVE the target. begin_over puts every move's begin ring that far above its from-target. */
+static int begin_over;
+#define BEGIN_OVER 3360
 
 static void run_case(double r, double sp, double st, double late, int at, uint32_t seed, struct case_result *out)
 {
@@ -317,13 +332,14 @@ static void run_case(double r, double sp, double st, double late, int at, uint32
             now = steady(mv->from_t, mv->from_a);
             for (i = 0; i < p * HW_CALLS / PHASES; i++) one_call(&now);
             {   /* the ring as the console has it when a move begins */
-                const int32_t off = begin_near ? -(int32_t)((p * 11u + m * 29u) % 257u)
+                const int32_t off = begin_over ? BEGIN_OVER
+                                  : begin_near ? -(int32_t)((p * 11u + m * 29u) % 257u)
                                                : mv->mute == ST ? BEGIN_OFF_START : BEGIN_OFF[(p + m) % 17u];
                 const int32_t lv = (int32_t)mv->from_t + off;
                 set_ring(lv > 0 ? (uint32_t)lv : 0u);
                 /* the guard against the error the review caught: a move that BEGINS at or above target - 900 is not the
                  * console's (956-1878 below, 2666 at the prelude), and the mutes must never be sized on it */
-                if (!begin_near) out->begin_high += (int32_t)adec.count - (int32_t)mv->from_t > -900;
+                if (!begin_near && !begin_over) out->begin_high += (int32_t)adec.count - (int32_t)mv->from_t > -900;
             }
             mon_lost = 0u;
             mon_disc = adec.discarded;
@@ -455,6 +471,15 @@ static void battery(uint32_t step)
           "the last three moves are the ones at the ring's own edge (the 1 % case leaves exactly those out)");
     cur_moves = MOVES;
     cur_n = 18u;
+    /* Issue #141: the perceptual run's first START, from navigate's end (the ring 3 360 above the target) */
+    cur_moves = FIRST;
+    cur_n = GBP_V28_RUNGS;
+    begin_over = 1;
+    test_case("first START from navigate's end (ring 3 360 above): exact feed", 1.0, 0.0, 0.0, 0.0, 0, 51u);
+    test_case("first START from navigate's end: 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 52u);
+    begin_over = 0;
+    cur_moves = MOVES;
+    cur_n = 18u;
 }
 
 /* WHERE THE 64-PUSH STEP STOPS (pinned, so the claim in gbp_atrans2.h is a test and not a sentence): below about 72 calls a period at AHEAD 4 a
@@ -473,6 +498,7 @@ int main(int argc, char **argv)
 {
     if (argc > 1) mute_add = (uint32_t)atoi(argv[1]);
     build_other();
+    build_first();
     check(GBP_ATRANS2_LAND_POINT == 160u, "the landing point is the 160 RUN 53 validated (a 128-push recovery and a bias of 32)");
     /* the plan that carries the marked block never reaches the ring's edge: the sweep's largest move (T704 at AHEAD 4) plus the cut's two-chunk guard is a tenth of the ring, and 3a's
      * largest target is T6144 */
