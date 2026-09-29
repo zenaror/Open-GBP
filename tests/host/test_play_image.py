@@ -328,8 +328,8 @@ class ThePlumbing(unittest.TestCase):
         # which is the property this line exists for.
         # 2026-09-23: 15-drain and 16-aout were added the same way (§V19.12, §V21.4), and
         # 17-live after them (§V22.11), 18-trace after that (§V23.10), 19-split (§V24.9),
-        # 20-game (§V25.9), 21-game2 (§V26.9), 22-sync (§V27.17), 23-v28v and 24-v28d (Issue #131).
-        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 25)])
+        # 20-game (§V25.9), 21-game2 (§V26.9), 22-sync (§V27.17), 23-v28v and 24-v28d (Issue #131), 25-v28l (Issue #137).
+        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 26)])
 
     def test_the_gecko_protocol_and_the_identity(self):
         p = read(PLAY_MAIN)
