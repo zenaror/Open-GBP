@@ -39544,3 +39544,24 @@ P2 refuted with P1 met: the corrector's authority is not the only thing holding 
 **A RISK the prediction did not name, and a fact of RUN 54 it must be read against.** RUN 54's three (label off, step 64) holds read 0.163 / 0.196 / 0.187 % loss, but only the third looked like a corrector holding its target: holds 3 and 7 (lines 755, 795 of the raw log) had `dup` 10 304 and 10 288 in 644 and 643 chunks (16.0 a chunk, saturated) with `ring_gated` 51 418 and 44 295, and hold 9 had `dup` 7.2 a chunk, `ring_gated` 0 and the ring rising 1 851 -> 3 408. The accounting closes (feed less consumption, consumption being 2 048 x chunks produced - `dup` + `drop`, equals the ring's change between the hold's first and last snapshots exactly in 8 of the 14 holds and to within one chunk's sampling phase in the others), and it says why: a chunk is produced from the ring and queued, so a state that begins gate-bound has to refill the READY queue (up to `ahead` x 2 048 samples) as well as raise the ring to `target - BAND` before the corrector can stop saturating; the net rise while saturated is `k` minus the deficit (about 9.5 a chunk at 0.18 % plus the AI clock), so **the recovery from a gate-bound state takes about 30 s (INFERENCE: (3 840 - 2 049 + the queue's refill) / 9.5 samples a chunk at 32 chunks a second)**, longer than a 20 s hold. Holds 3 and 7 began after the 1.2 % holds and were still recovering; hold 9 had had time. **Consequences for reading the next run: (1) a phase that BEGINS gate-bound (the session's start, after a 1.6 % state) can look saturated for its first 30 s at any loss below the authority; (2) the 3b AHEAD-1 hold begins at a ROTATE landing, ring near `target - 160`, so it is not gate-bound at its start (the host's runs begin there too); (3) if P2 or P3 are refuted while P1 holds, "the corrector's recovery from a gate-bound state is slow" is the first suspect, not the loss.** The reader: the new per-phase records carry `gated` (ring-gated calls) and `dup`, so a phase whose `gated` stays high at a low loss is visible.
 
 **Also recorded.** The `diag_3a_stall` image's label is now 1 Hz too (only the perceptual label was untouched); the phase snapshot's timestamp is `gettime()` (teardown clears the transport before the report runs, so a phase that never ended would have printed t1 = 0); two stale comments about the 128-push recovery in `gbp_atrans2` are amended.
+
+### V28.20 `23-v28v` rebuilt from the RUN 54 fixes, re-pinned an eighth time and re-staged for RUN 55 — 2026-09-29 (Issue #138)
+
+*Appended. §V28.19 and its amendment §V28.19a stand as the registered prediction; this entry names the image. Not run.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=validation_run, build v28-validation-0001, TEST_ID GBP-AUDIO-V28, commit 7e0dc0c (clean, no -dirty)
+DOL        build/swiss/23-v28v/boot.dol   sha256 73dcaae9791fb2ea1a3bc56fd307f8f4bbdab739e2963f34b8094b61b7685290
+replaces   the seventh pin 87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640 (RUN 53's image, commit 33de2db)
+rebuilds   two separate clean Docker rebuilds (the plan directory removed between them), identical sha256, commit=7e0dc0c
+layout     tools/swiss-layout.tsv row 23 (v28v) re-frozen at the new hash; tests/host/test_swiss_export.py pins it
+card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from the card equal to the build's; the other 26 files under Open-GBP/ hashed
+           before and after: the only difference is 23-v28v/boot.dol; INDEX.txt untouched (md5 e66e409d...); 25-v28l (RUN 54's image) is still there
+```
+
+**What is in it, against RUN 53's image (all in §V28.19 and §V28.19a):** the 64-push production step in every state, the landing aimed at target - 160 at either step, the label's `H` sampled once a second, the per-phase `V28PHC` / `V28PHD` records, both underrun hooks live (3a's confirm ends at its first underrun; 3b's AHEAD-1 hold ends at its first underrun and escalates to AHEAD 2), the `V28TAPS` line. The same `validation_run` plan and phase caps as RUN 53.
+
+**What the Operator sees and hears.** The label shows `P<n>/4 H<count> RUN <s>s`; it changes ONCE A SECOND now (the clock and `H` together), and `H` still climbs about 32 a second: a stall is `H` unchanged between two seconds. Nothing else on the screen changes; there are no arms and no
+disappearing label in this plan. Audible markers are those of RUN 53 (the sweep's short silences).
+
+**Timing.** As RUN 53: navigate (up to 60 s, ended by the C-stick DOWN), 3a (cap 168 s), 3b (cap 120 s), sweep (60 s); RUN 53 ran 25.4 + 54.0 + 60.0 + 35.3 s. If the premise fails, 3a's confirm and 3b's AHEAD-1 hold end early on an underrun and 3b adds an AHEAD-2 hold.
