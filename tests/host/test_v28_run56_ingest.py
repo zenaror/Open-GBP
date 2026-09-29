@@ -25,8 +25,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
         with open(RUN56, "rb") as f:
             raw = f.read()
-        if hashlib.sha256(raw).hexdigest() != SHA:
-            raise unittest.SkipTest("captures/local's RUN 56 archive is not the recorded one")
+        assert hashlib.sha256(raw).hexdigest() == SHA, "captures/local's RUN 56 archive is not the recorded one (a defect in the archive, never a skip)"
         cls.text = raw.decode("utf-8", "replace")
         cls.a = v28verdict.analyse(cls.text)
         cls.out = v28verdict.render(cls.a)
