@@ -2856,7 +2856,7 @@ corrector's authority. Two things are unknown, and both matter for anything buil
 STAYS OPEN.
 
 
-## U-GBP-050 (P1, opened 2026-09-29, Issue #137) — why do about 1.6 % of the AUDIO blocks never reach the ring, and what sets the loss?
+## U-GBP-050 (P1, opened 2026-09-29, Issue #137) — why do about 1.6 % of the AUDIO blocks never reach the ring, and what sets the loss? — **2026-09-29, Issue #137: the ids RUN 38's 0.62 % loss should carry (GBP-HW-322 and GBP-HW-339, not GBP-HW-329) are corrected by the amendment at the end of this entry; the question itself is unchanged**
 
 `V28C2 blocks_in` over the decode window is 0.9841 / 0.9839 / 0.9843 of the nominal 4096 blocks/s in RUN 51, 52 and 53 (`HARDWARE_TESTS.md` §V28.15): 4031 a second, about 65 blocks (1040 samples) a second
 short, stable to 0.05 % across three runs of one build. The corrector's authority is 0.78 % (16 corrections of 2048 per chunk), so the ring falls onto the production gate (2049) and `target`

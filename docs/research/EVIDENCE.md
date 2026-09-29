@@ -11810,3 +11810,19 @@ systematic; the latency `L(T, A)` of the native path (pending, RUN 53's ingestio
 **What this does NOT establish.** Why 1.6 % of the blocks do not reach the ring; that the remedies the host favours (a larger `k`) are audible-safe or physically effective;
 that any of the three AHEAD-1 holds underran; the latency of any rung (`target` does not set it while the ring sits on the gate); anything about the perceptual run, which stays
 unauthorised.
+
+
+### GBP-HW-363 — GBP-HW-272's CLAIM 1 recomputed over 64 logs (RUN 53 adds one cartridge-present log, `0x92`): 13 at `0x90`, 51 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-358`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 53 (`v28-validation-0001-run53`, Issue #137) ran with the same GBA cartridge in the slot and records `orig=92`, as the split predicts. Before this run the population was 63 logs,
+13 at `0x90` and 50 at `0x92`; after it, it is **64: 13 at `0x90` and 51 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     51 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
+
+---
