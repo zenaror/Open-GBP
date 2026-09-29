@@ -242,7 +242,7 @@ static void set_ring(uint32_t level)
 
 struct case_result {
     uint32_t runs, short_out, above, ready_bad, late_cut, stale_heard, late_rot, unadj, fill_short, heard;
-    uint32_t worst_short, disc_max, in_flight, underruns, lost, cut_late_rel;
+    uint32_t worst_short, disc_max, in_flight, underruns, lost, cut_late_rel, begin_high;
     int32_t  off_min, off_max;
 };
 
@@ -270,6 +270,9 @@ static void run_case(double r, double sp, double st, double late, int at, uint32
                 const int32_t off = mv->mute == ST ? BEGIN_OFF_START : BEGIN_OFF[(p + m) % 17u];
                 const int32_t lv = (int32_t)mv->from_t + off;
                 set_ring(lv > 0 ? (uint32_t)lv : 0u);
+                /* the guard against the error the review caught: a move that BEGINS at or above target - 900 is not the
+                 * console's (956-1878 below, 2666 at the prelude), and the mutes must never be sized on it */
+                out->begin_high += (int32_t)adec.count - (int32_t)mv->from_t > -900;
             }
             mon_lost = 0u;
             mon_disc = adec.discarded;
@@ -334,6 +337,8 @@ static struct case_result test_case(const char *name, double r, double sp, doubl
     check(c.underruns == 0u, w);
     snprintf(w, sizeof w, "%s: no feed sample was lost for want of room in the ring", name);
     check(c.lost == 0u, w);
+    snprintf(w, sizeof w, "%s: every move began with the ring BELOW target, as the console measures it (begin ring guard)", name);
+    check(c.begin_high == 0u, w);
     snprintf(w, sizeof w, "%s: the level is set at the second-to-last period at the latest, never in the last", name);
     check(c.cut_late_rel == 0u, w);
     return c;
@@ -365,6 +370,7 @@ int main(int argc, char **argv)
      * about 36 a period; a third of the console's 125 still passes (below 36 a build is left in flight at the landing) */
     calls_pp = 48u;
     test_case("pump at 48 calls a period, 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 30u);
+    test_case("pump at 48 calls a period, 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 31u);
     calls_pp = 125u;
     /* the other users, same properties, the two cases that bracket the console */
     cur_moves = OTHER;
