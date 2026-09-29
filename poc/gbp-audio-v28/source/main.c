@@ -1008,6 +1008,11 @@ static void v28_cut(enum gbp_walker_kind kind, uint64_t now)
  * KIND_START_FN has EXACTLY ONE call site in main.c and that it sits inside this function's own
  * body -- the general, durable form of today's lesson: a start conditioned on a specific exit
  * reason is the same defect shape whether it currently has zero reachable paths or one. */
+/* Issue #138 (RUN 55): 3a's per-depth deltas are taken against this snapshot, and it is RE-TAKEN when 3a starts. It used to be a function-local static that
+ * began at zero, so 3a's first row counted from boot and carried navigate's underrun and 13 088 `dup` (RUN 55: row n=0 `dup` 16 191 against about 3 100
+ * of its own, session underruns 2 against p0 1 + rows 2). */
+static uint32_t d0_underruns, d0_overflow, d0_dup, d0_drop, d0_ring_gated;
+
 static void v28_dispatch_phase_start(uint64_t now)
 {
     if (gbp_walker_finished(&walker) || walker.index == v28_started_phase_index) return;
@@ -1015,6 +1020,8 @@ static void v28_dispatch_phase_start(uint64_t now)
     switch (gbp_walker_current_kind(&walker)) {
     case GBP_WALKER_DESCENT_3A:
         gbp_v28_3a_start(&s3a, live.tb_hz, now);
+        d0_underruns = (uint32_t)ap2.underruns; d0_overflow = (uint32_t)adec2.overflow; d0_dup = (uint32_t)ap2.dup;
+        d0_drop = (uint32_t)ap2.drop; d0_ring_gated = (uint32_t)ap2.ring_gated;       /* the first row starts HERE, not at boot */
         break;
     case GBP_WALKER_HOLD_3B: {
         /* 3a's own confirmed floor (Amendment 1, corrected at the Orchestrator's own freeze
@@ -1207,7 +1214,6 @@ static void live_step(void)
                      * directly from gbp_aplay2/gbp_adec2's cumulative counters at depth_done() time
                      * against the previous depth's own snapshot -- gbp_v28_3a itself tracks none of
                      * this (its own header: "this module reads no device"). */
-                    static uint32_t d0_underruns, d0_overflow, d0_dup, d0_drop, d0_ring_gated;
                     gbp_v28_3a_depth_done(&s3a, 0u, ap2.underruns - d0_underruns, adec2.overflow - d0_overflow,
                                           ap2.dup - d0_dup, ap2.drop - d0_drop, 0u, ap2.ring_gated - d0_ring_gated);
                     d0_underruns = ap2.underruns; d0_overflow = adec2.overflow; d0_dup = ap2.dup;

@@ -11891,3 +11891,64 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
 
 ---
+
+
+### GBP-HW-367 — RUN 55 (`validation_run` with the two RUN 54 fixes): the drain's loss is 0.31-0.36 % in every phase, the corrector holds the chunk-start level at target - BAND (3 828 against 3 840), the AHEAD-1 hold at T256 ran its full 60 s with its underrun path live and counted none, and the sweep PASSES 18 of 18 GATE rows for the first time — FACT (the measurements, one boot); that the fixes returned the corrector to holding `target` is CORROBORATED (the calibrated host predicted the level from the loss); that AHEAD 1 at T256 is clean for a minute is CORROBORATED on ONE observed boot
+
+**Source.** `HARDWARE_TESTS.md` §V28.21; `logs/run55/GBP-AUDIO-V28_v28-validation-0001.log` sha256 `2d039a9715d892a4b7d9a83b5a5a2646ff8d224dcc8d23ecdc1a6aa47869d857` (archived byte-identical), build `v28-validation-0001` at
+commit `7e0dc0c`, slot `23-v28v` (boot.dol `73dcaae9…5290`); read with `tools/v28verdict.py` at the commit that repaired its stale note (§V28.21), the recorded verdicts unchanged.
+
+```text
+V28PHC   p0 navigate 48.1 s  loss 0.336 %   p1 3a 104.2 s  0.353 %   p2 3b 60.0 s  0.355 %   p3 sweep 35.3 s  0.311 %     (taps == blocks_in, 0 failed, 0 wrong-length, every phase)
+3b       AHEAD 1 at T256 (4096), 60.0 s, underrun_seen 0, ONE V28_3B record; mean ring 3 097 (-999), mean chunk start 3 828 (-268 vs target, 12 below target - BAND), min ring 2 272 (223 above the production gate 2 049), 1 914 chunks; V28PHC p2 underruns 0
+sweep    verdict PASS, 18/18 GATE, no cut after unmute in any GATE row; landings (ring - target) -183 .. -144, mean -166; begin rings (ring - from_target) -620 .. -462
+```
+
+- **FACT.** The four per-phase losses (P1 registered 0.10-0.35 %, refuted above 0.5 %: p1 and p2 read 0.003 and 0.005 points above the band's top, nowhere near the refutation line); the chunk-start level, mean ring and minimum (P2 registered about 3 838 / 3 060 / 2 300, refuted below 3 000);
+  the hold's 60.0 s with `underrun_seen` 0 and one record (P3); the sweep's 18 PASS and the continuity gate (P5); `taps == blocks_in` (P6).
+- **The hook was live in this build and demonstrably fired in the same run.** `git grep underrun_observed 7e0dc0c` shows the 3a call (`main.c` line 1203) and the 3b call (1228); 3a's confirm at 2 304 recorded `underruns=1` and ended on it; `V28PHC` counted 1 underrun in p0 and 1 in p1 and 0 in p2 from the play path's own counter,
+  which is independent of the hook. A hold that underran would have ended early: this one did not. **This is the first observed AHEAD-1 hold with a working detector that read clean** (RUN 51-53's "clean" holds were unobserved, `GBP-HW-362`; RUN 54's underran 15 times, `GBP-HW-365`).
+- **CORROBORATED: at a loss below the corrector's authority the ring leaves the production gate and the chunk-start level sits at `target - BAND`.** The model predicted 3 831-3 838 at 0.18-0.5 % slow (`HARDWARE_TESTS.md` §V28.19a); the console read 3 828 at 0.355 %. `TARGET` sets the level again, so it sets latency again, for the first time since the native path.
+  Not FACT: one boot, one game, one console; the model is calibrated to earlier runs of the same console.
+- **CORROBORATED, one boot: AHEAD 1 at T256 is clean for a minute** at this loss. The Operator's ear agrees ("fase 3 soou limpa", his one heard failure fell at the 2 -> 3 change, 3b's entry, a designed 218.75 ms silence): OPERATOR OBSERVATION, not used to confirm the count.
+  RUN 51-53 stay UNOBSERVED; RUN 54's production configuration underran 15 times at 1.513 %.
+- **`GBP-HW-351`'s "32-tap reversal condition" is now evaluable and fired** (the AHEAD-1 hold at T256 was clean, the anchor T256): recorded, not acted on (Amendment B). Its margin figure: minimum ring 2 272, 223 samples above the gate 2 049; mean ring 3 097. Whether that is enough for 32 taps is a derivation, not a reading (#128 section 5 prices 32 taps in modelled pipeline ms).
+- **The mutes' begin deficits are no longer the operating point.** `GBP_V28_BEGIN_DEFICIT_STEP` (1 878) and `_START` (2 666) were measured with the ring on the gate; the GATE moves now begin 462-620 below target (`fill_short 0`, `late 0`, every row). The mutes (7 and 10) carry margin they were derived without; they stay (the derivation is a floor, not a fit).
+
+**What this does NOT establish.** Why the loss is 0.34 % and not RUN 54's 0.18 % (the label's per-frame draw, `validation_run`'s handler work, or something else: UNKNOWN, `U-GBP-050`); the latency of any rung (derived from the levels in the next entry, not read here); audibility; a second boot; the perceptual run, which stays unauthorised.
+
+---
+
+### GBP-HW-368 — RUN 55's P4 is REFUTED as registered: 3a's `dup` in a 6 s AHEAD-4 dwell was 3 073 and 3 072 (the corrector's full authority) at T5632 and T5120 against a band of 700-1 100 refuted at 2 800; the five later dwells (1 568-1 931) fit the MEASURED loss and the console's AI clock; the saturation of the first dwells is a HYPOTHESIS (recovery after 3a's AHEAD 1 -> 4 entry) — FACT (the counts and the refutation); HYPOTHESIS (the cause); the 2 304 / 2 336 bracket is again the production gate plus BAND
+
+**Source.** `HARDWARE_TESTS.md` §V28.21; the same log as `GBP-HW-367`; the prediction is `HARDWARE_TESTS.md` §V28.19a P4.
+
+```text
+3a dup per 6 s dwell   T6144 16 191 (see below)  T5632 3 073  T5120 3 072  T4608 1 568  T4096 1 856  T3584 1 931  T3072 1 813  T2560 1 760  T2048 0 (starved 12 653)
+bracket                2 048 and 2 304 fail (dup 0, starved > 0); 2 336, 2 368, 2 432 hold; the confirm at 2 304 underran once
+```
+
+- **FACT: P4 is refuted as registered.** 3 073 and 3 072 are 16 corrections a chunk over 192 chunks, the corrector's full authority (99 % of the 3 072 maximum), against a band of 700-1 100 refuted at 2 800 or more. It is recorded as refuted and not rescued.
+- **A post-hoc reading, computed after the run and NOT a confirmation of anything registered:** the band assumed a 0.18 % deficit. The measured loss is 0.353 % in p1 (7.2 samples a chunk) and the console's AI plays 32 028.483 Hz (`GBP-HW-325`, +0.089 %, 1.8 a chunk): 9.0 a chunk over 192 chunks is 1 730, and the five unsaturated dwells average 1 786. The registration's arithmetic used the wrong loss.
+- **HYPOTHESIS: the saturated dwells are the recovery after 3a's entry.** 3a begins with the ring at 7 696 (navigate's end), raises AHEAD from 1 to 4 (three READY chunks are built from the ring) and cuts to T6144; the first three dwells (6-18 s in) are the ones at or near saturation. It is the recovery risk `HARDWARE_TESTS.md` §V28.19a named; it is not shown, only consistent (a gate-bound state has to refill the READY queue as well as raise the ring).
+- **A defect in the RECORD, found here: 3a's first row counted from boot.** `main.c`'s per-depth delta snapshot was a function-local static that began at zero, so row n=0 carries navigate's underrun and its 13 088 `dup` (`V28PHC` p0): 16 191 against about 3 100 of its own; session underruns 2, `V28PHC` p0 1 + p1 1, 3a's rows 2. The snapshot is now re-taken when 3a starts (source; the next image). The rows n >= 1 were never affected.
+- **The bracket reappeared, as §V28.19a said it would, and it means the gate:** a chunk starts only at 2 049, the corrector adds a DUP only while `fill < target - BAND` (256), so at `target <= 2 305` no DUP is possible. It is a structural limit of the design, not a latency floor. `GBP-HW-362`'s retraction of "the lowest depth the path holds" stands.
+
+**What this does NOT establish.** The cause of the saturation (an image that begins 3a from a state that is not gate-bound would test it); that the loss will stay at 0.35 %.
+
+---
+
+### GBP-HW-369 — GBP-HW-272's CLAIM 1 recomputed over 66 logs (RUN 55 adds one cartridge-present log, `0x92`): 13 at `0x90`, 53 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-366`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 55 (`v28-validation-0001-run55`, Issue #139) ran with the same GBA cartridge in the slot and records `orig=92`, as the split predicts. Before this run the population was 65 logs,
+13 at `0x90` and 52 at `0x92`; after it, it is **66: 13 at `0x90` and 53 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     53 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
+
+---
