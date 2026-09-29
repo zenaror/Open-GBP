@@ -24,6 +24,7 @@ class PlanSelector(unittest.TestCase):
         m = re.search(r"static const struct gbp_walker_plan \*const V28_PLAN =\s*"
                       r"#if defined\(GBP_V28_PLAN_PERCEPTUAL\)\s*\n\s*&GBP_V28_PERCEPTUAL_NO_PHASE1;\s*\n"
                       r"#elif defined\(GBP_V28_PLAN_DIAG_3A_STALL\)\s*\n\s*&GBP_V28_DIAG_3A_STALL;\s*\n"
+                      r"(?:#elif defined\(GBP_V28_PLAN_DIAG_LOSS\)\s*\n\s*&GBP_V28_DIAG_LOSS;\s*\n)?"   # Issue #137's fourth arm
                       r"#else\s*\n\s*&GBP_V28_VALIDATION_RUN;\s*\n#endif", src)
         self.assertIsNotNone(m, "V28_PLAN's own selector does not offer diag_3a_stall as a third arm")
 

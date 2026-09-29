@@ -39285,3 +39285,106 @@ step size before, `GBP-HW-332`).
 
 **Not done, on purpose.** No firmware change, no rebuild. The perceptual run stays unauthorised; nothing goes to hardware until the Orchestrator chooses a remedy the host
 has reproduced.
+
+### V28.16 The loss diagnostic (`diag_loss`), designed and PRE-REGISTERED before it is built into a candidate — 2026-09-29 (Issue #137, `U-GBP-050`)
+
+*Appended. Nothing above is amended. This entry registers what the diagnostic will measure and the rule its answer is read by; no image of it has been staged and nothing has run.*
+
+**The question.** About 1.6 % of the 4096 AUDIO blocks a second never reach the ring in RUN 51-53 (§V28.15). The last build with a comparable measurement, RUN 43 (`sync-0001`, 8-push step), lost
+0.18 %; RUN 38's 16-push build 0.62 %. Where the blocks go, and what the loss is coupled to, decides the remedy: a loss that is ours is removed, and `k` stays at the value `GBP-HW-349` settled;
+a loss that is the console's is compensated (`k`), which the Orchestrator has ranked second (#137).
+
+**What the record shows (files and lines read, not the index).** In every live/sync run, `taps == blocks_in` with `taps_failed 0` and `wrong_len 0` (`LIVEN`: RUN 38 288 620, RUN 43 1 021 182 taps): the
+drain simply delivered fewer blocks; a refused or short tap never explains it. The 64 s window (`window_blocks`, nominal 262 144) reads RUN 38 260 518 (0.62 %), RUN 39 260 361, RUN 40 260 927, RUN 41
+261 661, RUN 42 261 679 (0.18 %), RUN 43 261 670 (0.18 %). The audio `SEMGAP` maximum is the same in every run (91 925 in RUN 38, 91 772 in RUN 43, 92 036-92 258 in RUN 48-53): the longest single gap
+did not change, so what changed is how OFTEN shorter stretches occur, which no V28 log records: it prints no per-second drain, no per-call ticks, and never printed the tap counters. Every V28 run carries
+the label (`V28LABEL` from RUN 48), so no run separates label-on from label-off. The per-second sd of the drained blocks in the older builds: 4.07 (RUN 38), 4.49 (RUN 42), 2.28 (RUN 43) blocks a second over 63 windows.
+
+**Candidates (none measured; A and C are INFERENCE, B's cost is FACT and its coupling INFERENCE).**
+
+| | where | what changed since RUN 43 |
+| --- | --- | --- |
+| A | pump slot | a production call is 128 pushes at 65 536 Hz. `gbp_aplay2.h` calls that "the same per-call TIME granularity" (1.953 ms of decode); it is decode time, not CPU time. RUN 40 measured 1 021 ticks for an 8-push call and 1 974 for a 16-push call, and the 16-push arm lost 3.7 x more (`GBP-HW-332`, 0.270 outside L2's window, `GBP-HW-339`). `GBP-HW-350` models the native chunk at 25.9 k (mono, sum before the resampler) to 51 k ticks over 16 calls: 1.6-3.2 k ticks a call. Never measured on hardware. |
+| B | pump slot | the GX label (§7), 3 978-4 366 ticks per render (`V28LABEL ticks_max`, every V28 run), 11-18 renders a second: one uninterrupted stretch twice RUN 40's 16-push call. |
+| C | drain slot | the tap's decode: 16 slices a block, each with an `int64` divide and modulo (`sample2_unclipped` -> `div_round_half_even2`, `__divdi3`/`__moddi3` on the 32-bit core) and a variable-cap ring modulo per push; the frozen `gbp_adec_push_block` does one of each a block. `GBP-HW-350`: "the drain slot's cost of the decode itself, never measured". |
+| D | pump slot | the walker, sweep, 3a and 3b work in `live_step`: small, held constant, not tested. |
+
+**The design.** A dedicated plan `diag_loss` in the same image (`make -C poc/gbp-audio-v28 PLAN=diag_loss`, build id `v28-diagloss-0001`): navigate (allowance 60 s) -> loss (cap 348 s = 310 s of holds + 38 s for
+the two entries), session cap 468 s = `validation_run`'s, so the stores it is sized for hold this plan (`tools/v28budget.py`). One handler, `gbp_v28_loss`:
+
+```text
+ENTRY   one UNMUTED plan to TARGET 4096 (62.5 ms, the anchor's default), AHEAD 4 (3a's own first begin); the holds start once it has landed
+WARM    10 s at the baseline cell (L, S): recorded, NEVER counted
+CELLS   12 holds of 20 s, three visits to each of the four cells (L,S) (L,s) (l,s) (l,S); every consecutive pair differs in exactly ONE factor
+FINAL   ROTATE (7 periods) to AHEAD 1 at the same TARGET, then 60 s at the baseline cell, counting underruns
+```
+
+L is the GX label (on = production image; l = the whole label block of `submit_ready` skipped). S is the production step (128 pushes a call, `GBP_APLAY2_STEP_PUSHES`; s = 64, RUN 40's half-size
+step: the same pushes, partitioned into twice the calls, through `ap2.step_pushes`, which asks once per chunk). Outside a CELL hold, and during both entries, the cell is the baseline; a zeroed handler
+is the baseline by construction (the fields are stored inverted). A cut hold is recorded PARTIAL and never counted.
+
+**The order of the cells is not the plain cycle, and this is a deviation from the decision comment's `(L,S) -> (L,s) -> (l,s) -> (l,S) -> ...`, made after an adversarial review.** In the plain cycle the
+label-on holds sit at positions {0,1,4,5,8,9} and the label-off holds at {2,3,6,7,10,11}, two holds later on average, so a monotone drift of d points a hold biases the label effect by -2d, while the step
+is balanced. A walk that flips one factor a step alternates `L xor S`, so BOTH factors cannot be balanced against a linear drift (800 such walks with three visits a cell, searched exhaustively: none). The
+image's walk is `(L,S) (l,S) (l,s) (L,s) (L,S) (l,S) (l,s) (L,s) (l,s) (L,s) (L,S) (l,S)`: the label exactly balanced (position sums 33 and 33), the step to 4 hold-positions (a bias of 2d/3, a third of
+the plain cycle's worst). It still flips one factor a step, still visits each cell three times, still starts at the baseline. `tests/unit/test_gbp_v28_loss.c` and `tests/host/test_v28loss.py` check the
+table; the Orchestrator may choose the plain cycle back, at that price.
+
+**What a hold records** (SD only, read by `tools/v28loss.py`): absolute counter snapshots at its start, at start + 3 s (the LATE window, the primary one: the first seconds after an arm changes are
+settling) and at its end (`blocks_in`, taps, failed, wrong-length taps, underruns, `dup`, `drop`, `starved`, produced, handed, ring-gated, the ring, and gbp_aplay2's OBSERVED target and ahead, so the
+log verifies the fixed operating point, not the intent); the hold's histograms; the times of the three snapshots. The histograms (ticks at 40.5 MHz, reset at each hold's start, whole hold):
+
+```text
+tap      the whole tap callback, drain slot          edges  1000 2000 4000 8000
+decode   the tap's decode alone                       edges  1000 2000 4000 8000
+prod     one production call, pump slot               edges  1000 2000 4000 8000
+pump     the whole pump call: the stretch the drain   edges  2000 4000 8000 16000
+         cannot run in
+label    the label block (only while it is on)        edges  1000 2000 4000 8000
+gap      the interval between two consecutive taps    edges  14831 24719 34606 44494   (1.5, 2.5, 3.5, 4.5 block periods of 9 887.45 ticks)
+```
+
+Candidate C has no arm by design (nothing manipulated touches the tap): its histogram is its only evidence. `V28TAPS` (taps, failed, wrong-length, `blocks_in`, longest gap) is printed by every plan of the image now.
+
+**The resolution arithmetic (INFERENCE from the older builds' per-second counts; the V28 chain's own per-second variability has never been measured).** A hold's late window is 17 s. If the per-second
+counts were independent, the sd of a window mean is sd/sqrt(17): 0.55 blocks a second (RUN 43) to 1.09 (RUN 42), i.e. 0.013-0.027 percentage points. The effect is a difference of two means of six holds:
+its standard error is that x sqrt(2/6) = 0.008-0.015 points. The threshold for "not coupled", 0.05 points, is 3.3-6.4 SE; for "coupled", 0.2 points, 13-26 SE. The window edges add at most one block
+(the counters and the timestamps are read in one pump call, the drain and the pump being one thread): 0.0014 % of a window. What the arithmetic assumes is checked by the run itself: the reader prints the
+scatter left after the trend fit, and the repeats of each cell.
+
+**THE RULE, registered before the build** (the Orchestrator's, on #137, with this entry's operationalisation):
+
+1. Loss of a hold = `1 - blocks_in / (4096 x seconds)` over the hold's own window; the primary window is the LATE one, the whole-hold figure is printed beside it. Exact fractions, never rounded decimals.
+2. A factor's effect = the mean loss with its production level (label ON; step 128) minus the mean with the other, in percentage points, over the counted cells: whole (not partial) CELL holds with their
+   late window and on the intended TARGET/AHEAD at all three snapshots. Warm-up and final are never counted.
+3. **|effect| > 0.2 points: COUPLED. |effect| < 0.05: NOT coupled. Otherwise (0.05 and 0.2 included): UNRESOLVED.** This is the registered class and the tool always prints it.
+4. **Added here, after the review, and it can only weaken a verdict:** the tool also prints the standard error (from the scatter left after a trend fit, or the repeats of a cell when no fit is possible),
+   whether the class is stable at +-2 SE, and a trend-adjusted estimate (the loss regressed on both factors and the hold's position, exact). The HELD verdict is the registered class if the counted design
+   is balanced (every cell counted the same number of times), the class is stable at +-2 SE, and the trend-adjusted estimate classifies the same; otherwise UNRESOLVED, with the reason. A cut or off-point
+   hold unbalances the design and holds every verdict.
+5. **If C dominates**, neither arm moves the loss appreciably and the tap's occupancy (its share of wall time, and its histogram) shows the long stretches. If A or B dominates, its arm moves the loss and
+   its own histogram shows it. The histograms are reported by factor level as bins per second of the whole hold.
+6. **The final AHEAD-1 hold.** The calibrated host predicts 14-15 underruns in 60 s at the ~1.6 % deficit (§V28.15). The tool reports the whole-hold and late-window counts, the hold's own measured loss (the
+   prediction was made at 1.6 %; compare it before reading a mismatch), and: 14-15 = matches; 7-22 = consistent within Poisson noise (14.5 +- 2 x sqrt(14.5)), not the point figure; 0 = ZERO, which refutes
+   the host's model only if the underrun path is reachable (it is: `gbp_v28_loss_underrun_observed` is called from the pump slot and counted per underrun, and the structural test below); anything else =
+   differs. A partial or off-point final hold is not evaluable.
+
+**What it does NOT establish.** Not the cause in the instruction stream of the loss (a histogram shows how often a stretch is long, not what made it); not audibility; nothing about the perceptual run,
+which stays unauthorised. The step arm changes the number of calls a chunk as well as their length (each call has a fixed cost, RUN 40's 68 ticks), as RUN 40's did; the label arm removes GX work, not
+only stretch length. The two arms are separate variables, not the mechanisms. One console, one Game Boy Player, one game, one boot.
+
+**What else this commit changes, and the other images.** `validation_run` is NOT byte-for-byte what it was: `gbp_v28_loss.c` links into every plan; `live_tap` and `pump` are wrappers around their old
+bodies (`live_tap_body`, `pump_body`); the AI underrun counter's delta is read every slot; every plan prints the `V28TAPS` line; and both underrun hooks are now live, which was the point: in
+`validation_run` 3a's confirm dwell ends at its first underrun and 3b's AHEAD-1 hold ends at its first underrun and escalates to AHEAD 2, as #128 §2 designed. `validation_run` at this commit is therefore
+not comparable to RUN 43-53 for those two phases. The instruments (histograms, arms, the handler) are compiled into the `diag_loss` image only (`tests/host/test_v28_diag_loss_wiring.py`).
+
+**The structural test grows a third time (`tests/host/test_v28_plans.py::TheContractCallsAreMade`).** Every function a handler header declares whose name ends in `_start`, `_done`, `_cut` or
+`_underrun_observed` must have a call site in `main.c` that `main()` can reach (by call, or by a function's address taken), comments, string literals and `#if 0` blocks excluded, the parser finding a
+declaration however it is written. Run against `main.c` at `2be745b` it is RED for exactly `gbp_v28_3a_underrun_observed` and `gbp_v28_3b_underrun_observed` (0 callers; every other contract function 1-2).
+A reviewer's finding that a dead static function or a declaration written on its own line passed the first version is fixed in the second, with tests.
+
+**Files.** `src/audio/gbp_v28_loss.{h,c}`, `src/audio/gbp_v28_plans.h` (`GBP_V28_DIAG_LOSS`), `src/audio/gbp_walker.h` (`GBP_WALKER_LOSS`), `poc/gbp-audio-v28/{source/main.c,Makefile}`,
+`tools/v28loss.py`, `tools/v28budget.py` (`diag_loss`); tests `tests/unit/test_gbp_v28_loss.c` (2 278 checks), `tests/host/test_v28loss.py`, `tests/host/test_v28_diag_loss_wiring.py`,
+`tests/host/test_v28_plans.py`.
+
+**Not done, on purpose.** No candidate is pinned or staged; nothing goes to hardware until the Orchestrator has verified this entry and the image; the perceptual run stays unauthorised.

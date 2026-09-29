@@ -155,11 +155,13 @@
 #endif
 #define TEST_ID "GBP-AUDIO-V28"
 
-#if (defined(GBP_V28_PLAN_VALIDATION) + defined(GBP_V28_PLAN_PERCEPTUAL) + defined(GBP_V28_PLAN_DIAG_3A_STALL)) > 1
-#error "exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL must be defined"
+#if (defined(GBP_V28_PLAN_VALIDATION) + defined(GBP_V28_PLAN_PERCEPTUAL) + defined(GBP_V28_PLAN_DIAG_3A_STALL) + \
+     defined(GBP_V28_PLAN_DIAG_LOSS)) > 1
+#error "exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL / GBP_V28_PLAN_DIAG_LOSS must be defined"
 #endif
-#if !defined(GBP_V28_PLAN_VALIDATION) && !defined(GBP_V28_PLAN_PERCEPTUAL) && !defined(GBP_V28_PLAN_DIAG_3A_STALL)
-#error "the Makefile must define exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL"
+#if !defined(GBP_V28_PLAN_VALIDATION) && !defined(GBP_V28_PLAN_PERCEPTUAL) && !defined(GBP_V28_PLAN_DIAG_3A_STALL) && \
+    !defined(GBP_V28_PLAN_DIAG_LOSS)
+#error "the Makefile must define exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL / GBP_V28_PLAN_DIAG_LOSS"
 #endif
 
 static const char opengbp_ident_marker[] =
@@ -182,6 +184,13 @@ static const char opengbp_ident_marker[] =
 #define PLAY_EVENT_RECORDS  33575u
 #define PLAY_FRAME_RECORDS  25500u
 #define CORR_CAP            16575u
+#elif defined(GBP_V28_PLAN_DIAG_LOSS)
+#define V28_SESSION_CAP_S   GBP_V28_DIAG_LOSS_CAP_S              /* 468, Issue #137: the same cap as validation_run, so the
+                                                                    * stores below are already sized for it */
+#define V28_WALL_S          533u
+#define PLAY_EVENT_RECORDS  42107u
+#define PLAY_FRAME_RECORDS  31980u
+#define CORR_CAP            20787u
 #else
 #define V28_SESSION_CAP_S   GBP_V28_VALIDATION_RUN_CAP_S         /* 468, Issue #131/#133: 3a's own budget
                                                                     * 138 -> 168 (Defect B) */
@@ -588,6 +597,8 @@ static const struct gbp_walker_plan *const V28_PLAN =
     &GBP_V28_PERCEPTUAL_NO_PHASE1;
 #elif defined(GBP_V28_PLAN_DIAG_3A_STALL)
     &GBP_V28_DIAG_3A_STALL;
+#elif defined(GBP_V28_PLAN_DIAG_LOSS)
+    &GBP_V28_DIAG_LOSS;
 #else
     &GBP_V28_VALIDATION_RUN;
 #endif
@@ -604,6 +615,52 @@ static int live_end;
 static uint32_t live_taps, live_taps_failed, live_wrong_len;
 static uint64_t live_gap_max, live_gap_at, live_last_t;
 static int ai_started, ai_stopped;
+
+/* ---- Issue #137 (U-GBP-050): the LOSS diagnostic's instruments. ONLY in the diag_loss image: every other plan compiles none
+ * of this, so validation_run and the perceptual image keep their own timing byte for byte. The handler (gbp_v28_loss.h) decides
+ * the cell; this file applies it (the label block of submit_ready, ap2.step_pushes) and measures: ticks around the tap, its
+ * decode, each production call, the whole pump call and the label block, and the gap between taps. */
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+static struct gbp_v28_loss loss;
+static struct gbp_v28_hist loss_hist[GBP_V28_NHIST];
+static struct gbp_v28_loss_ctr loss_ctr;
+#define V28_LABEL_ON()          (loss.label_off == 0u)
+#define V28_TICKS(var)          const uint32_t var = (uint32_t)gettick()
+#define V28_NOTE(id, t0)        gbp_v28_hist_note(&loss_hist[(id)], (uint32_t)gettick() - (t0))
+static void loss_gap_note(uint64_t d)
+{
+    gbp_v28_hist_note(&loss_hist[GBP_V28_H_GAP], d > 0xFFFFFFFFull ? 0xFFFFFFFFu : (uint32_t)d);
+}
+/* the step arm: the SAME pushes, partitioned into calls of 128 (production) or 64 (RUN 40's half-size step) */
+static uint32_t loss_step_pushes(void *user, uint32_t seq)
+{
+    (void)user;
+    (void)seq;
+    return loss.step_half ? GBP_V28_LOSS_STEP_HALF : GBP_V28_LOSS_STEP_FULL;
+}
+static void loss_snapshot(struct gbp_v28_loss_ctr *c)
+{
+    c->blocks_in = (uint32_t)adec2.blocks_in;
+    c->taps = live_taps;
+    c->taps_failed = live_taps_failed;
+    c->wrong_len = live_wrong_len;
+    c->underruns = (uint32_t)ap2.underruns;
+    c->dup = (uint32_t)ap2.dup;
+    c->drop = (uint32_t)ap2.drop;
+    c->starved = (uint32_t)ap2.starved_steps;
+    c->produced = (uint32_t)ap2.produced;
+    c->handed = (uint32_t)ap2.handed;
+    c->ring_gated = (uint32_t)ap2.ring_gated;
+    c->ring = (uint32_t)adec2.count;
+    c->target = (uint32_t)ap2.target;
+    c->ahead = (uint32_t)ap2.ahead;
+}
+#else
+#define V28_LABEL_ON()          1
+#define V28_TICKS(var)
+#define V28_NOTE(id, t0)
+#define loss_gap_note(d)        ((void)0)
+#endif
 static uint64_t t_ai_start, t_ai_stop;
 static int live_drawn_prompt, live_drawn_press;
 
@@ -632,7 +689,7 @@ static void corr_note(uint32_t value)
 /* THE AUDIO TAP -- gbp_alive's own origin/window detection is UNCHANGED; only the decode call and
  * what happens AT the origin (gbp_walker_start() instead of gbp_async_start(), no AWR arm) differ
  * from sync-0001. */
-static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
+static void live_tap_body(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
 {
     int act;
     (void)user;
@@ -649,10 +706,16 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
             gbp_walker_start(&walker, V28_PLAN, live.tb_hz, live.t_origin);
         }
         if (act == GBP_ALIVE_DO_DECODE || (sync_started && !gbp_walker_finished(&walker) && live.phase == GBP_ALIVE_DONE)) {
+            if (live_last_t) loss_gap_note(t_done - live_last_t);
             if (live_last_t && t_done - live_last_t > live_gap_max) { live_gap_max = t_done - live_last_t; live_gap_at = t_done; }
             live_last_t = t_done;
-            if (gbp_adec2_push_block(&adec2, bytes) == 0)
-                gbp_alive_decoded(&live, adec2.ring[(adec2.head + adec2.count - 1u) % adec2.cap]);
+            {
+                V28_TICKS(dec_t0);
+                const uint32_t pushed = gbp_adec2_push_block(&adec2, bytes);
+                V28_NOTE(GBP_V28_H_DECODE, dec_t0);
+                if (pushed == 0)
+                    gbp_alive_decoded(&live, adec2.ring[(adec2.head + adec2.count - 1u) % adec2.cap]);
+            }
             act = GBP_ALIVE_DO_DECODE;
         }
     }
@@ -670,6 +733,13 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
     }
     if (sync_started && gbp_walker_finished(&walker)) live_end = 1;
     else if (!sync_started && gbp_alive_finished(&live)) live_end = 1;
+}
+
+static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
+{
+    V28_TICKS(tap_t0);
+    live_tap_body(user, bytes, len, t_done, completed);
+    V28_NOTE(GBP_V28_H_TAP, tap_t0);
 }
 
 /* THE AI DMA CALLBACK -- interrupt context, unchanged shape from sync-0001, native handoff. */
@@ -882,6 +952,16 @@ static void v28_cut(enum gbp_walker_kind kind, uint64_t now)
     case GBP_WALKER_SWEEP:
         gbp_v28_sweep_cut(&sweep, now);   /* self-contained: writes the record itself, no follow-up call */
         break;
+    case GBP_WALKER_LOSS:
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+        loss_snapshot(&loss_ctr);
+        gbp_v28_loss_cut(&loss, now, &loss_ctr, loss_hist);
+        if (loss.hold_pending) gbp_v28_loss_hold_done(&loss);   /* the same two-step contract as 3a and 3b; a cut with no hold
+                                                                    * running (an entry, between holds) owes nothing */
+#else
+        (void)now;
+#endif
+        break;
     default: break;
     }
 }
@@ -958,6 +1038,11 @@ static void v28_dispatch_phase_start(uint64_t now)
         break;
     case GBP_WALKER_NULLING:
         (void)gbp_v28_nulling_start(&nulling, &tr, &ap2, &adec2, now, sync_seed);
+        break;
+    case GBP_WALKER_LOSS:
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+        gbp_v28_loss_start(&loss, live.tb_hz, now);
+#endif
         break;
     case GBP_WALKER_NAVIGATE:
     default:
@@ -1046,17 +1131,16 @@ static void syncpe_edges(void)
     }
 }
 
-/* Issue #137: nonzero once for every increase of the AI underrun counter since the last call (read from the
- * pump slot only; the counter is written by the DMA callback, a 32-bit aligned load is atomic on the Gekko). The
- * snapshot advances whether or not a handler was listening, so an underrun from an earlier phase never
- * reads as a new one at the next phase's first tick. */
-static int v28_underrun_edge(void)
+/* Issue #137: how many underruns the AI DMA callback has counted since the last call (read from the pump slot only; the counter is
+ * written by the callback, and a 32-bit aligned load is atomic on the Gekko). The snapshot advances whether or not a handler was
+ * listening, so an underrun from an earlier phase never reads as new at the next phase's first tick. */
+static uint32_t v28_underrun_new(void)
 {
     static uint32_t seen;
-    const uint32_t now_n = ap2.underruns;
-    const int edge = now_n != seen;
+    const uint32_t now_n = (uint32_t)ap2.underruns;
+    const uint32_t fresh = now_n - seen;
     seen = now_n;
-    return edge;
+    return fresh;
 }
 
 static void live_step(void)
@@ -1081,6 +1165,9 @@ static void live_step(void)
         if (!(wflags & GBP_WALKER_TICK_FINISHED)) {
             const int active = tr.active;
             const enum gbp_walker_kind kind_before = gbp_walker_current_kind(&walker);
+            /* Issue #137: the AI underrun counter's edge, read ONCE a slot whatever the phase, so the snapshot never lags a
+             * phase behind (an underrun from an earlier phase must not read as new at the next phase's first tick) */
+            const uint32_t underrun_now = v28_underrun_new();
             int tick_flags = gbp_walker_tick(&walker, now, active);
             /* gbp_walker_tick() only ever advances on TIMING (a phase/session cap): the handler's
              * own gbp_walker_phase_complete() calls below are the ONLY other way a phase ends, and
@@ -1091,8 +1178,8 @@ static void live_step(void)
                 int f;
                 /* Issue #137: the handler header's contract ("call whenever the caller observes underruns_total
                  * increase") had NO caller in this file until now -- a "clean" dwell was UNOBSERVED, not clean.
-                 * The edge is read once a slot (v28_underrun_edge), before the tick that could end the dwell. */
-                if (v28_underrun_edge()) gbp_v28_3a_underrun_observed(&s3a, now);
+                 * The edge is read once a slot (above), before the tick that could end the dwell. */
+                if (underrun_now) gbp_v28_3a_underrun_observed(&s3a, now);
                 f = gbp_v28_3a_tick(&s3a, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3A_TICK_DEPTH_DONE) {
                     /* the POC supplies the dwell's own counter DELTAS; this checkpoint reads them
@@ -1117,7 +1204,7 @@ static void live_step(void)
             }
             case GBP_WALKER_HOLD_3B: {
                 int f;
-                if (v28_underrun_edge()) gbp_v28_3b_underrun_observed(&s3b, now);   /* Issue #137, see 3a's case */
+                if (underrun_now) gbp_v28_3b_underrun_observed(&s3b, now);   /* Issue #137, see 3a's case */
                 f = gbp_v28_3b_tick(&s3b, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3B_TICK_HOLD_DONE) gbp_v28_3b_hold_done(&s3b);
                 if (f & GBP_V28_3B_TICK_PHASE_COMPLETE)
@@ -1133,12 +1220,29 @@ static void live_step(void)
                  * so the sweep dispatch happens further down, not here. */
                 break;
             }
+            case GBP_WALKER_LOSS: {
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+                /* Issue #137: the handler decides the cell and the entries, this file applies the arms and measures.
+                 * Ticked BEFORE the slot's own produce/step call below (the entry's landing is read from tr.active). */
+                int f;
+                loss_snapshot(&loss_ctr);
+                {
+                    uint32_t u;
+                    for (u = 0u; u < underrun_now && u < 64u; u++) gbp_v28_loss_underrun_observed(&loss, now);
+                }
+                f = gbp_v28_loss_tick(&loss, &tr, &ap2, &adec2, now, &loss_ctr, loss_hist);
+                if (f & GBP_V28_LOSS_TICK_HOLD_DONE) gbp_v28_loss_hold_done(&loss);
+                if (f & GBP_V28_LOSS_TICK_PHASE_COMPLETE) (void)gbp_walker_phase_complete(&walker, now, tr.active);
+#endif
+                break;
+            }
             case GBP_WALKER_NULLING:
             case GBP_WALKER_NAVIGATE:
             default:
                 break;
             }
             (void)tick_flags;
+            (void)underrun_now;
         }
         v28_control(now);
         syncpe_edges();
@@ -1155,7 +1259,11 @@ static void live_step(void)
 
     if (live.phase == GBP_ALIVE_WINDOW || (sync_started && !gbp_walker_finished(&walker) && live.phase == GBP_ALIVE_DONE)) {
         if (tr.active) { if (gbp_atrans2_step(&tr, &ap2, &adec2, now, &b)) { /* landed this call */ } }
-        else b = gbp_aplay2_produce(&ap2, &adec2);
+        else {
+            V28_TICKS(prod_t0);
+            b = gbp_aplay2_produce(&ap2, &adec2);
+            V28_NOTE(GBP_V28_H_PROD, prod_t0);
+        }
         if (b >= 0) {
             DCFlushRange(ap2_pool + (size_t)b * GBP_APLAY2_CHUNK_BYTES, GBP_APLAY2_CHUNK_BYTES);
             gbp_aplay2_queue(&ap2, b);
@@ -1209,7 +1317,7 @@ static void live_step(void)
 }
 
 /* THE CONSUMER SLICE -- unchanged from sync-0001 (video/vqueue/vpresent domain). */
-static void pump(void *user)
+static void pump_body(void *user)
 {
     uint32_t t0, t1, row, n;
     (void)user;
@@ -1283,6 +1391,14 @@ static void pump(void *user)
     offer_oldest_ready();
 }
 
+/* Issue #137: the whole pump call is the stretch the drain cannot run in (GBP-HW-332); measured in the diag_loss image only. */
+static void pump(void *user)
+{
+    V28_TICKS(pump_t0);
+    pump_body(user);
+    V28_NOTE(GBP_V28_H_PUMP, pump_t0);
+}
+
 /* ---- GX LABEL (Issue #128 §7) -- see the file header for the design and its own evidence. */
 static void submit_ready(int buf, struct gbp_vqueue *account)
 {
@@ -1310,27 +1426,32 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
 
     /* the label: same GX batch, same single draw-done token as the main quad above (see the file
      * header) -- ticks counted around this whole block, the cost §7 asks to measure in this slot */
-    t0 = (uint32_t)gettick();
-    v28_label_text(wanted, sizeof wanted, t_dec);
-    if (strncmp(wanted, label_shown, sizeof label_shown) != 0) {
-        /* the OTHER buffer: label_cur is still bound to whatever the GP may still be reading until
-         * THIS call's own draw-done fires -- never rewritten here */
-        const uint32_t next = label_cur ^ 1u;
-        label_render(next, wanted);
-        DCFlushRange(label_tex[next], sizeof label_tex[next]);
-        strncpy(label_shown, wanted, sizeof label_shown - 1u);
-        label_shown[sizeof label_shown - 1u] = '\0';
-        label_cur = next;
-        label_renders++;
+    if (V28_LABEL_ON()) {       /* Issue #137's L arm: the whole label block is skipped while it is off */
+        t0 = (uint32_t)gettick();
+        v28_label_text(wanted, sizeof wanted, t_dec);
+        if (strncmp(wanted, label_shown, sizeof label_shown) != 0) {
+            /* the OTHER buffer: label_cur is still bound to whatever the GP may still be reading until
+             * THIS call's own draw-done fires -- never rewritten here */
+            const uint32_t next = label_cur ^ 1u;
+            label_render(next, wanted);
+            DCFlushRange(label_tex[next], sizeof label_tex[next]);
+            strncpy(label_shown, wanted, sizeof label_shown - 1u);
+            label_shown[sizeof label_shown - 1u] = '\0';
+            label_cur = next;
+            label_renders++;
+        }
+        GX_InitTexObj(&label_tex_obj, label_tex[label_cur], GBP_V28_LABEL_W, GBP_V28_LABEL_H,
+                      GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+        GX_InitTexObjFilterMode(&label_tex_obj, GX_NEAR, GX_NEAR);
+        GX_LoadTexObj(&label_tex_obj, GX_TEXMAP0);
+        draw_label_quad();
+        t1 = (uint32_t)gettick();
+        label_ticks_last = t1 - t0;
+        if (label_ticks_last > label_ticks_max) label_ticks_max = label_ticks_last;
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+        gbp_v28_hist_note(&loss_hist[GBP_V28_H_LABEL], label_ticks_last);
+#endif
     }
-    GX_InitTexObj(&label_tex_obj, label_tex[label_cur], GBP_V28_LABEL_W, GBP_V28_LABEL_H,
-                  GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
-    GX_InitTexObjFilterMode(&label_tex_obj, GX_NEAR, GX_NEAR);
-    GX_LoadTexObj(&label_tex_obj, GX_TEXMAP0);
-    draw_label_quad();
-    t1 = (uint32_t)gettick();
-    label_ticks_last = t1 - t0;
-    if (label_ticks_last > label_ticks_max) label_ticks_max = label_ticks_last;
 
     GX_SetDrawDone();
 
@@ -1460,6 +1581,61 @@ static void v28_label_text(char *out, size_t cap, uint64_t now)
 #endif
 }
 
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+/* Issue #137: the LOSS diagnostic's records, SD-only, read by tools/v28loss.py. One V28_LOSS line a hold (timing, arms, ring), one
+ * V28_LOSSC line a window (the counters' deltas, wrap-safe), one V28_LOSSH line a histogram. Nothing here decides anything. */
+static void v28_loss_report_ctr(struct ringlog *rl, uint32_t n, const char *win, const struct gbp_v28_loss_ctr *a,
+                                const struct gbp_v28_loss_ctr *b)
+{
+    ringlog_printf(rl, "V28_LOSSC n=%lu win=%s blocks_in=%lu taps=%lu failed=%lu wrong=%lu underruns=%lu dup=%lu drop=%lu "
+                       "starved=%lu produced=%lu handed=%lu gated=%lu",
+                   (unsigned long)n, win, (unsigned long)(b->blocks_in - a->blocks_in), (unsigned long)(b->taps - a->taps),
+                   (unsigned long)(b->taps_failed - a->taps_failed), (unsigned long)(b->wrong_len - a->wrong_len),
+                   (unsigned long)(b->underruns - a->underruns), (unsigned long)(b->dup - a->dup),
+                   (unsigned long)(b->drop - a->drop), (unsigned long)(b->starved - a->starved),
+                   (unsigned long)(b->produced - a->produced), (unsigned long)(b->handed - a->handed),
+                   (unsigned long)(b->ring_gated - a->ring_gated));
+}
+
+static void v28_loss_report(struct ringlog *rl)
+{
+    static const char *const HNAME[GBP_V28_NHIST] = {"tap", "decode", "prod", "pump", "label", "gap"};
+    uint32_t i, k;
+    ringlog_printf(rl, "V28LOSSCFG target=%lu ahead=%u ahead_final=%u warm_s=%u hold_s=%u late_s=%u final_s=%u cycles=%u "
+                       "cells=%u step_full=%u step_half=%u tb_hz=%lu holds=%lu refused_done=%lu entry_refused_ticks=%lu",
+                   (unsigned long)GBP_V28_T256, (unsigned)GBP_V28_A4, (unsigned)GBP_V28_A1, (unsigned)GBP_V28_LOSS_WARM_S,
+                   (unsigned)GBP_V28_LOSS_HOLD_S, (unsigned)GBP_V28_LOSS_LATE_S, (unsigned)GBP_V28_LOSS_FINAL_S,
+                   (unsigned)GBP_V28_LOSS_CYCLES, (unsigned)GBP_V28_LOSS_CELLS, (unsigned)GBP_V28_LOSS_STEP_FULL,
+                   (unsigned)GBP_V28_LOSS_STEP_HALF, (unsigned long)live.tb_hz, (unsigned long)loss.holds_n,
+                   (unsigned long)loss.refused_hold_done, (unsigned long)loss.begin_pending_ticks);
+    for (i = 0u; i < loss.holds_n; i++) {
+        const struct gbp_v28_loss_hold *h = gbp_v28_loss_hold_record(&loss, i);
+        ringlog_printf(rl, "V28_LOSS n=%lu kind=%u cyc=%u L=%u S=%u ahead=%u target=%lu partial=%u late=%u hooks=%lu "
+                           "t_start=%llx t_late=%llx t_end=%llx ring=%lu,%lu,%lu",
+                       (unsigned long)i, (unsigned)h->kind, (unsigned)h->cyc, (unsigned)h->label_on, (unsigned)h->step_full,
+                       (unsigned)h->ahead, (unsigned long)h->target, (unsigned)h->partial, (unsigned)h->has_late,
+                       (unsigned long)h->underrun_hooks, (unsigned long long)h->t_start, (unsigned long long)h->t_late,
+                       (unsigned long long)h->t_end, (unsigned long)h->c_start.ring, (unsigned long)h->c_late.ring,
+                       (unsigned long)h->c_end.ring);
+        /* the OBSERVED operating point at the three snapshots: the log verifies the fixed TARGET and AHEAD, the intent is not evidence */
+        ringlog_printf(rl, "V28_LOSSO n=%lu obs_t=%lu,%lu,%lu obs_a=%lu,%lu,%lu", (unsigned long)i,
+                       (unsigned long)h->c_start.target, (unsigned long)h->c_late.target, (unsigned long)h->c_end.target,
+                       (unsigned long)h->c_start.ahead, (unsigned long)h->c_late.ahead, (unsigned long)h->c_end.ahead);
+        v28_loss_report_ctr(rl, i, "full", &h->c_start, &h->c_end);
+        if (h->has_late) v28_loss_report_ctr(rl, i, "late", &h->c_late, &h->c_end);
+        for (k = 0u; k < GBP_V28_NHIST; k++) {
+            const struct gbp_v28_hist *hh = &h->hist[k];
+            ringlog_printf(rl, "V28_LOSSH n=%lu h=%s count=%lu sum=%llu max=%lu edges=%lu,%lu,%lu,%lu bins=%lu,%lu,%lu,%lu,%lu",
+                           (unsigned long)i, HNAME[k], (unsigned long)hh->count, (unsigned long long)hh->sum,
+                           (unsigned long)hh->max, (unsigned long)hh->edge[0], (unsigned long)hh->edge[1],
+                           (unsigned long)hh->edge[2], (unsigned long)hh->edge[3], (unsigned long)hh->bin[0],
+                           (unsigned long)hh->bin[1], (unsigned long)hh->bin[2], (unsigned long)hh->bin[3],
+                           (unsigned long)hh->bin[4]);
+        }
+    }
+}
+#endif /* GBP_V28_PLAN_DIAG_LOSS */
+
 static uint64_t t_video_ready, t_selftest_begin, t_selftest_end, t_probe_enter;
 
 int main(void)
@@ -1493,6 +1669,8 @@ int main(void)
     printf("  Build : %s   Commit: %s   Plan: %s\n", OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT,
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
            "perceptual_no_phase1");
+#elif defined(GBP_V28_PLAN_DIAG_LOSS)
+           "diag_loss");
 #else
            "validation_run");
 #endif
@@ -1531,6 +1709,11 @@ int main(void)
     gbp_adec2_init(&adec2, adec2_ring, GBP_APLAY2_RING);
     gbp_aplay2_init(&ap2, ap2_pool, ap2_silence, NULL, NULL);   /* no L2 keep, no store -- same as sync-0001 */
     gbp_atrans2_init(&tr);
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+    gbp_v28_hists_init(loss_hist);
+    ap2.step_pushes = loss_step_pushes;         /* the step arm; every chunk asks at its start, the answer is the cell's */
+    ap2.step_pushes_user = 0;
+#endif
     DCFlushRange(ap2_silence, sizeof ap2_silence);
     cfg.audio_tap = live_tap;
     cfg.audio_tap_user = 0;
@@ -1566,6 +1749,8 @@ int main(void)
     ringlog_printf(&rl, "V28CFG plan=%s session_cap_s=%lu wall_s=%lu step_mute=%u start_mute=%u p2_lo=%lu p2_hi=%lu p2_step=%lu",
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
                    "perceptual_no_phase1",
+#elif defined(GBP_V28_PLAN_DIAG_LOSS)
+                   "diag_loss",
 #else
                    "validation_run",
 #endif
@@ -1683,6 +1868,14 @@ int main(void)
         ringlog_printf(&rl, "V28LABEL renders=%lu ticks_last=%lu ticks_max=%lu",
                        (unsigned long)label_renders, (unsigned long)label_ticks_last,
                        (unsigned long)label_ticks_max);
+        /* Issue #137: the tap counters the live/sync images printed as LIVEN and this image never did -- so a loss could not be told
+         * from a refused or short tap. taps == blocks_in with zero failed/wrong is what RUN 38-43 showed. */
+        ringlog_printf(&rl, "V28TAPS taps=%lu taps_failed=%lu wrong_len=%lu blocks_in=%lu gap_max=%llu gap_at=%llx",
+                       (unsigned long)live_taps, (unsigned long)live_taps_failed, (unsigned long)live_wrong_len,
+                       (unsigned long)adec2.blocks_in, (unsigned long long)live_gap_max, (unsigned long long)live_gap_at);
+#if defined(GBP_V28_PLAN_DIAG_LOSS)
+        v28_loss_report(&rl);
+#endif
 #if defined(GBP_V28_PLAN_VALIDATION)
         for (j = 0u; j < s3a.depths_n && j < GBP_V28_3A_DEPTH_CAP; j++) {
             const struct gbp_v28_3a_depth *d = gbp_v28_3a_depth_record(&s3a, j);

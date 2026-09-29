@@ -77,6 +77,7 @@ PLANS = {
                         ("3b", 120, "AHEAD holds: 1, then 2 on an underrun"), ("sweep", 60, "ROTATE steps")], None),
     "perceptual_no_phase1": ([("p0", P0_ALLOWANCE_S, "allowance"), ("nulling", 240, "cap")], None),
     "diag_3a_stall": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 60, "RUN 48's own stall, short")], None),
+    "diag_loss": ([("p0", P0_ALLOWANCE_S, "allowance"), ("loss", 348, "310 s of holds + 38 s for the two entries")], None),
     "perceptual_phase1": ([("p0", P0_ALLOWANCE_S, "allowance"), ("p1", 220, "cap"), ("nulling", 240, "cap")], None),
     "one_session_descent_first": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 138, "§V27 budget"),
                                    ("3b", 120, "AHEAD holds"), ("washout", 60, "at 512 / AHEAD 4"),

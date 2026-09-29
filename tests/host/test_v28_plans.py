@@ -29,6 +29,7 @@ PHASE_KIND_C_NAME = {
     "3b": "GBP_WALKER_HOLD_3B",
     "sweep": "GBP_WALKER_SWEEP",
     "nulling": "GBP_WALKER_NULLING",
+    "loss": "GBP_WALKER_LOSS",
 }
 
 # tools/v28budget.py's own name -> this header's own array/plan names.
@@ -36,6 +37,7 @@ PLAN_C_NAME = {
     "validation_run": "GBP_V28_VALIDATION_RUN",
     "perceptual_no_phase1": "GBP_V28_PERCEPTUAL_NO_PHASE1",
     "diag_3a_stall": "GBP_V28_DIAG_3A_STALL",
+    "diag_loss": "GBP_V28_DIAG_LOSS",
 }
 
 MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
@@ -54,6 +56,7 @@ KIND_START_FN = {
     "GBP_WALKER_HOLD_3B": "gbp_v28_3b_start",
     "GBP_WALKER_SWEEP": "gbp_v28_sweep_start",
     "GBP_WALKER_NULLING": "gbp_v28_nulling_start",
+    "GBP_WALKER_LOSS": "gbp_v28_loss_start",
 }
 
 
@@ -259,20 +262,88 @@ class TheHandlersAreStarted(unittest.TestCase):
 # `_done` (a dwell/hold/depth ended: `depth_done`, `hold_done`), `_cut` (the walker cut the phase), and
 # `_underrun_observed` (the caller saw the AI underrun counter rise). RUN 53 showed the class again after #131: both
 # `_underrun_observed` hooks had no caller, so every "clean" hold was UNOBSERVED, and no test existed that could say so.
-HANDLER_HEADERS = ("gbp_v28_3a.h", "gbp_v28_3b.h", "gbp_v28_sweep.h", "gbp_v28_nulling.h")
+HANDLER_HEADERS = ("gbp_v28_3a.h", "gbp_v28_3b.h", "gbp_v28_sweep.h", "gbp_v28_nulling.h", "gbp_v28_loss.h")
 CONTRACT_SUFFIXES = ("_start", "_done", "_cut", "_underrun_observed")
 
 
+def strip_for_calls(src):
+    """Comments, string and character literals and `#if 0` blocks removed (line structure kept): none of them is a call."""
+    src = re.sub(r"/\*.*?\*/|//[^\n]*", lambda m: "\n" * m.group(0).count("\n"), src, flags=re.S)
+    src = re.sub(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'', '""', src)
+    out, depth, skipping = [], 0, False
+    for line in src.split("\n"):
+        t = line.strip()
+        if skipping:
+            if re.match(r"#\s*if", t):
+                depth += 1
+            elif re.match(r"#\s*endif", t):
+                depth -= 1
+                if depth == 0:
+                    skipping = False
+            elif depth == 1 and re.match(r"#\s*(else|elif)\b", t):
+                skipping = False
+            out.append("")
+            continue
+        if re.match(r"#\s*if\s+0\b", t):
+            skipping, depth = True, 1
+            out.append("")
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def contract_functions(header_text):
-    """Every function the header declares whose name ends in a contract suffix (comments already stripped)."""
-    names = re.findall(r"^[A-Za-z_][\w \*]*?\b(gbp_\w+)\s*\(", header_text, re.M)
-    return sorted({n for n in names if n.endswith(CONTRACT_SUFFIXES)})
+    """Every function a header declares whose name ends in a contract suffix: any `gbp_...(` (whatever its column, whatever precedes
+    it, on its own line or not) and any function-pointer member `(*gbp_...)`, macros excluded; comments already stripped."""
+    text = "\n".join(l for l in header_text.split("\n") if not re.match(r"\s*#\s*define\b", l))
+    names = set(re.findall(r"\b(gbp_\w+)\s*\(", text)) | set(re.findall(r"\(\s*\*\s*(gbp_\w+)\s*\)", text))
+    return sorted(n for n in names if n.endswith(CONTRACT_SUFFIXES))
+
+
+_NOT_FUNCTIONS = {"if", "for", "while", "switch", "return", "sizeof", "else", "do"}
+
+
+def function_defs(src):
+    """{name: body text} of every function DEFINED at column 0 of `src` (comments/literals already stripped), by brace matching."""
+    defs = {}
+    pat = re.compile(r"^(?![#\s])[A-Za-z_][\w \t\*]*?\b([A-Za-z_]\w*)\s*\((?:[^;{}()]|\([^()]*\))*\)\s*\n?\s*\{", re.M)
+    for m in pat.finditer(src):
+        name = m.group(1)
+        if name in _NOT_FUNCTIONS:
+            continue
+        i = m.end() - 1
+        depth = 0
+        for j in range(i, len(src)):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    defs[name] = src[i:j + 1]
+                    break
+    return defs
+
+
+def reachable_functions(defs, root="main"):
+    """Functions reachable from `root` by naming: a call, or a function's address taken (a callback assigned or registered)."""
+    seen, todo = set(), [root]
+    while todo:
+        f = todo.pop()
+        if f in seen or f not in defs:
+            continue
+        seen.add(f)
+        for ident in set(re.findall(r"\b[A-Za-z_]\w*\b", defs[f])):
+            if ident in defs and ident not in seen:
+                todo.append(ident)
+    return seen
 
 
 def contract_callers(main_src, names):
-    """{name: number of call sites in main.c with comments stripped}."""
-    stripped = code(main_src)
-    return {n: len(re.findall(r"\b%s\s*\(" % re.escape(n), stripped)) for n in names}
+    """{name: number of call sites in main.c that are REACHABLE: inside a function main() can get to, by call or by address taken}."""
+    stripped = strip_for_calls(main_src)
+    defs = function_defs(stripped)
+    live = reachable_functions(defs)
+    return dict((n, sum(len(re.findall(r"\b%s\s*\(" % re.escape(n), defs[f])) for f in live)) for n in names)
 
 
 class TheContractCallsAreMade(unittest.TestCase):
@@ -302,6 +373,36 @@ class TheContractCallsAreMade(unittest.TestCase):
             for n, calls in contract_callers(src, names).items():
                 self.assertGreater(calls, 0, "%s (declared in %s, a function its header asks the caller to call) has "
                                              "no caller in main.c" % (n, h))
+
+    def test_the_parser_finds_a_declaration_however_it_is_written(self):
+        header = "void\ngbp_b_start(int);\n  void gbp_c_done(int);\nstruct x { void (*gbp_d_cut)(int); };\n" \
+                 "#define gbp_e_start(x) 0\nint gbp_f_tick(int);\nvoid gbp_g_underrun_observed(struct s *, uint64_t);\n"
+        self.assertEqual(contract_functions(header),
+                         ["gbp_b_start", "gbp_c_done", "gbp_d_cut", "gbp_g_underrun_observed"])
+
+    def test_a_call_that_main_cannot_reach_does_not_count(self):
+        live = "static void a(void) { gbp_x_start(1); }\nint main(void)\n{\n    a();\n    return 0;\n}\n"
+        dead = "static void a(void) { gbp_x_start(1); }\nint main(void)\n{\n    return 0;\n}\n"
+        self.assertEqual(contract_callers(live, ["gbp_x_start"]), {"gbp_x_start": 1})
+        self.assertEqual(contract_callers(dead, ["gbp_x_start"]), {"gbp_x_start": 0}, "a dead static function is not a caller")
+        cb = "static void a(void) { gbp_x_start(1); }\nint main(void)\n{\n    cfg.cb = a;\n    return 0;\n}\n"
+        self.assertEqual(contract_callers(cb, ["gbp_x_start"]), {"gbp_x_start": 1}, "a callback whose address is taken is reachable")
+
+    def test_a_string_a_comment_and_an_if_zero_block_are_not_calls(self):
+        src = ('int main(void)\n{\n    puts("gbp_x_start(1)");\n    /* gbp_x_start(2); */\n    // gbp_x_start(3);\n'
+               '#if 0\n    gbp_x_start(4);\n#endif\n    return 0;\n}\n')
+        self.assertEqual(contract_callers(src, ["gbp_x_start"]), {"gbp_x_start": 0})
+        src2 = src.replace("#if 0\n    gbp_x_start(4);\n#endif", "#if 0\n#else\n    gbp_x_start(4);\n#endif")
+        self.assertEqual(contract_callers(src2, ["gbp_x_start"]), {"gbp_x_start": 1}, "the #else of an #if 0 is live")
+
+    def test_main_c_itself_parses_into_the_functions_the_wiring_relies_on(self):
+        defs = function_defs(strip_for_calls(read(MAIN)))
+        for f in ("main", "live_step", "live_tap", "live_tap_body", "pump", "pump_body", "v28_cut", "v28_dispatch_phase_start",
+                  "submit_ready", "live_dma_cb"):
+            self.assertIn(f, defs, "%s was not parsed as a function definition of main.c" % f)
+        live = reachable_functions(defs)
+        for f in ("live_step", "live_tap", "pump", "v28_cut", "v28_dispatch_phase_start", "submit_ready", "live_dma_cb"):
+            self.assertIn(f, live, "%s is not reachable from main() by name: the reachability graph is broken" % f)
 
     def test_the_check_itself_fails_on_a_missing_caller(self):
         """The checker is run on main.c with each contract call renamed away: it must report zero callers. Without this
