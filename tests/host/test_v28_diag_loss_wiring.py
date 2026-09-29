@@ -64,8 +64,8 @@ def diag_regions(src):
 
 
 class InstrumentsAreOnlyInTheDiagImage(unittest.TestCase):
-    IDENT = re.compile(r"\b(loss_hist|loss_ctr|loss_step_pushes|gbp_v28_loss_\w+|gbp_v28_hist_\w+|gbp_v28_hists_\w+|"
-                       r"struct gbp_v28_(?:loss|hist)\w*|loss\.\w+|&loss\b|v28_loss_report\w*|GBP_V28_(?:LOSS|H_|NHIST)\w*)")
+    IDENT = re.compile(r"\b(loss_hist|loss_ctr|loss_step_pushes|gbp_v28_loss_(?!ctr\b)\w+|gbp_v28_hist_\w+|gbp_v28_hists_\w+|"
+                       r"struct gbp_v28_(?:loss(?!_ctr)|hist)\w*|loss\.\w+|&loss\b|v28_loss_report\w*|GBP_V28_(?:LOSS|H_|NHIST)\w*)")
 
     def test_every_use_sits_in_a_region_only_that_image_compiles(self):
         src = read(MAIN)
@@ -123,9 +123,11 @@ class TheArmsAreApplied(unittest.TestCase):
         self.assertLess(src.index("gbp_v28_hists_init(loss_hist);"), src.index("cfg.audio_tap = live_tap;"),
                         "the histograms must be initialised before the first tap can note into them")
 
-    def test_no_other_image_installs_a_step_hook(self):
+    def test_the_only_step_hooks_are_the_diagnostics_arm_and_the_production_step(self):
+        """Issue #138 made it two: the diag_loss arm (this file) and the steady production step of every other image
+        (tests/host/test_v28_run54_fixes.py checks each is in its own branch)."""
         src = code(read(MAIN))
-        self.assertEqual(len(re.findall(r"\.step_pushes\s*=", src)), 1)
+        self.assertEqual(len(re.findall(r"\.step_pushes\s*=", src)), 2)
 
 
 class ThePhaseIsWired(unittest.TestCase):
