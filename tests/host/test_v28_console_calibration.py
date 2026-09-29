@@ -46,7 +46,7 @@ class TheHarnessIsTheConsoles(unittest.TestCase):
     def setUp(self):
         self.log = run52()
         if self.log is None:
-            self.skipTest("the RUN 52 raw log is not on this host (logs/ and captures/local/ are private)")
+            self.skipTest("no local archive on this host (captures/local is ignored)")
 
     def test_the_begin_rings_are_the_ones_the_console_measured(self):
         """meas_ring - from_target for every sweep move that follows another move (n = 1..27), RUN 52's V28_SWEEPM."""
