@@ -243,7 +243,7 @@ class TheBoundsCheckWouldCatchAnUnconvertedValue(unittest.TestCase):
 
     def test_the_bounds_are_the_ones_the_header_actually_states(self):
         self.assertEqual(self.target_min, 2048)
-        self.assertEqual(self.target_max, 65279)
+        self.assertEqual(self.target_max, 130815)     # Issue #139: RING 131 072 - 257 (was 65 279 at the 65 536 ring)
 
     def test_every_unconverted_old_value_falls_outside_the_bounds(self):
         for name, native in FROZEN.items():

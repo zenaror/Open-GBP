@@ -25,12 +25,14 @@ class TheCallbackOnlyReads(unittest.TestCase):
     def cb(self):
         return W.function_body(W.code(read(MAIN)), "live_dma_cb")
 
-    def test_the_two_reads_come_first_before_the_handoff_and_before_init_dma(self):
+    def test_the_two_reads_come_first_and_the_third_after_the_init_and_the_note_last(self):
         b = self.cb()
         order = [b.index(x) for x in ("AUDIO_GetDMAStartAddr()", "AUDIO_GetDMABytesLeft()", "gbp_aplay2_irq_handoff(&ap2, t)",
-                                      "gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c)", "AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES)")]
-        self.assertEqual(order, sorted(order))
-        self.assertEqual(len(re.findall(r"AUDIO_\w+\(", b)), 3, "exactly the two reads and the init the callback always made")
+                                      "AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES)",
+                                      "gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c, (uint32_t)AUDIO_GetDMAStartAddr())")]
+        self.assertEqual(order, sorted(order), "the note (and its third read) come after the init: the init is delayed only by the two entry reads")
+        self.assertEqual(len(re.findall(r"AUDIO_\w+\(", b)), 4, "three reads (two at the entry, one after the init) and the init the callback always made")
+        self.assertEqual(len(re.findall(r"AUDIO_Get\w+\(", b)), 3)
 
     def test_the_callbacks_behaviour_is_what_it_was(self):
         b = self.cb()
@@ -60,26 +62,49 @@ class TheCallbackOnlyReads(unittest.TestCase):
     def test_the_records_are_printed_at_teardown_in_the_sd_log_only(self):
         src = read(MAIN)
         self.assertIn('"V28DMA n=%lu prev1=%lu prev2=%lu none=%lu same12=%lu left_min=%lu left_max=%lu left_mean=%lu bins=%lu,%lu,%lu,%lu,%lu,%lu"', src)
+        self.assertIn('"V28DMAP new=%lu kept=%lu amb=%lu other=%lu"', src)
         self.assertIn('"V28DMAR i=%lu addr=%lx left=%lu ret1=%lx ret2=%lx dt=%lu"', src)
         self.assertNotRegex(src, r"(?<![\w])(?:printf|gecko_puts)\([^;]*V28DMA")
         widths = {"lu": 10, "llu": 20, "llx": 16, "lx": 8, "u": 3, "s": 7}
         for fmt in ("V28DMA n=%lu prev1=%lu prev2=%lu none=%lu same12=%lu left_min=%lu left_max=%lu left_mean=%lu bins=%lu,%lu,%lu,%lu,%lu,%lu",
+                    "V28DMAP new=%lu kept=%lu amb=%lu other=%lu",
                     "V28DMAR i=%lu addr=%lx left=%lu ret1=%lx ret2=%lx dt=%lu"):
             n = 7 + len(re.sub(r"%(?:llu|llx|lu|lx|u|s)", "", fmt)) + sum(widths[t] for t in re.findall(r"%(llu|llx|lu|lx|u|s)", fmt))
             self.assertLess(n, 250, fmt[:10])
 
 
-def dma_line(n=1000, prev1=None, prev2=0, none=0, same12=0, left_min=3950, left_max=3990, left_mean=3970, bins=None):
+def dma_line(n=1000, prev1=None, prev2=0, none=0, same12=0, left_min=3950, left_max=3990, left_mean=3970, bins=None, post=None):
     prev1 = n - 1 - prev2 - none - same12 if prev1 is None else prev1
     bins = bins or (0, 0, 0, 0, n, 0)
     return ("000700 V28DMA n=%d prev1=%d prev2=%d none=%d same12=%d left_min=%d left_max=%d left_mean=%d bins=%s"
-            % (n, prev1, prev2, none, same12, left_min, left_max, left_mean, ",".join(str(b) for b in bins)))
+            % (n, prev1, prev2, none, same12, left_min, left_max, left_mean, ",".join(str(b) for b in bins))
+            + ("" if post is None else "\n000700 V28DMAP new=%d kept=%d amb=%d other=%d" % tuple(post)))
 
 
 class TheReadings(unittest.TestCase):
     def test_r1_the_assumed_semantics(self):
         r = V.dma_semantics(dma_line())
         self.assertEqual((r["reading"], r["offset_ms"]), ("R1", 0.0))
+
+    def test_r1_is_proof_only_when_the_register_keeps_the_active_blocks_address(self):
+        wt = V.dma_semantics(dma_line(post=(999, 0, 1, 0)))
+        self.assertEqual((wt["reading"], wt["latch"]), ("R1", "write-through"))
+        self.assertIn("CANNOT exclude AHEAD + 2", wt["why"])
+        self.assertIn("NOT proof", wt["why"])
+        ka = V.dma_semantics(dma_line(post=(0, 999, 1, 0)))
+        self.assertEqual((ka["reading"], ka["latch"]), ("R1", "keeps-active"))
+        self.assertIn("the address arm is informative: AHEAD + 1", ka["why"])
+        mixed = V.dma_semantics(dma_line(post=(500, 499, 1, 0)))
+        self.assertEqual(mixed["latch"], "mixed")
+        self.assertIn("not proven", mixed["why"])
+        none = V.dma_semantics(dma_line())
+        self.assertNotIn("latch", none)
+        self.assertIn("not read in this log", none["why"])
+
+    def test_the_verdict_prints_the_register_after_the_init(self):
+        out = v28verdict.render(v28verdict.analyse(dma_line(post=(999, 0, 1, 0))))
+        self.assertIn("DMA REGISTER AFTER THE INIT (post: new 999, kept 0, ambiguous 1, other 0)", out)
+        self.assertIn("cannot separate AHEAD + 1 from AHEAD + 2", out)
 
     def test_r2_ahead_plus_two_shifts_every_row_up_a_chunk(self):
         r = V.dma_semantics(dma_line(prev1=1, prev2=998))

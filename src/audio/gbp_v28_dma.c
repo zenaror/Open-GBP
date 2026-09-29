@@ -22,11 +22,15 @@ void gbp_v28_dma_seed(struct gbp_v28_dma *d, const void *first)
     d->seeded = 1u;
 }
 
-void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned)
+void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned, uint32_t post)
 {
     uint32_t bin;
+    const uint32_t rp = gbp_v28_dma_phys(returned);
     if (d->seeded) {
-        if (d->ret1 == d->ret2) d->same12++;
+        if (d->ret1 == d->ret2) {
+            if (addr == d->ret1) d->same12++;      /* two silences: both pointers alike, and the register agrees */
+            else d->none++;                        /* ... and it matches neither: never hidden in same12 */
+        }
         else if (addr == d->ret1) d->prev1++;
         else if (addr == d->ret2) d->prev2++;
         else d->none++;
@@ -44,8 +48,12 @@ void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint6
         r->ret2 = d->ret2;
         r->dt = d->t_last ? (uint32_t)(t - d->t_last) : 0u;
     }
+    if (rp == addr) d->post_amb++;
+    else if (post == rp) d->post_new++;
+    else if (post == addr) d->post_kept++;
+    else d->post_other++;
     d->t_last = t;
     d->n++;
     d->ret2 = d->ret1;
-    d->ret1 = gbp_v28_dma_phys(returned);
+    d->ret1 = rp;
 }

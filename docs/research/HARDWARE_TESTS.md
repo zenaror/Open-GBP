@@ -39718,3 +39718,30 @@ P8 (NEW) the doubled ring changes nothing in steady state: mean chunk start 3 82
 **Read against the recovery risk (§V28.19a):** a phase that BEGINS gate-bound can look saturated for its first ~30 s. If P2 or P3 miss while P1 holds, suspect that first.
 
 **What this does NOT establish.** The perceptual run's grid top on the console; the audio-versus-video offset; audibility.
+
+### V28.23a Amendment to §V28.23 — the review of the RUN 56 image: the address arm of the DMA read cannot separate AHEAD + 1 from AHEAD + 2 on its own; a third read is added; P7 reworded — 2026-09-29 (Issue #139, `U-GBP-049`)
+
+*Appended; §V28.23 stands as written, and what follows changes the image's callback and P7 before any candidate exists. Nothing is built into a candidate, staged or run by this entry.*
+
+**The finding (an adversarial read-only review of the RUN 56 image, MAJOR).** §V28.23's P7 read the start-address register at the callback's entry and called "the chunk the previous callback returned, with the bytes left near 4 000" the confirmation of AHEAD + 1. The register is what `AUDIO_InitDMA` last wrote to it (libogc2 `audio.c`, `AUDIO_GetDMAStartAddr` reads `_dspReg[24]/[25]`, the registers `AUDIO_InitDMA` writes; Dolphin's `DSP.cpp` registers the address as a plain write latch). If it is a write-through latch, it echoes the previous write whatever pipeline sits behind it: a hidden second stage (register, staging, active) would still read "the previous chunk" in 100 % of the callbacks and P7 would have printed R1, "the table stands". The address arm can only discriminate if the register holds the ACTIVE block's address until that block ends. Only R2 (two callbacks ago) is not explained by a latch, and nothing in the run made that certain. This is the same class of error as §V28.22's "proof" of an assumption (§V28.22a): a reading that cannot come out any other way.
+
+**The change.** The callback reads the address register ONCE MORE, right after `AUDIO_InitDMA` (a load; nothing more is written). `gbp_v28_dma` counts what that third read returns against the chunk just programmed and the entry value: `V28DMAP new= kept= amb= other=`, its own SD-log line after `V28DMA` (the worst case of a single line would pass 250 characters). The classification at the entry is otherwise unchanged. The `gbp_v28_dma_note` call moves after `AUDIO_InitDMA`, so the init is now delayed only by the two entry reads and the hand-off (the reviewer's minor point that "exactly what they were" was not strictly true with the bookkeeping in between).
+
+**P7, reworded (the thresholds are unchanged; what an R1 outcome means is not).**
+
+```text
+P7  the AI DMA's hand-off semantics, at least 100 callbacks, 50 of them classified (the tool's own floor; a 4-minute validation run makes about 7 900 -- RUN 55's own V28C handed=7 927 over
+    the ~247 s of its phases; the "about 13 000 in seven minutes" of §V28.23 was wrong and the "at least 1 000" was not what the code requires):
+    R1 (99 % prev1 of the classified, 95 % of the callbacks with >= 3 500 bytes left) is read together with `post`:
+      post keeps the entry value in >= 99 % of the decided callbacks  ("keeps-active": the register holds the ACTIVE block's address until it ends)
+          -> the address arm is informative: R1 = AHEAD + 1, the table stands, offset 0; R2 would be AHEAD + 2 (+31.222 ms on every L).
+      post reads back the chunk just programmed in >= 99 %                ("write-through": the register only echoes the last write)
+          -> the address arm CANNOT separate AHEAD + 1 from AHEAD + 2.  R1 is CONSISTENT with AHEAD + 1 by the bytes-left arm alone (a block that has just started), NOT proof.  The table
+             keeps "assumed DMA semantics"; the direction of an error is then the bytes-left arm's (R3, -31.222 ms) and nothing else.
+      anything else ("mixed", or too few decided callbacks) -> R1 is consistent, not proven, the register's behaviour is reported as such.
+    R2, R3, R4 read as §V28.23 registers them; R2 needs a register that is not a plain latch; whatever `post` says, the raw records `V28DMAR` (the first 32 callbacks) show what the register did.
+```
+
+**Other review findings, none an error of the code.** (a) A callback in a run of two silences whose register matches NEITHER pointer was counted `same12`, where an unexplained register would hide; it is now counted `none` (`same12` only when the register agrees with the shared pointer). (b) P3 registers the chunk start as "3 831-3 838" and P8 as "3 828 +- 15" for the same quantity; they overlap and P3 refutes only below 3 000. In RUN 56, **P8's band is the acceptance for the comparison with RUN 55** (its own measured 3 828); P3's "3 831-3 838" is the calibrated host's prediction, held by RUN 55 at 3 828, and neither refutes the other. (c) The comment in `tests/unit/test_v28_sweep_landing.c` and §V28.23 speak of "three moves that touch 122 880 or 124 928": FOUR do (120 832 -> 122 880, 122 880 -> 120 832, 122 880 -> 124 928, 124 928 -> 122 880); the FIRST passes at 1 % and is kept, the LAST THREE tolerate about 0.7 % and are what the 1 % case leaves out (the code was right; the count in the sentence was not). (d) The memory margin (`tests/host/test_ring_capacity_constant.py`) is derived from RUN 43's `bss_end`, an older image: +131 072 B against about 4.4 MB is negligible, and the built image's own `bss_end` is read when the candidate is built. (e) Every plan (validation, perceptual, diag_loss) shares `live_dma_cb` and the V28DMA teardown block, so the blinded perceptual image will carry the reads and the ring change unless deliberately stripped; and `poc/gbp-audio-native-probe`, the only other image including `gbp_aplay2.h`, changes bytes when rebuilt (a 256 KB ring instead of 128 KB) -- consistent with the rule that a frozen image reproduces at its own commit.
+
+**What this does NOT establish.** Which of R1-R4 the hardware gives; the bytes-left arm has the same limit as any single reading of a moving counter (it says the block has just started, not how many blocks are queued behind it).

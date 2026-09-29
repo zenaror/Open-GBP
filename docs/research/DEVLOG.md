@@ -19573,3 +19573,17 @@ The tool's 3B note ("a hook main.c does not call") was stale since `4a3c003` and
 **Not done, on purpose.** No image change is shipped; the 3a snapshot fix goes with the next image. The residual 0.16 points is open and not blocking.
 
 **Next.** `L(T, A)` for the native path from the measured levels (`U-GBP-049`), reviewed heavily; then the nulling grid's top.
+
+## 2026-09-29 — Issue #139: the RUN 56 image reviewed — the DMA read's address arm could not have said no, so it reads the register a third time (`HARDWARE_TESTS.md` §V28.23a, `U-GBP-049`)
+
+**Goal.** Put the RUN 56 image (the AI DMA's hand-off semantics read at every callback's entry, the decoder ring doubled, 3a's first row repaired) through the heavy review before any candidate is built.
+
+**Done.** The full gate on the first commit was red in four tests, two of them mine: an old-value check of the ring bound (`TARGET_MAX` 65 279, now 130 815 = ring - 257) and the check that the callback's first statement is the hand-off, which now has the register reads in front of it (unconditional loads; the test still forbids any `if`). The other two (`test_compile_skips`) fail only while the ladder test fails: they build every harness test with a broken compiler and expect the same set to fail. All amended on top, none quieted.
+
+The review found one substantive fault in my design: the start-address register is a write latch (libogc2 reads the registers `AUDIO_InitDMA` writes; Dolphin models it as a plain latch), so if it reads back the last write, "the previous chunk in 99 % of the callbacks" is what a DMA with a hidden second stage would print too; R1 was over-read as "the table stands". The callback now reads the register once more after the init, the log carries a `V28DMAP new= kept= amb= other=` line, and the tool says which case it is: an R1 under a write-through register is "consistent with AHEAD + 1 by the bytes-left arm, not proof". P7 is reworded in §V28.23a (thresholds unchanged). Smaller findings taken: a silence-run callback whose register matches neither pointer counts as `none`, not `same12`; the callback count in §V28.23 (13 000) was wrong (about 7 900 in a 4-minute run); the note call sits after the init.
+
+**Rejected.** That an R1 reading confirms the semantics by itself. It was the same shape as §V28.22's "proof": a reading that cannot come out any other way is not a measurement.
+
+**Tests.** `tests/unit/test_gbp_v28_dma.c` (34 checks: silence-run `none`, the three post-init readings), `tests/host/test_v28_run56_dma.py` (the callback's order, the tool's reading of `post`).
+
+**Next.** Two identical clean rebuilds of `validation_run`, the pin and the card staging; the hash to the Orchestrator.

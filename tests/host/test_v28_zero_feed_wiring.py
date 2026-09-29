@@ -60,6 +60,9 @@ class TheAIDMACallbackIsUnconditional(unittest.TestCase):
         inner = body[1:].lstrip()
         while inner.startswith("/*"):
             inner = inner[inner.index("*/") + 2:].lstrip()
+        # Issue #139: the callback's register READS (unconditional declarations, no `if`) and the tick read precede the handoff
+        while re.match(r"const uint(?:32|64)_t \w+ = (?:\(uint32_t\)AUDIO_GetDMA\w+\(\)|gettime\(\));\s*", inner):
+            inner = inner[re.match(r"const uint(?:32|64)_t \w+ = (?:\(uint32_t\)AUDIO_GetDMA\w+\(\)|gettime\(\));\s*", inner).end():]
         self.assertTrue(inner.startswith("const uint8_t *c = gbp_aplay2_irq_handoff("),
                          "live_dma_cb()'s own first statement must be the unconditional handoff, "
                          "got: %r" % inner[:80])
