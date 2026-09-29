@@ -280,7 +280,8 @@ static inline const char *gbp_v28_anchor_source_name(enum gbp_v28_anchor_source 
  * (gbp_v28_sweep.c's GATE rows 1-7: T704A4 -> T576A4 -> T448A4 -> T320A4 -> T256A4 -> T256A3 -> T256A2 -> T256A1), each held or stepped to by the validation run
  * (RUN 55, 56: the sweep 18 of 18, the AHEAD-1 hold clean). tests/host/test_v28_run57_perceptual.py pins this table against the sweep's own list.
  *
- * L(T, A), tools/v28latency.py (INFERENCE, "assumed DMA semantics" until RUN 57): 324.4 / 293.1 / 261.7 / 230.4 / 214.7 / 183.5 / 152.2 / 121.0 ms, or +31.222 ms each. */
+ * L(T, A), tools/v28latency.py (INFERENCE for the values; CORROBORATED for the DMA semantics they rest on since RUN 57): 324.4 / 293.1 / 261.7 / 230.4 / 214.7 / 183.5 / 152.2 / 121.0 ms
+ * (the steps between rungs are 31.4, 31.4, 31.4, 15.7, 31.2, 31.2, 31.2 ms). */
 #define GBP_V28_RUNGS 8u
 struct gbp_v28_rung { uint32_t target, ahead; };
 static const struct gbp_v28_rung GBP_V28_RUNG[GBP_V28_RUNGS] = {

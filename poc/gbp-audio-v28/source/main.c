@@ -1317,6 +1317,10 @@ static void live_step(void)
                 break;
             }
             case GBP_WALKER_NULLING:
+                /* Issue #141: GBP_V28_NULLING_CAP settings recorded -> the phase is naturally done (the reviewer's finding: nothing ended the run there, and a press after the
+                 * last confirm still changed the latency, recorded nowhere). Presses are refused once finished (gbp_v28_nulling_step). */
+                if (gbp_v28_nulling_finished(&nulling)) (void)gbp_walker_phase_complete(&walker, now, tr.active);
+                break;
             case GBP_WALKER_NAVIGATE:
             default:
                 break;

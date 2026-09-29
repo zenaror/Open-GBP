@@ -205,6 +205,25 @@ class TheReader(unittest.TestCase):
         self.assertIn('"%s"' % f, src)
         self.assertNotRegex(src, r"V28_NULLM[^;]*(?:printf|gecko_puts)")
 
+    def test_a_setting_with_no_press_or_a_short_dwell_is_flagged_never_dropped(self):
+        tb = 40_500_000
+        lines = [null_line(0, 3, 1, 5, 0, 5, 0, 0, 5, t=100 * tb), null_line(1, 0, 0, 0, 0, 0, 0, 0, 3, t=200 * tb), null_line(2, 5, 0, 2, 0, 2, 0, 0, 4, t=202 * tb),
+                 null_line(3, 5, 0, 4, 0, 4, 0, 0, 4, t=260 * tb)]
+        a = N.analyse("\n".join(lines) + "\n", "M1")
+        self.assertEqual([r["suspect"] for r in a["settings"]], [[], ["no press"], ["dwell 2.0 s"], []])
+        self.assertEqual(a["n"], 4)
+        self.assertEqual(a["suspect"], 2)
+        out = N.render(a)
+        self.assertIn("2 SUSPECT setting(s)", out)
+        self.assertIn("SUSPECT: no press", out)
+        self.assertIn("dwell 100 s", out)
+
+    def test_a_press_after_the_cap_is_refused_and_the_phase_completes(self):
+        src = W.code(read(MAIN))
+        self.assertIn("if (gbp_v28_nulling_finished(&nulling)) (void)gbp_walker_phase_complete(&walker, now, tr.active);", src)
+        n = W.code(read(os.path.join(ROOT, "src", "audio", "gbp_v28_nulling.c")))
+        self.assertIn("if (n->finished) { n->refused_step_over++; return 0; }", n)
+
     def test_the_shift_table_matches_the_latency_tool(self):
         self.assertEqual(N.shift("bounded"), (0.0, VL.PERIOD_MS))
         self.assertEqual(N.shift("M2"), (VL.PERIOD_MS, VL.PERIOD_MS))

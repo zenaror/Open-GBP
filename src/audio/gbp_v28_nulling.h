@@ -72,6 +72,7 @@ struct gbp_v28_nulling {
     uint32_t refused_step_end;     /* presses against an end of the ladder (each ran as a same-level ROTATE), both ends */
     uint32_t refused_confirm_busy;
     uint32_t refused_confirm_over; /* confirm() called after the exercise already finished */
+    uint32_t refused_step_over;    /* step() called after the exercise already finished: refused, the latency stays where the last confirm left it */
 };
 
 /* Seeds setting 0 and begins its START (ROTATE, GBP_V28_START_MUTE, to the seeded rung's (T, A)). `seed_in` is the xorshift32 state to draw from (caller-chosen, e.g. a session
@@ -80,7 +81,8 @@ struct gbp_v28_nulling {
 int gbp_v28_nulling_start(struct gbp_v28_nulling *n, struct gbp_atrans2 *t, struct gbp_aplay2 *p,
                           struct gbp_adec2 *d, uint64_t now, uint32_t seed_in);
 
-/* One rung, `stick` at a time. Refusal order mirrors gbp_async_step() exactly: an invalid stick value first (refused_step_value, never mapped), then busy (refused_step_busy).
+/* One rung, `stick` at a time. Refusal order mirrors gbp_async_step() exactly: an invalid stick value first (refused_step_value, never mapped), then busy (refused_step_busy);
+ * once the exercise is finished (all GBP_V28_NULLING_CAP settings recorded) a press is refused (refused_step_over) and begins nothing.
  * A press against an END of the ladder is NOT refused: it begins a same-level ROTATE (the same mute and mechanism as any step, so the end is not audible), counted in
  * refused_step_end and the current setting's refused_floor / refused_top. Returns 1 when a transition began (a step or an end press), 0 when refused (value or busy). */
 int gbp_v28_nulling_step(struct gbp_v28_nulling *n, struct gbp_atrans2 *t, struct gbp_aplay2 *p,
