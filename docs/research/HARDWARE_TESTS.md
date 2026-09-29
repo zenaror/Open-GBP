@@ -39411,3 +39411,76 @@ preceded by a ROTATE entry with a 7-period mute (218.75 ms of silence); nothing 
 **Timing, from the plan (`gbp_v28_plans.h`, `GBP_V28_DIAG_LOSS`).** Navigate: up to its 60 s allowance, ended earlier by the C-stick DOWN. Then the loss phase: the holds are 10 + 12 x 20 + 60 = 310 s
 (the final hold's 60 s is INSIDE the 310, not on top of it), plus the two entries (a second or so, and the 0.22 s mute), so about 312-315 s; the phase cap is 348 s, the session cap 468 s
 (60 + 348 + 60 slack). If the entries were slow the cap cuts the last hold PARTIAL and the reader says so.
+
+### V28.18 RUN 54 EXECUTED AND INGESTED — the loss is the native production step and the GX label render — 2026-09-29 (Issue #138, `U-GBP-050`)
+
+*Appended. §V28.16 (the rule) and §V28.17 (the image) stand as registered; nothing in them is amended.*
+
+**Files and integrity.**
+
+```text
+raw log     logs/run54/GBP-AUDIO-V28_v28-diagloss-0001.log     110 301 B  sha256 100b6f8beb7484d5f7612ddea49bade6e49592c4d722b69577b654751c12953a
+archived    captures/local/GBP-AUDIO-V28_v28-diagloss-0001-run54.log (cmp-identical); captures/local/GECKO-GBP-AUDIO-V28-run54.txt
+build       v28-diagloss-0001, commit 794297b, slot 25-v28l, boot.dol 08971b52...1b90 (§V28.17); the log's IDENT agrees
+log         858 lines, ok_session_ended, dropped=0 truncated=0; SYNCPH p0 30.7 s (navigate), p1 310.2 s (loss, complete); 14 holds, refused_done=0, entry_refused_ticks=0
+reader      tools/v28loss.py at 794297b (unchanged since), unedited; the printed report sha256 509ecaad54bf6786555204620f12ef25369aadda6785ff06d64c74cc6d3fa294
+```
+
+**The Operator, verbatim (OPERATOR OBSERVATION).** During the AHEAD-4 holds: "o audio nesse momento, agora. ... parece estavel".
+
+**Every hold the tool printed** (loss = `1 - blocks_in / (4096 x seconds)`, the late window primary; `ring` is the ring's count at the hold's start / late mark / end, single instants, not means):
+
+```text
+  n kind  L S ahead  secs  loss_late%  loss_full%  underruns  ring s/l/e
+  0 warm  1 1 4     10    1.472       1.513        3          1648/2064/928
+  1 cell  1 1 4     20    1.461       1.484        5          944/1344/1888
+  2 cell  0 1 4     20    1.184       1.190        3          1904/1040/624
+  3 cell  0 0 4     20    0.163       0.160        0          640/1904/656
+  4 cell  1 0 4     20    0.723       0.724        0          672/784/1440
+  5 cell  1 1 4     20    1.478       1.509        2          1456/1728/1842
+  6 cell  0 1 4     20    1.201       1.207        3          1731/1216/608
+  7 cell  0 0 4     20    0.196       0.197        1          624/1776/2192
+  8 cell  1 0 4     20    0.717       0.708        0          2208/2464/1898
+  9 cell  0 0 4     20    0.187       0.180        0          1851/2416/3408
+ 10 cell  1 0 4     20    0.681       0.689        0          3424/3488/2432
+ 11 cell  1 1 4     20    1.555       1.575        2          2448/672/1081
+ 12 cell  0 1 4     20    1.202       1.186        3          986/1648/1024
+ 13 final 1 1 1     60    1.513       1.514       15          3938/1101/1570
+```
+
+**The registered rule's verdicts, as printed** (`balanced`, 12 counted cells, target 4096 / AHEAD 4 observed at every snapshot of every counted hold):
+
+```text
+label on  - off = +0.413 pp  SE 0.040  REGISTERED CLASS COUPLED   HELD COUPLED (balanced, stable at +-2 SE, trend-adjusted +0.413)
+step  128 - 64  = +0.902 pp  SE 0.040  REGISTERED CLASS COUPLED   HELD COUPLED (balanced, stable at +-2 SE, trend-adjusted +0.906)
+drift 0.0062 pp per hold; scatter 0.069 pp after the trend fit (8 df), 0.029 pp within repeated cells
+FINAL AHEAD-1 hold (60.0 s): 15 underruns, 15 in the late window, underrun path fired 15 times; loss 1.513 % -> matches the calibrated host's 14-15
+```
+
+**Against the pre-registered resolution arithmetic (§V28.16).** The arithmetic assumed an effect SE of 0.008-0.015 points from older builds' per-second scatter; the run's own is 0.040 (scatter after the trend fit 0.069 points: about 3-5 times the assumption). The effects are 10 and 22 SE from zero,
+so the classes are not close to a threshold; a "not coupled" would have needed a smaller SE than this. The assumption of independent per-second counts was not right for this chain; it is the run that says so.
+
+**The mechanism, from the histograms** (bins per second of the whole hold, pooled by factor level; edges in ticks at 40.5 MHz):
+
+```text
+production call, 2k-4k bin     step 128  486 /s      step 64   0 /s            (a 64-push call is 1k-2k: 989 /s)
+pump call, 4k-8k bin           step 128  236 /s      step 64   23 /s
+pump call, 8k-16k bin          label on  5.7 /s      label off 0 /s             (the only source of that bin)
+tap gap 1.5-2.5 periods        step 128  55 /s       step 64   16 /s;   label on 43 /s, off 28 /s
+tap (whole callback)           1 124 ticks mean, 1 538 max, all in the 1k-2k bin, 11.3 % of wall time, 4 040-4 078 taps/s at EVERY level
+decode alone                   1 099 ticks mean, 1 509 max, 11.0 % of wall time
+label render                   about 29 renders /s (V28LABEL renders 6 375 over about 220 s of label-on time), calls of 2k-4.4k ticks
+```
+
+**A correction to the plan's own figure of the label, and the instrument's cost.** The label's text changes on every hand-off (`H`, the counter added for RUN 50 as the liveness signal), so it re-renders about 29 times a second, not 16.7: the liveness instrument raised its own cost, in the pump slot
+it was measured in. The loss it costs (0.41 points on average; 0.53 at step 64) is the loss the Operator's liveness check paid for.
+
+**A fit, HYPOTHESIS, no result.** At step 64 the label-on cells' loss above the label-off cells' (0.52 points, 21 blocks a second) goes with the 8k-16k pump stretches (8 a second) far more than with the 4k-8k ones (+17 a second): about 0.45 of the 0.53 points per 8 a second, i.e. 2.3 blocks a stretch, against 0.18 blocks
+per 4k-8k stretch when the step goes from 64 to 128 at label off (+236 a second for +1.02 points). Long stretches cost much more per occurrence than medium ones. Twelve points and four parameters: it points at the next design, it does not decide it.
+
+**Statuses** (`EVIDENCE.md` `GBP-HW-364`, `GBP-HW-365`, `GBP-HW-366`; `UNKNOWNS.md` `U-GBP-050`): the effects and the cells FACT (the rule's result, one run); the mechanism (long pump stretches delay the drain) CORROBORATED with `GBP-HW-332`; the tap's decode not the cause of the excess CORROBORATED;
+the calibrated host model CORROBORATED by an a-priori match (15 underruns against 14-15); RUN 51-53's "clean" AHEAD-1 holds confirmed unobserved. No status is promoted beyond that.
+
+**Not established.** That the fixes reproduce the (l,s) cell with the label present; that the corrector holds its target at 0.18 %; that 0.18 % is a floor; the instruction-level cause; audibility.
+
+**Next.** Two fixes derived from the measurement, a pre-registered prediction, and `validation_run` with both (the next entry).

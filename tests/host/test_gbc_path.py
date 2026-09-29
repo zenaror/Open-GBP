@@ -220,7 +220,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #136 (2026-09-28): RUN 52, the same image, a different track, a GBA cartridge
                  "GBP-AUDIO-V28_v28-validation-0001-run52.log": "92",
                  # Issue #137 (2026-09-29): RUN 53, the redesigned landing, a GBA cartridge
-                 "GBP-AUDIO-V28_v28-validation-0001-run53.log": "92"}
+                 "GBP-AUDIO-V28_v28-validation-0001-run53.log": "92",
+                 # Issue #138 (2026-09-29): RUN 54, the loss diagnostic (diag_loss), a GBA cartridge
+                 "GBP-AUDIO-V28_v28-diagloss-0001-run54.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -270,8 +272,8 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         sync = {f for f in cart if "sync-0001" in f}
         self.assertEqual(len(sync), 1, sorted(sync))
         # Issue #131/#133: RUN 50 (v28-validation-0001), the gbp-audio-v28 fix run; named the same way
-        v28 = {f for f in cart if "v28-validation" in f}
-        self.assertEqual(len(v28), 4, sorted(v28))
+        v28 = {f for f in cart if "v28-validation" in f or "v28-diagloss" in f}
+        self.assertEqual(len(v28), 5, sorted(v28))
         self.assertTrue(all(re.search(r"(color|stream)", f)
                             for f in cart - play - drain - live - trace - split - game - game2 - sync - v28))
 

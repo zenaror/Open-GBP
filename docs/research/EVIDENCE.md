@@ -11826,3 +11826,68 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
 
 ---
+
+
+### GBP-HW-364 — RUN 54 (the loss diagnostic): the production step (128 pushes a call) and the GX label render are each coupled to the drain's block loss (0.902 and 0.413 percentage points), and with both removed the loss is 0.18 %, RUN 43's; the tap's decode is a fixed cost that is not the cause of the excess — FACT (the pre-registered rule's result on a balanced manipulation, one run); that long pump stretches delay the drain and so lose blocks is CORROBORATED, with `GBP-HW-332`
+
+**Source.** `HARDWARE_TESTS.md` §V28.18; `logs/run54/GBP-AUDIO-V28_v28-diagloss-0001.log` sha256 `100b6f8beb7484d5f7612ddea49bade6e49592c4d722b69577b654751c12953a`
+(archived byte-identical), build `v28-diagloss-0001` at commit `794297b`, slot `25-v28l`; read with `tools/v28loss.py` at `794297b`, unedited (the printed report sha256 `509ecaad54bf6786…fa294`).
+The rule and its tiers are those registered in `HARDWARE_TESTS.md` §V28.16 before the build.
+
+```text
+12 counted cell holds of 20 s (late window 17 s), balanced, target 4096 / AHEAD 4 verified at every snapshot; session taps 1 420 855, 0 failed, 0 wrong-length
+label on - off   = +0.413 pp   SE 0.040   registered class COUPLED   HELD verdict COUPLED (balanced, stable at +-2 SE, trend-adjusted +0.413)
+step  128 - 64   = +0.902 pp   SE 0.040   registered class COUPLED   HELD verdict COUPLED (balanced, stable at +-2 SE, trend-adjusted +0.906);  drift 0.0062 pp a hold
+
+late loss %   L=1 S=128  1.461 1.478 1.555      L=0 S=128  1.184 1.201 1.202
+              L=1 S=64   0.723 0.717 0.681      L=0 S=64   0.163 0.196 0.187          (RUN 43: 0.18 %, RUN 51-53: ~1.6 %)
+```
+
+- **FACT (the measurement, one run).** Both effects exceed the registered 0.2-point threshold, by 5 x and 11 x, and sit 10 and 22 SE from zero. The production configuration (label on, step 128) reads 1.46-1.56 %,
+  the value of RUN 51-53 (about 1.6 %) reproduced inside the same image; the configuration with both removed reads 0.16-0.20 %, the value of RUN 43, the last build before the native path.
+  The effects are super-additive (removing both gains 1.32 points against 0.90 + 0.41 taken separately).
+- **FACT of the histograms, the mechanism's trace.** Step 128 puts 486 production calls a second in the 2 k-4 k-tick bin, where step 64 puts none, and lifts the pump call's 4 k-8 k bin from 23 to 236 a second. The label
+  is the only source of pump calls in the 8 k-16 k bin (5.7 a second with it, none without) and of about 29 renders a second (calls of at least 2 k ticks; `V28LABEL renders` 6 375 over about 220 s of label-on time), because the
+  `H` counter changes on every hand-off. In both cases the gap between consecutive taps of 1.5-2.5 block periods rises (16 to 55 a second with step 128; 28 to 43 with the label on).
+- **CORROBORATED (with `GBP-HW-327`, `GBP-HW-329`, `GBP-HW-332`, `GBP-HW-339`): long stretches in the pump slot delay the drain, and the drain then delivers fewer blocks.** `GBP-HW-332` manipulated the step of the old path (0.270 outside L2's window);
+  this run does the same with the native step and adds the label. Not FACT: the histograms show how often a stretch is long, not the instruction stream that made it; the label arm removes all GX label work, not only stretch length; the step arm changes the number of calls as well as their length.
+- **The tap's decode (candidate C) is not the cause of the EXCESS: CORROBORATED.** It is a fixed cost, 1 124 ticks mean, 1 538 at most, every call in the 1 k-2 k bin, 11.3 % of wall time at every factor level (4 040-4 078 taps a second), and the loss returns to RUN 43's value with it unchanged.
+  Whether it contributes to the 0.18 % floor is UNKNOWN (the frozen path's decode cost was never measured).
+- **HYPOTHESIS, from a fit to the twelve holds and not a result:** the label's cost is dominated by the render (a 4.3 k-tick call in a slot that already carries a video slice), not by the draw: at step 64 the 8 k-16 k bin rate (8 a second) accounts for about 0.45 of the label's 0.53-point cost.
+  The next image tests it.
+- **RUN 38's and RUN 43's values are not re-derived here:** the comparison is across builds; the within-run comparison is the four cells above.
+
+**What this does NOT establish.** The instruction-level cause; audibility; that the fixes (a smaller production step, a label that changes once a second) reproduce the L=0 S=64 cell with the label present; that the corrector holds its target once the loss is back near 0.18 %; that
+0.18 % is a floor (what sets it is `U-GBP-050`'s remaining part); anything about the perceptual run, which stays unauthorised. One console, one Game Boy Player, one game (Yoshi's Island), one boot.
+
+---
+
+### GBP-HW-365 — RUN 54's final hold, the first AHEAD-1 hold ever observed with a working underrun path: 15 underruns in 60 s at TARGET 4096 with the production configuration's 1.513 % loss, inside the calibrated host's a-priori 14-15 — FACT (the count, one hold); the host model CORROBORATED by an a-priori match; RUN 51-53's "clean" AHEAD-1 holds are confirmed UNOBSERVED, and AHEAD 1 at T256 is not clean under this loss
+
+**Source.** `HARDWARE_TESTS.md` §V28.18; the same log as `GBP-HW-364`; the tool's line: `FINAL AHEAD-1 hold (60.0 s): 15 underruns whole hold, 15 in the late window (the underrun path fired 15 times); loss 1.513% late, 1.514% whole -> matches the calibrated host's 14-15`.
+
+- **FACT.** The hold (label on, step 128, AHEAD 1 at TARGET 4096 after a ROTATE entry, both observed on the operating-point records) counted 15 underruns in 60.0 s, the underrun path fired 15 times, and its own measured loss was 1.513 %. The prediction, registered before the build
+  and computed on the console-calibrated host at a 1.6 % deficit (`HARDWARE_TESTS.md` §V28.15), was 14-15; the tier the tool prints is "matches".
+- **CORROBORATED: the calibrated host model of the AHEAD-1 hold.** An a-priori numerical prediction from a model calibrated to other runs' cadence, feed and begin rings matched a physical count at the loss that hold measured. One hold, one console; not a distribution.
+- **The `GBP-HW-362` retraction is confirmed by observation:** RUN 51-53's three "clean AHEAD-1 holds" could not have been observed (`gbp_v28_3b_underrun_observed()` had no caller); the first observation of the same configuration underran about 15 times a minute. It is FACT that AHEAD 1 at T256 was not clean in RUN 54's production configuration.
+  Whether AHEAD 1 holds once the loss is back near 0.18 % is UNKNOWN.
+- The AHEAD-4 cell holds counted 0-5 underruns each: (L,S) 5, 2, 2; (l,S) 3, 3, 3; (L,s) 0, 0, 0; (l,s) 0, 1, 0; the Operator, at that point: "o audio nesse momento, agora. ... parece estavel" (OPERATOR OBSERVATION, not a measurement).
+
+**What this does NOT establish.** The number of underruns at any other loss; that the count is stable across boots; audibility of an underrun at this rate.
+
+---
+
+### GBP-HW-366 — GBP-HW-272's CLAIM 1 recomputed over 65 logs (RUN 54 adds one cartridge-present log, `0x92`): 13 at `0x90`, 52 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-363`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 54 (`v28-diagloss-0001-run54`, Issue #138) ran with the same GBA cartridge in the slot and records `orig=92`, as the split predicts. Before this run the population was 64 logs,
+13 at `0x90` and 51 at `0x92`; after it, it is **65: 13 at `0x90` and 52 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     52 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
+
+---
