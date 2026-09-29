@@ -39763,3 +39763,52 @@ card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from 
 **What the Operator does and sees.** As RUN 55 (§V28.20): the same `validation_run` plan, phase caps and label (`P<n>/4 H<count> RUN <s>s`, changing once a second), booted from `23-v28v/boot.dol`; navigate ends on the C-stick DOWN as before. Nothing on the screen or in the sound is new: the DMA reads are silent and go to the SD log only, at teardown. It is not the perceptual run and needs no listening beyond RUN 55's markers. The log is archived from the card before the next boot overwrites it.
 
 **What differs in the log against RUN 55.** `V28DMA` (n, prev1, prev2, none, same12, bytes-left figures, six bins), `V28DMAP` (new, kept, amb, other), `V28DMAR` (the first 32 callbacks raw); 3a's first row carries no navigate `dup` or underrun. The ring's size is not printed: the ring is proven on the host (`tests/host/test_ring_capacity_constant.py`) and by P8.
+
+### V28.25 RUN 56 EXECUTED AND INGESTED — everything RUN 55 established holds again; the ring doubling is neutral; 3a's first row is repaired; P7 half-resolves (the -31.2 ms case is excluded, the +31.2 ms case is not) — 2026-09-29 (Issue #139, Hardware Issue #140)
+
+*Appended. §V28.23 and §V28.23a (the registered predictions), §V28.24 (the image) stand; nothing in them is amended.*
+
+**Files and integrity.**
+
+```text
+raw log     logs/run56/GBP-AUDIO-V28_v28-validation-0001.log     108 630 B  sha256 c74f701b3f862e7fe2d9e19d9e656a8813e4902e41d056a46bd85caf9cf20e1f
+archived    captures/local/GBP-AUDIO-V28_v28-validation-0001-run56.log (cmp-identical, hash re-read); captures/local/GECKO-GBP-AUDIO-V28-run56.txt
+build       v28-validation-0001, commit 7dc6193, slot 23-v28v, boot.dol cc2813e3...b47f (§V28.24); the log's IDENT agrees
+session     ok_session_ended, 865 lines, dropped 0 truncated 0; cartridge Yoshi's Island (SMA3), Link Port empty, BBA absent (Hardware Issue #140)
+tools       tools/v28verdict.py and tools/v28latency.py, run on the archive at 615f66d, the verdicts as printed (one wording defect in the latency tool, below, repaired forward)
+```
+
+**Scored against §V28.23 / §V28.23a, in the registered wording.**
+
+| | registered | measured | |
+|---|---|---|---|
+| P1 | loss 0.10-0.35 % every ended phase, refuted above 0.5 % | p0 0.349, p1 0.362, p2 0.379, p3 0.327 % | HOLDS against the refutation line; p1 and p2 read 0.012 and 0.029 pp above the band's top (RUN 55: 0.003-0.005), p0 and p3 inside it |
+| P2 | 3b chunk start about 3 831-3 838, refuted below 3 000 | mean 3 827 (-269), mean ring 3 097, min ring after 10 s 2 256 | HOLDS |
+| P3 | AHEAD-1 hold at T256 runs its full 60 s, `underrun_seen` 0, `V28PHC` p2 at most 1 a minute | 60.0 s, `underrun_seen` 0, p2 underruns 0; the tool prints "the underrun hook is live in this build: 'clean' is OBSERVED" | HOLDS: the SECOND observed clean boot of the AHEAD-1 hold |
+| P4 (re-registered) | steady dwells T4608..T2560 in 1 400-2 100, refuted at 2 800 or more; dup 0 at T2048; the FIRST TWO dwells (T5632, T5120) saturated (2 800 or more), NOT saturated refutes the recovery hypothesis; T6144 about 3 000-3 100 | T6144 3 102, T5632 3 074, T5120 3 072; T4608 **2 240**; T4096 1 744, T3584 1 648, T3072 1 712, T2560 1 824; T2048 dup 0 | see below |
+| P5 | sweep 18/18, landings about target - 167, continuity PASS | 18/18 GATE PASS, no cut after unmute; landings (ring - target) -206 .. -149, mean -168 (RUN 55: -183 .. -144, mean -166); begin rings -652 .. -432 | HOLDS: the second time |
+| P6 | taps == blocks_in, 0 failed, 0 wrong-length | every phase (V28PHC p0-p3); 0 failed, 0 wrong | HOLDS |
+| P7 | the DMA's hand-off semantics | below | R1 by the bytes-left arm; R3 EXCLUDED; R2 NOT excluded: UNRESOLVED by the pre-registered rule |
+| P8 | the doubled ring changes nothing: chunk start 3 828 +- 15, min ring after 10 s 2 272 +- 60, overflow and lost 0, ENVSTORE ok, no fault | chunk start 3 827, min ring 2 256, `V28C2` lost 0, `V28C` overflow 0, `trans_faults` 0, ENVSTORE `ok=1 fault=-` | HOLDS |
+
+**P4, scored against the registered text and not rescued.** (a) The first two dwells (T5632 3 074, T5120 3 072) are saturated: the recovery hypothesis's own prediction HELD, and T6144 (3 102) reads inside "about 3 000-3 100": the hypothesis survives a second test. It is still a HYPOTHESIS about the cause (`GBP-HW-368`), now with a repeated observation, not a demonstration. (b) The steady band 1 400-2 100 is **MISSED at one dwell of five**: T4608 read 2 240, 140 above the band's top and 560 below the refutation line (2 800). The other four (1 648-1 824) are inside. So the band is not refuted as registered, and it is not held either; it is missed at T4608 by 140. RUN 55's T4608 was 1 568. Why the first steady dwell was 2 240 this time is UNKNOWN: the recovery tail extending one more dwell would explain it, but it is not predicted by anything registered and RUN 55 does not show it; it is recorded and not used. (c) T2048 dup 0 with `starved` 12 701; the 2 304 / 2 336 bracket reappeared (n=9 at 2 304 dup 0 starved 17 578; 2 432, 2 368, 2 336 hold at dup 3 072 / 3 088 / 2 992; the confirm at 2 304 underran once).
+
+**3a's first row is repaired** (§V28.21's record defect): T6144 reads `dup` 3 102, `underruns` 0, against the 15-16 k RUN 51-55 carried from navigate. `V28C` underruns 2 = `V28PHC` p0 1 + p1 1; 3a's rows carry 1 (the confirm).
+
+**P7 — what the DMA read can and cannot say.**
+
+```text
+V28DMA   7 425 callbacks, 7 238 classified: prev1 7 238 (100.0 %), prev2 0, none 0, same12 187; bytes left at entry min 3 968 mean 3 968 max 3 968; bins 0,0,0,0,7425,0
+V28DMAP  after AUDIO_InitDMA: new 7 238, kept 0, amb 187, other 0
+V28DMAR  i=0 addr=8a040 (the seed) left=3968 | i=1 addr=890a0 (what callback 0 programmed) | i=2 8afe0 | i=3 8bf80 | i=4 8a040 | i=5 8cf20; dt 1 262 239 .. 1 266 763 ticks (31.16-31.28 ms)
+```
+
+- **FACT (the readings).** At every one of the 7 425 callbacks the bytes-left register read exactly 3 968 of the 4 000 programmed (one 32-byte unit consumed), with no spread at all; at 7 238 of 7 238 classified callbacks the start-address register read the chunk the PREVIOUS callback had returned; right after `AUDIO_InitDMA` it read back the chunk just written in 7 238 of 7 238 (the 187 silence pairs cannot be told apart by pointers). The 32-byte-unit granularity and the callback-to-callback interval (31.22 ms +- 0.06) are the registers' and the timebase's own.
+- **The bytes-left arm is decisive on one side (INFERENCE from the register's semantics: libogc2's `AUDIO_GetDMABytesLeft` and Dolphin's `DSP.cpp` model it as the active block's countdown).** A block that had just FINISHED would read under 1 000; every callback reads 3 968, so the callback fires as a block STARTS. **R3 (every L -31.222 ms) is EXCLUDED.**
+- **The address arm cannot speak.** The register is a write-through latch: `prev1` 100 % only echoes the previous write and does not exclude a hidden second stage. **R2 (every L +31.222 ms) is NOT excluded by measurement**, as §V28.23a registered. The single-latch AI DMA libogc describes and Dolphin models argues for R1's row values; that is an argument from architecture, not a reading.
+- **The registered stop condition is not met** (P7 needs R1 informative, R2 or R3): the perceptual run stays unauthorised. The latency table is **bounded, not settled: every L(T, A) is as tabulated or 31.222 ms higher, never lower**; every figure carries "assumed DMA semantics (+31.2 ms not excluded)".
+- **A wording defect in `tools/v28latency.py`, mine, found while ingesting.** Under R1 with a write-through register it printed "every L in the table shifts by +0.000 ms under this reading", which reads as settled. It is repaired forward: R1 under a write-through (or unread) register now prints "BOUNDED: +0.000 to +31.222 ms; the upper end is not excluded" (`tests/host/test_v28_run56_dma.py`). No verdict of the run changes.
+
+**The Operator (`logs/run56`, Hardware Issue #140).** He confirmed the image and `H` and pressed DOWN ("c down ok.. h ok"); nothing further was reported. OPERATOR OBSERVATION only.
+
+**What this does NOT establish.** Which of AHEAD + 1 and AHEAD + 2 the hardware runs (the next check is a marked block: `GBP-HW-372`'s "next"); the audio-versus-video offset; audibility; why T4608 read 2 240.
