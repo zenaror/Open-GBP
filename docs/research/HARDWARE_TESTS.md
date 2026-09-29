@@ -39605,3 +39605,48 @@ The one heard failure falls at the 2 -> 3 change, 3b's entry step: a designed 21
 **Statuses** (`EVIDENCE.md` `GBP-HW-367`, `GBP-HW-368`, `GBP-HW-369`): the measurements FACT; the corrector holds `target - BAND` once the loss is below its authority, and the fixes returned it, CORROBORATED; AHEAD 1 at T256 clean for a minute CORROBORATED on one observed boot; P4 refuted, its cause a HYPOTHESIS; RUN 51-53 unobserved.
 
 **Not established.** Why the loss is 0.34 % and not 0.18 %; a second boot; the latency of any rung (the next entry derives it); audibility; the perceptual run.
+
+### V28.22 `L(T, A)` for the native path, derived from the measured levels — 2026-09-29 (Issue #139, `U-GBP-049`)
+
+*Appended. Not a hardware run: a derivation from RUN 55's levels, checked against the real chain on the host. `tools/v28latency.py` prints the table; `tests/unit/test_v28_stock.c` proves the definition; `tests/host/test_v28latency.py` pins the arithmetic. INFERENCE throughout (no physical latency was measured); the levels it rests on are FACT (`GBP-HW-367`).*
+
+**The definition, written once.** The latency of a sample is the time from its entering the decoder's ring to its being PLAYED at the AI. The AI plays continuously, one chunk of 2 048 input-domain samples (1 000 frames) a hand-off period, so that time is the number of input-domain samples AHEAD of the sample, the STOCK `S`, over the playout rate:
+
+```text
+S = ring + (pushes already in the chunk being filled) + 2048 x READY + 2048 (the chunk PROGRAMMED at the last hand-off) + 2048 x (1 - phi)
+L = S / playout rate + the resampler's delay          (phi: the fraction of the hand-off period elapsed; the last term is the unplayed part of the playing chunk)
+```
+
+**The sawtooth was the wrong picture, and the Orchestrator said so (#139).** `gbp_aplay2`'s producer only MOVES samples (ring -> chunk being filled -> READY) and the hand-off moves a chunk (READY -> programmed -> playing), so `S` changes only by the feed (+), the playout (-) and one sample per DUP (+) or DROP (-). The sawtooth is in how the stock is SPLIT (the ring alone swings by 1.5 chunks), not in its total. At a chunk start READY = AHEAD - 1, so
+**`S = c + 2 048 (AHEAD + 1) - 2 048 phi`**, `c` being the ring at the chunk's start (`cur_s0`): the structure of #122's 4 096 Hz formula, `c + 128 (A + 1) + 8`, in native samples. `L` moves only with `c` (the corrector's band) and the drift between corrections.
+
+**Proven on the real chain (`tests/unit/test_v28_stock.c`, 36 checks).** `gbp_aplay2` over `gbp_adec2`, time-driven at the console's cadence (122.8 pump calls a hand-off period, RUN 55's p2; the AI's 32 028.483 Hz period), six cases (AHEAD 1 at T4096 at RUN 55's 0.355 % loss and at 0.18 %, AHEAD 2, AHEAD 4, T3072, T11264 at AHEAD 4): READY is AHEAD - 1 at every chunk start; **`S` is flat to 19-22 samples (0.30-0.34 ms) over 120 periods in every case while the ring alone swings by over 1 500**; `S` at every chunk start equals the formula to within one sample; the ring's mean follows from `c` and the production time (`c - (2 048 - feed x tau)/2`, within 2 samples on the host) and so does its minimum (within 21).
+The chunk-start level on the host is 3 830 (3 817-3 835) at T4096, the console's 3 828.
+
+**The clocks are measured, never nominal (the Orchestrator's rule).** The playout rate is the AI's 32 028.483 frames a second (`GBP-HW-325`; nominal 32 000 is 0.09 % off): 2 048 samples take 31.222 ms, 65 594 a second. The feed is the run's own `blocks_in` x 16 (RUN 55's 3b hold: 4 081.5 blocks a second, 65 304 samples a second, not 4 096 / 65 536). The resampler's delay is `GBP-HW-350`'s 0.122 ms.
+
+**What `L` EXCLUDES, and what it is NOT.** Ring entry -> AI output: the audio path's OWN latency. It leaves out everything before the tap (the AGB, the Game Boy Player, the HSP drain, the decode's scheduling) and everything after the AI (its DMA and DAC, the television's audio path). **It is not the audio-versus-video OFFSET the perceptual run nulls;** that needs the video path's latency, which this derivation does not have. The table's header says so.
+
+**The table (ms; `c` = TARGET - 268, RUN 55's mean chunk start 3 828 at T4096; phi at a chunk start 0.0055; floored at the production gate):**
+
+```text
+            TARGET native (ms of ring)    c     L at AHEAD 4      3      2      1
+T704            11264      171.7        10996        323.7   292.5  261.3  230.0
+T576             9216      140.5         8948        292.5   261.3  230.0  198.8
+T448             7168      109.3         6900        261.3   230.0  198.8  167.6
+T320             5120       78.1         4852        230.0   198.8  167.6  136.4
+T256             4096       62.4         3828        214.4   183.2  152.0  120.8
+T192             3072       46.8         2804        198.8   167.6  136.4  105.1
+the design's floor (the chunk start on the production gate, 2 049): AHEAD 4 187.3, 3 156.1, 2 124.9, 1 93.6
+```
+
+Each AHEAD adds exactly one chunk period (31.22 ms); a TARGET step of 2 048 samples adds 31.22 ms. **No TARGET at or below about 2 317 native lowers `L`: the chunk start is the production gate** (`GBP-HW-368`'s bracket, the same structural limit); the floor at AHEAD 1 is 93.6 ms.
+
+**Its real variation, as measured (the Orchestrator's third addition).** RUN 55's mean chunk start is 3 828 (1 914 chunks). The log does not carry `c`'s minimum and maximum; it carries the ring's minimum after 10 s (2 272), and `min ring = c_min - 2 048 + feed x tau` (tau = the 32 pump calls a 64-push chunk takes, 8.13 ms at 122.8 calls a period, 531 samples of feed) gives **`c_min` = 3 789: L = 120.16 ms, 0.60 ms below the mean's 120.75**. The upper spread is not logged; the corrector only adds samples below the band and the host's `c` is +5 above its mean, so the range is reported one-sided: **L(T256, A1) = 120.75 ms, at least 120.16 on the console's worst chunk**, plus the drift between corrections (0.34 ms on the host).
+The model's check against the console: mean ring `c - (2 048 - feed x tau)/2` = 3 070, measured 3 097 (+27, 0.9 %).
+
+**What became of 122.9 ms at T256 / A1, and why.** #122's formula gives 122.9 ms (ring 58.47 + chunks 62.50 + resampler 1.95). The native chain gives **120.8 ms** (ring 58.36 + chunks 62.44 + phase -0.17 + resampler 0.12). By term: **the resampler, -1.83 ms** (the 16-tap filter at 65 536 Hz against the old 8 samples at 4 096: this is the path); the ring, -0.11 (`c` sits at TARGET - BAND - 12 in both: the chunk-start level did NOT move to `target`, and the old formula already used TARGET - 16.5 old samples = TARGET - 264 native); the chunks, -0.06 (the AI's measured clock against the nominal); the phase, -0.17 (a chunk starts 0.0055 of a period after the hand-off, which the old formula took as the peak). The units did not change the answer (128 old samples = 2 048 native), and `c` at TARGET - BAND rather than TARGET is not what changed: it was already in the old formula. Sum: -2.1 ms.
+
+**Consequences for the ladder.** The ladder's steps are now latencies with a real basis: T704 A4 323.7 ms down to T192 A1 105.1 ms. Two things it does NOT give: the A/V offset, and a latency for any state with the ring on the gate (RUN 51-53, or below T2 317). `GBP-HW-351`'s 32-tap question (a 32-tap resampler costs a longer delay and a longer refill) is priced separately (#128 section 5).
+
+**What this does NOT establish.** A physical measurement of `L` (none exists for the native path); the exclusions above; the upper spread of `c`; behaviour during a transition (the derivation is a steady-state one).
