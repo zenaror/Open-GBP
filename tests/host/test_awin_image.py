@@ -419,7 +419,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["24"][1], rows["24"][2]), ("v28d", "gbp-audio-v28"))
         # Issue #137 (2026-09-29): diag_loss, the loss diagnostic; nothing renumbered
         self.assertEqual((rows["25"][1], rows["25"][2]), ("v28l", "gbp-audio-v28"))
-        self.assertNotIn("26", rows)
+        # Issue #141 (2026-09-29): the PERCEPTUAL image, frozen before its export (§V28.32); nothing renumbered
+        self.assertEqual((rows["26"][1], rows["26"][2]), ("v28p", "gbp-audio-v28"))
+        self.assertNotIn("27", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own
