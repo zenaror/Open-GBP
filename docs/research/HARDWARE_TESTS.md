@@ -40074,3 +40074,19 @@ NEVER, in the perceptual image (compiled OUT of its branch, not hidden at run ti
 **For the Orchestrator's procedure text (facts, not text).** A press or confirm during a transition's mute is dropped silently and the stick edge is consumed (steps land within 250 ms, the dead time is 250 ms; after a START, whose mute is 312 ms, a press at 250-312 ms is lost). A setting that STARTS at the floor rung and is followed by an exploratory press in the shallower direction is counted censored by the pre-registered rule (a press against the floor is the operand); that is by design and worth one sentence to him.
 
 **What this does NOT change.** The design, the ladder, the predictions G1-G6 and O1-O5 as amended here.
+
+### V28.31 The perceptual candidate of record — built twice, verified, NOT pinned, NOT staged, NOT issued — 2026-09-29 (Issue #139 / #141)
+
+*Appended. §V28.28-§V28.29a stand. Nothing is exported to `build/swiss`, staged on the card or issued; the perceptual run's Hardware Issue waits for the Orchestrator's procedure text (§V27.6), and the image is rebuilt (and this record superseded) if any source changes before staging.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=perceptual_no_phase1, build v28-perceptual-0001, TEST_ID GBP-AUDIO-V28, commit 22d0328 (clean, no -dirty)
+DOL        build/poc/gbp-audio-v28-perceptual_no_phase1/gbp-audio-v28-perceptual_no_phase1.dol   sha256 4a700dfe55ac48cde085217b489540976aa9ebb3a751b8ed26c94c5b0a37d4d3
+rebuilds   two separate clean Docker rebuilds (the plan directory removed between them), byte-identical (cmp), commit=22d0328; bss_end 0x80de50b8
+strings    V28MARK 0, V28DMA 0 (no DMA read, no classifier, no marked block); V28_NULL present (the records); the IDENT line reads v28-perceptual-0001 22d0328
+callback   RUN 55's exactly (the hand-off and AUDIO_InitDMA, nothing else): the reviewer compared its object with the RUN 55 image's; no `v28_dma` symbol in the ELF
+plan       navigate(60) + nulling(240), session cap 360 s, wall 425 s (tools/v28budget.py perceptual_no_phase1; stores 33 575 events + 25 500 frames + 16 575 corrections)
+layout     no slot in tools/swiss-layout.tsv yet (a perceptual slot is chosen at staging)
+```
+
+**Gate on the committed tree.** `make test-python` 3 590 passed, 9 skipped; `make -C tests/unit` exit 0 (nulling 640 checks, landing 892), at `22d0328`.
