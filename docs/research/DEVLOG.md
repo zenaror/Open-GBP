@@ -19537,3 +19537,21 @@ the structural test learned reachability and declarations written any way, and t
 holds: both underrun hooks are live now (§V28.16).
 
 **Next.** The Orchestrator verifies the entry and the image; then the two identical rebuilds, the pin, the staging, the Operator's run, and the ingestion against the rule.
+
+## 2026-09-29 — Issue #138: RUN 54 ingested — the loss is the native production step and the label render (`HARDWARE_TESTS.md` §V28.18, `GBP-HW-364`..`366`, `U-GBP-050`)
+
+**Goal.** Ingest the loss diagnostic against the rule registered before it was built (§V28.16), unedited, and say what it establishes.
+
+**Done.** The pre-registered rule printed: step 128 minus 64 = +0.902 points, label on minus off = +0.413, both COUPLED in the registered class and HELD (balanced, stable at +-2 SE, trend-adjusted agreeing), the cells 1.46-1.56 % (production), 0.16-0.20 % (both removed: RUN 43's 0.18 %); the tap a fixed 11 % of wall time at every level. The final AHEAD-1 hold, the first one observed with a working underrun path, counted 15 underruns in 60 s at its own loss of 1.513 %, inside the host's a-priori 14-15.
+Nothing needed the plain cycle back: drift was 0.006 points a hold, and the walk chosen for it balanced the label exactly.
+
+**Two things worth their own lines.**
+
+1. **The instrument perturbed its subject.** The `H` counter in the label, added for RUN 50 so the Operator could tell a stall from a quiet passage, changes on every hand-off; the label therefore re-renders about 29 times a second in the pump slot the audio loss depends on, and costs 0.41 points. The plan's own figure for it (16.7 a second, in the Orchestrator's message) was low: `V28LABEL renders` over the label-on time says 29.
+2. **My resolution arithmetic was optimistic by 3-5 times.** It assumed the per-second scatter of older builds would carry over; the run's SE was 0.040 points, not 0.008-0.015. It did not matter here (10 and 22 SE) and would have mattered for a "not coupled".
+
+**Tests.** The two recount tests learn the new log (`GBP-HW-366`); the full gate is recorded in the closeout on Issue #138.
+
+**Not done, on purpose.** No firmware change in this entry. The remedies are the next round: choose the production step from this run's histograms, stop the label re-rendering per hand-off, prove on the host that re-partitioning changes only the call count, pre-register the prediction, then `validation_run` with both.
+
+**Next.** The fixes, reviewed heavily before they are built.

@@ -92,7 +92,9 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # hold reproduced, a GBA cartridge in the slot, orig=92 -- 63 logs
          "v28-validation-0001-run52": 0x92,
          # Issue #137: RUN 53, the redesigned landing, a GBA cartridge in the slot, orig=92 -- 64 logs
-         "v28-validation-0001-run53": 0x92}
+         "v28-validation-0001-run53": 0x92,
+         # Issue #138: RUN 54, the loss diagnostic (diag_loss), a GBA cartridge in the slot, orig=92 -- 65 logs
+         "v28-diagloss-0001-run54": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -115,7 +117,7 @@ def plain(s):
 # own recount inside GBP-HW-272 -- the last one that entry ever gets). A later recount can no
 # longer append inside GBP-HW-272 without breaking that guard, so it is recorded as its own new
 # entry at the end of the file instead, and CONTINUATIONS names each one in order.
-CONTINUATIONS = ["GBP-HW-353", "GBP-HW-354", "GBP-HW-355", "GBP-HW-358", "GBP-HW-363"]
+CONTINUATIONS = ["GBP-HW-353", "GBP-HW-354", "GBP-HW-355", "GBP-HW-358", "GBP-HW-363", "GBP-HW-366"]
 
 
 def entry():

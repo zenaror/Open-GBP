@@ -2877,3 +2877,8 @@ of 262 144 blocks in its 64 s window, 0.18 %; RUN 38's 0.62 % was the older 16-p
 the diagnostic reads `V28TAPS`. The audio `SEMGAP` maximum is unchanged across all runs (91 925 to 92 258 ticks): what changed is how often shorter stretches occur. Three candidates, none measured (production call length
 in the pump slot, the GX label's 4 k-tick render, the tap's sixteen `int64` divisions in the drain slot) and the diagnostic that measures all three and manipulates two is registered in §V28.16, with its rule
 (effect > 0.2 points coupled, < 0.05 not, between unresolved). Parts (2) and (3) wait for it. STAYS OPEN.
+
+**AMENDMENT 2026-09-29 (Issue #138), third, on top: RUN 54 answers parts (1) and (3) for this build.** With the pre-registered rule (`HARDWARE_TESTS.md` §V28.16) and one balanced run (§V28.18, `GBP-HW-364`): the native production step (128 pushes a call) and the GX label render are each coupled to the loss, by 0.902 and 0.413 percentage points (10-22 SE), and with both removed the loss is 0.16-0.20 %, RUN 43's 0.18 %. The tap's decode is a fixed 11 % of wall time at every level and does not explain the excess. Part (1),
+where the blocks go, is answered as far as the drain: the pump slot's long stretches (the 2k-4k production call and the 4k-16k pump call) lengthen the gap between taps and the drain delivers fewer blocks; `taps == blocks_in` again, no refused or short tap. Part (3), the remedy, is the step and the label, not `k`. Part (2), by phase, is answered by the holds
+(all at one operating point) and left for the next run's per-phase records. What is NOT answered: whether 0.18 % is a floor and what sets it; whether the fixes reproduce the (label off, step 64) cell with the label present. STAYS OPEN (the causes CORROBORATED).
+
