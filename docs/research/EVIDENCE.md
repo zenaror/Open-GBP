@@ -11743,3 +11743,35 @@ Game Boy Player; the cause of any sweep failure; that `min_ring = 256` is or is 
 
 **What this does NOT establish.** That the sweep will pass on the console; that the splice is or is not audible;
 anything about the perceptual run, which stays unauthorised.
+
+
+### GBP-HW-361 — RUN 52's short landings, redesigned: the old ROTATE landing cut the ring AFTER the first audible hand-off, so its splice depended on the AHEAD in force (#122 §1(c)); the level is now set in silence — FACT (the old mechanism's defect, from the code and the calibrated host); HYPOTHESIS (that the redesign lands on the console); begin-ring deficit CORROBORATED as a measurement, HYPOTHESIS as a steady state (Issue #136)
+
+**Source.** `HARDWARE_TESTS.md` §V28.13; `logs/run52/...log` sha256 `6b80c29ef29b550a58cbb4a7a90cb583a4097cf2877c5a5e0886b84b01b9a214`;
+`src/audio/gbp_atrans2.c`, `gbp_v28_ladder.h`; `tests/unit/test_v28_sweep_landing.c`. It supersedes `GBP-HW-360`'s fix (reverted,
+`c252837`); `GBP-HW-360`'s mechanism paragraph stands.
+
+- **FACT: the old ROTATE landing cut the ring after the first audible hand-off.** The landing check is `handed > mute`, i.e.
+  after hand-off `mute + 1`, the first audible one; the cut ran there, so the splice fell about `ahead` chunks later
+  (33 ms AHEAD 1, 64 AHEAD 2, 127 AHEAD 4), which makes the moment of an audible splice depend on the AHEAD in force: a breach
+  of #122 §1(c) at any size. Shown on the console-calibrated host for `af9635e` (the cut ran after unmute in 22-83 % of
+  landings, mean 41-90 samples) and for `e1eb4bd` (in every landing, mean 1.3-1.6 thousand): the test's 1(c) checks fail at
+  every landing of `e1eb4bd`. The source's earlier comments that called the cut "masked" were never tested.
+- **HYPOTHESIS (reproduced on the host): the short landings.** As `GBP-HW-360`.
+- **HYPOTHESIS: that the redesign lands in band on the console.** Validated on the calibrated host only (124.8 calls a period,
+  the feed 0.5 % slow and jittered, the console's measured begin rings): RED before, GREEN after, RED one period below the
+  measured mute. RUN 53 decides.
+- **FACT of the log (a measurement): the ring at the start of a move.** 956 to 1878 samples below target on the 17 moves that follow
+  another move, 2666 below at the prelude (`meas_ring - from_target`, RUN 52 `V28_SWEEPM`); CORROBORATED as a repeated
+  measurement of one console. **HYPOTHESIS: that this is the corrector's steady state** (dead band against a feed deficit of
+  0.47-0.545 %), not a transient: on the host a 0.5 % deficit holds the chunk-start level at `target - BAND` and the mean ring
+  1171 below target, and a 1 % deficit collapses it. RUN 53's `mean_ring`/`mean_cs` decide.
+- **CORROBORATED for this console: the feed deficit, about 0.5 %.** `V28CORR mean_x100` 1075 (RUN 51) and 1117 (RUN 52) of a cap
+  of 16, `dup` 87 396 and 99 619 against `drop` 224 and 256. Whether it is systematic (a clock ratio every unit shares) or
+  specific to this console cannot be said from one unit; the corrector uses about half its authority (the host's collapse is at 1 %).
+  `U-GBP-049`.
+- **Amendments to frozen #128 figures (Orchestrator's decisions):** `STEP_MUTE` 6 -> 7, `START_MUTE` 8 -> 10, derived in
+  `gbp_v28_ladder.h` from the measured begin deficits (needs 6 and 9, one period of margin each).
+
+**What this does NOT establish.** That the sweep will pass on the console; anything about audibility; that the console's deficit is
+systematic; the latency `L(T, A)` of the native path (pending, RUN 53's ingestion); the perceptual run, which stays unauthorised.

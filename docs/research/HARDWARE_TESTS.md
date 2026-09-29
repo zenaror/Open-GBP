@@ -38998,3 +38998,111 @@ log was archived before this copy (`captures/local/`, §V28.10).
 and this record; its own gate is recorded in the closeout on Issue #136.
 
 This is the build RUN 53 would run. The perceptual run is not authorised.
+
+### V28.13 The ROTATE landing redesigned: the level is set in silence, every chunk heard is built after the cut — 2026-09-28 (Issue #136)
+
+**The decision this record answers (Orchestrator, Issue #136).** The fix of §V28.11 (`e1eb4bd`, last-period aim
+`target + 512`) is **reverted** (`c252837`; the candidate image `c40412b1...` built from it is not run). It traded a
+short landing the gate could see for a bigger landing cut it could not, and that cut is unmasked: the landing runs after
+the first audible hand-off (`handed == mute + 1`), so the splice falls `ahead` chunks later (about 33 ms at AHEAD 1, 64
+at AHEAD 2, 127 at AHEAD 4). **The moment of an audible splice then depends on the AHEAD in force, which #122 §1(c)
+forbids at any size of the cut.** A green sweep would have authorised the perceptual run on a defect the gate cannot
+see. The old cut was already unmasked, only small (mean 41-90 samples, in 12 % of landings), so nobody heard it.
+The requirements: every discontinuity inside the mute with the level set at least `ahead` builds before the landing;
+the mute a fixed uniform constant; a host test on the console-calibrated harness asserting no discontinuity after the
+first audible hand-off, RED on `e1eb4bd` and on the pre-fix source; and "no cut after unmute" a **pre-registered
+GATE condition** of the sweep.
+
+**The design (`gbp_atrans2.c`, header "THE ROTATE LEVEL IS SET IN SILENCE").** Nothing is consumed until the
+second-to-last hand-off period (or earlier, if the ring is within two chunks of full: the top of the nulling grid,
+57344 native at AHEAD 4, would otherwise overflow it and lose the newest samples, a gap heard later at a
+TARGET-dependent moment). A chunk the ordinary producer had in flight at begin is finished first. Then **one**
+`gbp_adec2_discard` cuts the ring to `target + ahead x 2048 - (the feed until the landing call) - 32`, the time to the landing measured from the
+callback's own hand-off instants at the nominal feed (an estimate of the feed's own rate from the ring's growth was
+tried in review round 2 and removed in round 3: it turned a delivery gap into a landing error and gained nothing at the
+console's 0.5 % deficit), and `ahead` chunks are built from the cut ring, each replacing the oldest queued one, so that after a cut no pre-cut chunk
+survives and the queue is never empty before the unmute. The landing cuts nothing. The ring lands at `target - 160` on
+an exact feed (the landing recovery's 128, the bias 32). A mute too short to fill the ring is reported
+(`fill_short`), never hidden and never turned into a cut.
+
+*A design change worth its own line, not a footnote:* the previous mechanism topped the queue up toward the new AHEAD
+before anything else. On a raise (A1 -> A4) that built three chunks that the rotations then threw away, a pure waste of
+ring material, and the material is what sets the mute (below). The queue is no longer topped up before the cut.
+
+**Calibration, from the RUN 52 log and not assumed** (the 16-call harness is why every host proof of the old mechanism
+passed): 124.8 pump calls per period (`samples = 239 630` in the 60.0 s hold); a feed 0.5 % slower than the DMA's
+(`V28CORR mean_x100 = 1117` of 16, `dup 99 619` / `drop 256`; 0.47 % over the sweep, 0.545 % over the run); and the
+ring at the START of a move: **956 to 1878 samples below target on the 17 moves that follow another move** (mean about
+1400), **2666 below at the prelude** (`meas_ring - from_target`, `V28_SWEEPM`). An earlier version of this design
+derived its mutes from a host that began every move 1.4 thousand samples ABOVE target; the adversarial review found it.
+
+**The steady level (host, calibrated; the answer to "transient or steady").** 50 s of hold after 10 s of settle, target
+4096, AHEAD 1 and 4 alike: feed exact: mean ring -654 vs target, mean ring at chunk start +256; feed 0.2 % slow: -1167 /
+-260; **feed 0.5 % slow (the console's): mean ring -1171 (17.9 ms native), chunk start -266 = target - BAND**, min 2036,
+max 3814; feed 1 % slow: collapse (mean -2908, min 260, underruns). So the begin-ring deficit is the **steady state**
+of the corrector's dead band against the feed deficit, not a transient: TARGET is the ring count at each chunk start
+(`cur_s0`), held within +-BAND; the time-average ring sits about half a chunk lower even at an exact feed, and a
+deficit pushes the chunk-start level to `target - BAND` and no further until the 1 % cliff. HYPOTHESIS for the console
+until RUN 53's `mean_ring`/`mean_cs` (3b hold, `V28_3BM`) measure it there.
+
+**The mutes (derivation in `gbp_v28_ladder.h`; two amendments to frozen #128 figures, Orchestrator's decisions).**
+`mute >= ahead + ceil((climb + the ring's deficit at the start) / 2048)`. Smallest working mute per move on the calibrated
+host with the measured begin rings (all 25 phases, four feeds): every step 2 to 6; the +2048 climbs at AHEAD 4 need 6;
+START T256A1 -> T704A4 needs 9 (2666 at the start). **STEP_MUTE 6 -> 7** (need 6 + one period, +31.25 ms of silence on
+every step, nulling steps included) and **START_MUTE 8 -> 10** (need 9 + one period, +62.5 ms per START). The 12 the
+Orchestrator approved first is withdrawn: it was sized on the wrong begin ring. Build-time asserts pin the needs
+(6, 9), the constants, every rung climb <= one chunk and the nulling step <= one chunk.
+
+**What the tests assert** (`tests/unit/test_v28_sweep_landing.c`, 125 calls a period, feeds exact / 0.5 % slow / 1 % slow /
+0.5 % fast, call jitter, 2.3 ms stalls, a late level-setting call, a late landing call, a pump at 48 calls; the sweep's 18
+GATE moves, 3b's entries from every 3a floor, the T192 rungs, the nulling steps across the whole grid; begin ring from
+the measured spread): the landing in `[target - BAND, target]`; READY in `{ahead - 1, ahead}`; **nothing cut after the
+first audible hand-off; every chunk heard has a production sequence number not below the number produced when the last
+cut ran**; no rotation left in flight; the mute filled the ring; the cut never ran with a chunk half built; no underrun
+from the begin to six periods past the landing; no feed sample lost for want of room; the exact-feed landing at
+`target - 160`. **RED on the source before Issue #136 (`af9635e`: 53 of 144 checks fail) and on its first fix (`e1eb4bd`: 40 of 144)**, the
+final test compiled against each source tree with only the missing struct fields patched out; **GREEN now (156 checks)**.
+Per move, over 25 begin phases: at `e1eb4bd` every one of the 16 STEP/REFUSED moves cuts the ring after the first audible
+hand-off in 25/25 landings and 14 of them hear a pre-cut chunk in 25/25; the two STARTs (the prelude's T256A1 -> T704A4 among
+them) hear a pre-cut chunk in 50/50. At `af9635e` the cut runs after unmute in 10-18 of 25 landings on every step and the
+STARTs hear a pre-cut chunk in 22/50. **RED one period below the measured need** (STEP 5 / START 8: 27 failing checks in an
+earlier run). The begin-ring calibration is pinned by `tests/host/test_v28_console_calibration.py`, which recomputes the 17
+begin rings, the prelude's 2666, the 124.8 calls a period, the 0.5 % deficit and the ladder's two measured deficits from the
+raw RUN 52 log (it skips where the private log is absent), and by a guard inside the C test that fails any move that begins
+at or above target - 900.
+
+**The gate.** `fail_reason 4 SPLICE` (a cut at or after the first audible hand-off, or any `gbp_adec2_discard` during the
+dwell). `V28_SWEEPC` per record: `cut`, `cut_rel` (the hand-off period relative to unmute, negative inside the mute,
+-100 = no cut), `rot_post`, `fill_short`, `dwell_cut`, `late`. `tools/v28verdict.py` prints a separate GATE line read
+from those records whatever the module classified, and says NOT RECORDED for older logs.
+
+**Tolerances, stated so they are not discovered on the console.** The landing call more than about 2.44 ms late lands
+ABOVE target (65.5 samples of feed per ms; RUN 52's longest audio delivery gap was 2.28 ms): a GATE failure mode,
+low probability per landing. The `ahead` builds need `ahead x 16` pump calls inside the last two periods: 36 a period
+suffices at AHEAD 4 (the console runs 125); at 32 or fewer a build is still in flight at the landing. The top of the
+nulling grid (57344 to 59392) cuts early and carries the feed deficit of the remaining mute: its tolerance is about
+0.55 % against the console's measured 0.47-0.545 %, so the margin there is thin (nulling only, never the sweep). The nulling's own first jump to a grid start from a low target cannot fill the ring
+(pre-existing, now explicit as `fill_short`).
+
+**Cost, both recorded here and in the ladder header for the Operator.** +31.25 ms of silence on EVERY step (nulling steps
+included: 187.5 -> 218.75 ms) and +62.5 ms on START moves ONLY (250 -> 312.5 ms); both uniform constants, so no gap depends on
+TARGET, AHEAD or direction. The sweep phase about 34.5 s of its 60 s cap.
+
+**The review, three rounds (fresh read-only adversarial agents; heavy, because it goes to hardware).** Round 1 (of the
+first design): the mutes had been derived from a host that began moves above target; ring overflow at the top of the nulling
+grid; the GATE line unreachable; undocumented minimum pump rate. Round 2: `tests/host/test_v28_ladder.py` still pinned 6 (red);
+the top-of-grid deficit tolerance; a too-short mute landing ABOVE target; test blind spots. Round 3: the feed-rate estimate added
+in round 2 was not robust to delivery gaps (removed). The `handed` race compares against the count the parameter was taken at; a
+build whose old chunk cannot be freed is flagged `unmasked`, tested by driving the landing branch. Not pinned by any test, said
+so: the race guard (needs a hand-off injected mid-call).
+
+**What RUN 53 records, and the predictions written BEFORE it (for the Hardware Issue).** (1) All 18 GATE landings in
+band, `fill_short = 0`, every cut at `cut_rel <= -2`, `dwell_cut = 0`, landing centre near `target - 160` (about 20
+lower per 0.5 % of feed deficit before the measured rate is folded in). (2) 3b's steady level: **if the deficit story
+holds on the console, `mean_cs` reads about `target - 256` (3830 at T256) and `mean_ring` about `target - 1170`**; a
+`mean_cs` near target means the corrector is not saturated and the begin rings have another cause. (3) `min_ring` and
+`min_ring_late` both near 2050 at T256 A1 (the 256 of RUN 52 was the entry landing's transient: `ring0` shows it).
+**Pending for the ingestion, not done here:** latency is a sawtooth, so `L(T, A)` is reported as a mean, min and max
+from `mean_ring`/`mean_cs`/min/max plus READY and the DMA buffer, defined once as AGB sample produced -> played at the
+AI; #128's `L = (c + 128(A + 1) + 8)/4.096 ms` was calibrated on the old 4096 Hz path and is re-derived for the native
+path before any number (122.9 ms at T256 A1 included) reaches the ladder table.

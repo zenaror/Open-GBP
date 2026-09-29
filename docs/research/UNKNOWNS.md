@@ -2834,3 +2834,23 @@ stereo channels — `U-GBP-047`'s own premise, CORROBORATED separately (Issue #1
 different grounds (a raw-data finding, not `question_stereo()`'s own recorded verdict) — so the
 register reading and the channel-identity assumption underneath the synthesis are corroborated
 independently, not by the same measurement.
+
+
+## U-GBP-049 (P2, opened 2026-09-28, Issue #136) — is the console's feed deficit of about 0.5 % systematic, and what does the corrector's authority margin look like on other hardware?
+
+The AUDIO feed arrives about 0.5 % slower than the AI DMA consumes it: `V28CORR mean_x100` 1075 (RUN 51) and 1117 (RUN 52) of a
+cap of 16 corrections per chunk, `dup` 87 396 / 99 619 against `drop` 224 / 256 (`GBP-HW-361`). On the calibrated host that deficit
+puts the ring's chunk-start level at `target - BAND` and its mean 1171 below target, and a deficit of about 1 % exhausts the
+corrector (16 corrections per chunk) and collapses the ring with underruns. This console therefore uses about **half** the
+corrector's authority. Two things are unknown, and both matter for anything built on the corrector or on the nominal target:
+
+1. **Systematic or specific?** A clock ratio between the Game Boy Player's audio source and the GameCube's AI clock would be shared
+   by every unit; a drift specific to this console (its crystal, its cartridge) would not. One console, one Game Boy Player, one
+   cartridge cannot say. It is the first thing to check on any other hardware, from the same two counters.
+2. **What the latency of the native path is.** The ring's time-average level is about half a chunk below the chunk-start level even
+   at an exact feed, and a deficit lowers it further, so `L(T, A)` computed from the nominal target overstates it. RUN 53's 3b hold logs
+   `mean_ring`, `mean_cs` (mean ring at chunk start), `min_ring`, `ring0` and `min_ring_late`; the ingestion reports the steady level
+   against target as a mean, min and max, and #128's old-path formula is re-derived for the native path before any latency figure
+   is written into the ladder table.
+
+STAYS OPEN.

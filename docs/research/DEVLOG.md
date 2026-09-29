@@ -19437,3 +19437,45 @@ its own commit.
 rotations before the landing, a redesign the Orchestrator decides. The perceptual run is not authorised.
 
 **Next.** Full gate on the committed tree, push, rebuild/re-pin/re-stage `23-v28v` for RUN 53 (§V28.12).
+
+## 2026-09-28 — Issue #136: the fix reverted, the ROTATE landing redesigned (`HARDWARE_TESTS.md` §V28.13, `GBP-HW-361`, `U-GBP-049`)
+
+**Goal.** The Orchestrator's decision on #136: RUN 53 does not run on `e1eb4bd`. Revert it; redesign so every discontinuity of a step
+happens inside the mute; make the gate able to see the defect; calibrate the host to the console.
+
+**Two things recorded in their own right.**
+
+1. **"The trim is masked" was an unchecked claim.** The old landing trim ran after the first audible hand-off; it was already
+   unmasked, only small (mean 41-90 samples, in 12-83 % of landings depending on the feed) and so unheard. A comment asserting a property
+   is not a test of it. The first fix (`e1eb4bd`) made the cut larger and then the defect visible: every landing cuts after unmute.
+2. **The 16-call harness is why every host proof of this mechanism passed.** It fed the ring exactly what the DMA consumes at 16 pump
+   calls a period, where the ring at every period start is target. The console runs 124.8 calls a period (`samples = 239 630` in
+   60.0 s) with a feed 0.5 % slow and begins moves 956-1878 samples below target. The harness now takes its cadence, its feed and its
+   begin rings from the RUN 52 log, pinned by a test that recomputes them; the ROTATE tests moved to 125 calls a period.
+
+**A design change, not a footnote.** The previous mechanism topped the queue up toward the new AHEAD before anything else. On a raise
+(A1 -> A4) that built three chunks the rotations then threw away: ring material the mute has to pay for. The queue is no longer topped up
+before the cut; a cut is followed by `ahead` builds, each replacing the oldest queued chunk. That is what took the START's mute need
+from 10-11 to 9.
+
+**The costs, recorded for the Operator (they are heard).** `STEP_MUTE` 6 -> 7: **+31.25 ms of silence on every step**, nulling steps
+included (187.5 -> 218.75 ms). `START_MUTE` 8 -> 10: **+62.5 ms on START moves only** (250 -> 312.5 ms). Both uniform constants, derived in
+`gbp_v28_ladder.h` from the measured begin deficits with build-time asserts (needs 6 and 9, one period of margin each). Both amend frozen #128
+figures. The 12 the Orchestrator approved first is withdrawn: it was sized on a host that began moves above target, which review round 1 found.
+
+**Reviews (three rounds, fresh read-only adversarial agents, because it goes to hardware).** Round 1 corrected the mute derivation, found the
+ring overflow at the top of the nulling grid and the unreachable GATE line. Round 2 found `test_v28_ladder.py` still pinned 6, a too-short mute
+landing ABOVE target, and the top-of-grid deficit tolerance; round 3 showed the feed-rate estimate added in round 2 turns a delivery gap into an
+error and gained nothing at the console's deficit: removed. I also left `test_gbp_atrans2` red in one commit earlier today (fixed in its own commit).
+
+**Tests.** `tests/unit/test_v28_sweep_landing.c`: 156 checks on the console-calibrated host, RED on `af9635e` (53 failing) and `e1eb4bd` (40) and one
+period below the measured need, GREEN now; `tests/host/test_v28_console_calibration.py`; the full unit suite and the full python gate are recorded in
+§V28.14 on the committed tree.
+
+**Findings the redesign depends on.** The ring's begin level is the corrector's STEADY state at the console's feed (host: chunk start at
+target - BAND, mean ring 1171 below target at 0.5 % deficit), not a transient: RUN 53's 3b hold logs `mean_ring` and `mean_cs` to measure it. The
+console's 0.5 % feed deficit uses about half the corrector's authority (the host collapses at 1 %); whether it is systematic is `U-GBP-049`.
+
+**Not done, on purpose.** The perceptual run is not authorised; the latency `L(T, A)` of the native path is not derived (RUN 53's ingestion does it from
+the measured levels, as a range, never one number); the nulling's first jump from a low target to a grid start still cannot fill the ring (pre-existing,
+now `fill_short`).

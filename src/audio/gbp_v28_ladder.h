@@ -105,8 +105,13 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
  * Both were also measured on the console-calibrated host (tests/unit/test_v28_sweep_landing.c: 124.8 pump
  * calls per period and a feed 0.5 % slow, both from the RUN 52 log; the smallest mute at which the landing is in
  * band for all 25 begin phases, four feeds, the measured begin rings): 6 and 9, unchanged by a 1 % feed deficit.
- * One period of margin is kept on top of each, the margin an ordinary constant of this project keeps. The extra
- * silence over the frozen figures is one period (31.25 ms) per step and two (62.5 ms) per START.
+ * One period of margin is kept on top of each, the margin an ordinary constant of this project keeps.
+ *
+ * COST, for the Operator, who hears it: STEP_MUTE 6 -> 7 adds +31.25 ms of silence to EVERY step (every nulling step
+ * included: 187.5 -> 218.75 ms); START_MUTE 8 -> 10 adds +62.5 ms to START moves ONLY (250 -> 312.5 ms). Both stay single
+ * uniform constants, so no gap depends on TARGET, AHEAD or direction (#122 section 1(c)). The 1 % feed deficit sizes
+ * neither: the measured needs (6 and 9) are the same at exact, 0.5 % and 1 % slow feeds; 1 % is where the corrector
+ * collapses in steady state, not an operating point.
  *
  * The build-time check #128 required: the mutes are BUILT from the ladder's own numbers, so a change that raises
  * a climb (T704, the step, AHEAD 4) fails the build here instead of landing short on the console. */
