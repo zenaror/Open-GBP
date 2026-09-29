@@ -39677,3 +39677,44 @@ T192             3072       46.8         2804        199.0   167.8  136.6  105.3
 7. **Wording.** `GBP-HW-370` had the conclusion "the latency is the stock over the playout rate" inside a FACT bullet: only the host conservation figures are FACT-on-the-model. The sentence "the ladder's steps are now latencies with a real basis: 105 to 324 ms" invited reading them as the A/V offset: they are the AUDIO PATH's latency, ring to the AI's DMA reload; the AI's 32-byte FIFO (about 0.25-0.5 ms), the DAC and the television are after it; the phase at a chunk start (0.0038 of a period) is a host value (the console's pump gaps reach 2.3 ms); the resampler's mean delay in the shipped table is 7.5 samples (0.1145 ms), not 8 (0.122 ms), under 0.01 ms.
 
 **Still NOT established:** a physical latency; the DMA semantics; the audio-versus-video offset (the video path's latency); the upper spread of `c`; any state with the loss above 0.65 %.
+
+### V28.23 The RUN 56 image: the AI DMA's hand-off semantics READ, the ring doubled, 3a's first row repaired — and the PRE-REGISTERED prediction, written before the image exists — 2026-09-29 (Issue #139, `U-GBP-049`)
+
+*Appended. §V28.19/§V28.19a (the fixes and their predictions), §V28.21 (RUN 55) and §V28.22/§V28.22a (the latency derivation) stand. Nothing is built into a candidate, staged or run by this entry.*
+
+**Why RUN 56 is `validation_run` and not the perceptual run (the Orchestrator's decision on #139).** It measures the one assumption under the whole latency table; it is a SECOND observed boot of the AHEAD-1 hold; and it is the first hardware exposure of a changed ring. The Operator's blinded session is too valuable to be where a ring regression turns up.
+
+**What changes against RUN 55's image (`7e0dc0c`), and nothing else:**
+1. **The AI DMA's hand-off semantics, READ (never written).** At every DMA callback's ENTRY, before the hand-off and before `AUDIO_InitDMA`, the callback reads `AUDIO_GetDMAStartAddr()` and `AUDIO_GetDMABytesLeft()` (two loads of the DSP registers) and `gbp_v28_dma` (pure, host-tested) compares the address with the chunks the previous two callbacks returned; the first callback is compared with the chunk the pump slot's own first hand-off programmed (the seed). The callback's behaviour is unchanged (the hand-off and `AUDIO_InitDMA` are exactly what they were; a structural test pins that no other `AUDIO_*` call was added). Everything is bounded static stores printed at teardown (`V28DMA`, and the first 32 callbacks raw as `V28DMAR`), SD log only.
+2. **The decoder ring's capacity, 65 536 -> 131 072 samples (256 KB)** (`GBP_APLAY2_RING`, the one constant every ring is sized by; `tests/host/test_ring_capacity_constant.py` fails on any literal 65536 / 65535 / 0x10000 / 131072 in the audio chain outside a reviewed allowlist of RATES, and on any ring not sized by the constant). Why: the nulling grid's top (57 344 native at AHEAD 4, the region the Operator reached in RUN 43: four refusals AT the top of this grid, #128 §4) left the ring within two chunks of full, so the ROTATE cut came early and the 1 % landing case had to leave the top four moves out; capping the grid would make exactly that region unreachable. **The doubled ring does not enter `L(T, A)`** (the latency is set by the chunk-start level `c`, not by the room around it: `tests/unit/test_v28_stock.c`'s cases are unchanged by it). Memory: +131 072 B of the 4 497 408 B the plan keeps above the arena floor (the image's `bss_end` is `0x80f7a3b8`), pinned by a test.
+   The landing battery, at BOTH production steps: the four old top-of-grid moves now PASS at a 1 % feed deficit; three moves at the ring's own new edge (target 122 880 / 124 928 at AHEAD 4, where `target + 4 x 2048` is the whole ring) still tolerate about 0.7 % and are the ones the 1 % case leaves out, kept in the exact and 0.5 % cases (402 checks, 0 failures).
+3. **3a's per-depth delta snapshot is re-taken when 3a starts** (§V28.21): its first row no longer carries navigate's `dup` (13 088) and underrun.
+
+**PRE-REGISTERED PREDICTIONS.**
+
+```text
+P1-P3, P5, P6  UNCHANGED from §V28.19a, held by RUN 55:  loss 0.10-0.35 % (refuted above 0.5 %) in every ended phase (RUN 55: 0.311-0.355; the band's top was exceeded by 0.003-0.005 pp
+               and the refutation line is 0.5 %); 3b AHEAD 1 at T256: mean chunk start ~3 838 (3 831-3 838; RUN 55: 3 828), refuted below 3 000; the AHEAD-1 hold runs its FULL 60 s with
+               underrun_seen 0 and V28PHC p2 at most 1 a minute (5 or more, or an early end with underrun_seen 1, refutes); sweep 18/18, landings about target - 167 (RUN 55: -183..-144), continuity PASS;
+               taps == blocks_in, 0 failed, 0 wrong-length.  This is a SECOND observed boot of the AHEAD-1 hold.
+P4 RE-REGISTERED (RUN 55 refuted its band, HARDWARE_TESTS.md V28.21 / GBP-HW-368, and it is not repeated): the band assumed a 0.18 % deficit; the measured loss is 0.35 % and the AI clock adds
+               0.089 %, 9.0 samples a chunk, 1 730 in a 192-chunk dwell.  3a `dup` per 6 s AHEAD-4 dwell at T4608..T2560: 1 400-2 100 (RUN 55: 1 568, 1 856, 1 931, 1 813, 1 760); refuted at 2 800 or more; `dup` 0 at
+               T2048; the 2304 / 2336 bracket reappears and is the production gate plus BAND.  THE FIRST TWO DWELLS AFTER 3a's ENTRY (T5632, T5120; RUN 55: 3 073 and 3 072, the corrector's full authority) are a
+               SEPARATE prediction of the recovery HYPOTHESIS: saturated again (2 800 or more).  NOT saturated would refute the hypothesis.  Row n=0 (T6144) is now its own (no navigate `dup`): expected saturated
+               too (about 3 000-3 100), with its own underrun count (RUN 55's 1 was navigate's).
+P7 (NEW) the AI DMA's hand-off semantics, at least 1 000 callbacks (a 7-minute run makes about 13 000):
+               the start-address register holds the chunk the PREVIOUS callback returned in at least 99 % of the classified callbacks, with at least 95 % of the callbacks having 3 500 bytes or more left
+               (the block has just started): AHEAD + 1 chunks in flight, the latency table stands.  `tools/v28latency.py dma_semantics()` applies these thresholds.  HOW EACH ALTERNATIVE READS, AND WHAT IT
+               DOES TO EVERY ROW OF THE TABLE:
+               R2  the register holds the chunk returned TWO callbacks ago (99 % or more)          -> AHEAD + 2 in flight: EVERY L is 31.222 ms HIGHER (T256 / A1 121.0 -> 152.2 ms)
+               R3  the register holds the previous chunk with under 1 000 bytes left (95 % or more) -> the block has just FINISHED, AHEAD in flight: EVERY L is 31.222 ms LOWER (121.0 -> 89.8 ms)
+               R4  anything else (the address unexplained, or the bytes left not near 4 000 or near 0)  -> UNRESOLVED: the table is not usable, and the raw records (`V28DMAR`, the first 32 callbacks)
+                   say what the register did.
+               The direction comes from the measurement.  Until then every L figure carries "assumed DMA semantics".
+P8 (NEW) the doubled ring changes nothing in steady state: mean chunk start 3 828 +- 15, min ring after 10 s 2 272 +- 60, loss per phase in RUN 55's range, `adec2.overflow` and `lost` 0, ENVSTORE ok, no
+               fault; any difference from RUN 55 in these is attributed to the ring first.  The nulling grid's top is NOT exercised (validation_run does not walk it): what the ring buys is proven on the host.
+```
+
+**Read against the recovery risk (§V28.19a):** a phase that BEGINS gate-bound can look saturated for its first ~30 s. If P2 or P3 miss while P1 holds, suspect that first.
+
+**What this does NOT establish.** The perceptual run's grid top on the console; the audio-versus-video offset; audibility.

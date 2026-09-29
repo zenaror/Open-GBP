@@ -67,7 +67,7 @@ vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(
 # gbp_adec/gbp_aresamp/gbp_aplay/gbp_atrans; gbp_walker + the four §V28 handlers replace
 # gbp_async; gbp_awr is DROPPED (Orchestrator's own decision, Issue #129/#130: no ride-along
 # in either image). Everything else is gbp-audio-sync's own SRCS list, unchanged.
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c gbp_input.c gbp_session.c gbp_awin.c gbp_aperiod.c gbp_adec2.c gbp_aresamp2.c gbp_alive.c gbp_aplay2.c gbp_atrans2.c gbp_walker.c gbp_v28_3a.c gbp_v28_3b.c gbp_v28_loss.c gbp_v28_sweep.c gbp_v28_nulling.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c gbp_input.c gbp_session.c gbp_awin.c gbp_aperiod.c gbp_adec2.c gbp_aresamp2.c gbp_alive.c gbp_aplay2.c gbp_atrans2.c gbp_walker.c gbp_v28_3a.c gbp_v28_3b.c gbp_v28_loss.c gbp_v28_dma.c gbp_v28_sweep.c gbp_v28_nulling.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

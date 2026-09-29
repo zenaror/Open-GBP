@@ -144,6 +144,7 @@
 #include "gbp_v28_sweep.h"
 #include "gbp_v28_nulling.h"
 #include "gbp_v28_step.h"
+#include "gbp_v28_dma.h"
 
 #ifndef OPENGBP_APP_NAME
 #define OPENGBP_APP_NAME "gbp-audio-v28"
@@ -746,10 +747,27 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
     V28_NOTE(GBP_V28_H_TAP, tap_t0);
 }
 
-/* THE AI DMA CALLBACK -- interrupt context, unchanged shape from sync-0001, native handoff. */
+/* ---- Issue #139 (U-GBP-049): THE AI DMA'S HAND-OFF SEMANTICS, READ -- NEVER WRITTEN. ------------------------------------------------------------------
+ * The latency table L(T, A) counts AHEAD + 1 chunks in flight (AHEAD - 1 READY, the chunk PROGRAMMED at the last hand-off, the chunk that hand-off STARTED). That rests
+ * on one assumption no run has measured: the callback fires when the block programmed LAST time has just STARTED, and programs the next. If it were wrong every L is a
+ * whole chunk (31.2 ms) off, in a direction the measurement gives. At every callback's ENTRY, before the hand-off and before AUDIO_InitDMA, this reads the AI DMA's
+ * start-address register and its bytes-left counter (libogc: two loads of the DSP registers) and compares the address with the chunks the previous two callbacks
+ * returned. Nothing is written to the device; the callback's own behaviour is unchanged; everything else is bounded static stores, printed only at teardown
+ * (V28DMA / V28DMAR, SD log only, never the screen). Pre-registered readings, HARDWARE_TESTS.md V28.23:
+ *   address == the chunk returned at the PREVIOUS callback, bytes left near 4 000 (the block has just started)  -> AHEAD + 1 (the table stands);
+ *   address == the chunk returned TWO callbacks ago                                                             -> AHEAD + 2 (every L +31.2 ms);
+ *   address == the previous chunk but bytes left near 0 (the block has just FINISHED, nothing playing)          -> AHEAD (every L -31.2 ms). */
+static struct gbp_v28_dma v28_dma;      /* zero + left_min at the maximum: gbp_v28_dma_init() in main(), before the DMA can start */
+
+/* THE AI DMA CALLBACK -- interrupt context, native handoff. Issue #139: the two register READS come first, before anything else, and the hand-off and AUDIO_InitDMA are
+ * exactly what they were. */
 static void live_dma_cb(void)
 {
-    const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, gettime());
+    const uint32_t dma_addr = (uint32_t)AUDIO_GetDMAStartAddr();
+    const uint32_t dma_left = (uint32_t)AUDIO_GetDMABytesLeft();
+    const uint64_t t = gettime();
+    const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, t);
+    gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c);
     AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES);
 }
 
@@ -1329,6 +1347,7 @@ static void live_step(void)
             ap2.playing = 1u;
             first = gbp_aplay2_irq_handoff(&ap2, now);
             ap2.measuring = 1u;
+            gbp_v28_dma_seed(&v28_dma, first);
             AUDIO_InitDMA((u32)(size_t)first, GBP_APLAY2_CHUNK_BYTES);
             AUDIO_StartDMA();
         }
@@ -1775,6 +1794,7 @@ int main(void)
     gbp_adec2_init(&adec2, adec2_ring, GBP_APLAY2_RING);
     gbp_aplay2_init(&ap2, ap2_pool, ap2_silence, NULL, NULL);   /* no L2 keep, no store -- same as sync-0001 */
     gbp_atrans2_init(&tr);
+    gbp_v28_dma_init(&v28_dma);
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
     gbp_v28_hists_init(loss_hist);
     ap2.step_pushes = loss_step_pushes;         /* the step arm; every chunk asks at its start, the answer is the cell's */
@@ -1940,6 +1960,20 @@ int main(void)
                        (unsigned long)label_ticks_max);
         /* Issue #137: the tap counters the live/sync images printed as LIVEN and this image never did -- so a loss could not be told
          * from a refused or short tap. taps == blocks_in with zero failed/wrong is what RUN 38-43 showed. */
+        {   /* Issue #139: the AI DMA's hand-off semantics, as READ at every callback's entry (SD only) */
+            uint32_t q;
+            ringlog_printf(&rl, "V28DMA n=%lu prev1=%lu prev2=%lu none=%lu same12=%lu left_min=%lu left_max=%lu left_mean=%lu bins=%lu,%lu,%lu,%lu,%lu,%lu",
+                           (unsigned long)v28_dma.n, (unsigned long)v28_dma.prev1, (unsigned long)v28_dma.prev2, (unsigned long)v28_dma.none,
+                           (unsigned long)v28_dma.same12, (unsigned long)(v28_dma.n ? v28_dma.left_min : 0u), (unsigned long)v28_dma.left_max,
+                           (unsigned long)(v28_dma.n ? v28_dma.left_sum / v28_dma.n : 0u), (unsigned long)v28_dma.bins[0],
+                           (unsigned long)v28_dma.bins[1], (unsigned long)v28_dma.bins[2], (unsigned long)v28_dma.bins[3],
+                           (unsigned long)v28_dma.bins[4], (unsigned long)v28_dma.bins[5]);
+            for (q = 0u; q < v28_dma.raw_n && q < GBP_V28_DMA_RAW; q++)
+                ringlog_printf(&rl, "V28DMAR i=%lu addr=%lx left=%lu ret1=%lx ret2=%lx dt=%lu", (unsigned long)q,
+                               (unsigned long)v28_dma.raw[q].addr, (unsigned long)v28_dma.raw[q].left,
+                               (unsigned long)v28_dma.raw[q].ret1, (unsigned long)v28_dma.raw[q].ret2,
+                               (unsigned long)v28_dma.raw[q].dt);
+        }
         ringlog_printf(&rl, "V28TAPS taps=%lu taps_failed=%lu wrong_len=%lu blocks_in=%lu gap_max=%llu gap_at=%llx",
                        (unsigned long)live_taps, (unsigned long)live_taps_failed, (unsigned long)live_wrong_len,
                        (unsigned long)adec2.blocks_in, (unsigned long long)live_gap_max, (unsigned long long)live_gap_at);

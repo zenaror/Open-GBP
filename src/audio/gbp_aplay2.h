@@ -65,9 +65,15 @@ extern "C" {
                                             * on this path until re-validated by a hardware run (#126, still open) */
 #define GBP_APLAY2_TARGET       ((uint32_t)(((uint64_t)GBP_ADEC2_RATE * GBP_APLAY2_CUSHION_US) / 1000000u))  /* 8192 */
 #define GBP_APLAY2_BAND           256u    /* 16 x gbp_aplay's BAND: the same 3.906 ms width, at the new rate */
-#define GBP_APLAY2_RING         65536u    /* the input decoder's (gbp_adec2) ring: caller-sized, passed to
+#define GBP_APLAY2_RING        131072u    /* the input decoder's (gbp_adec2) ring CAPACITY, in samples: caller-sized, passed to
                                             * gbp_adec2_init, not to gbp_aplay2_init (which has no ring of its own
-                                            * any more -- #127 replaced it with the pool below) */
+                                            * any more -- #127 replaced it with the pool below). Issue #139: 65 536 -> 131 072 (256 KB, was 128 KB).
+                                            * The nulling grid's top, 57 344 native at AHEAD 4 (the region the Operator reached in RUN 43: four
+                                            * refusals AT the top of this grid), left the ring within two chunks of its 65 536 capacity, so the
+                                            * ROTATE cut came early and the 1 % feed case of the landing battery had to leave the top four moves out.
+                                            * It is a CAPACITY, never a rate: the decode's 65 536 Hz is GBP_ADEC2_RATE, a different constant that
+                                            * happened to share the number (tests/host/test_ring_capacity_constant.py fails on a literal). The ring's size
+                                            * does not enter L(T, A): the latency is set by the chunk-start level c, not by the room around it. */
 #define GBP_APLAY2_TARGET_MIN   GBP_APLAY2_PUSHES        /* a chunk must be able to start */
 #define GBP_APLAY2_TARGET_MAX   (GBP_APLAY2_RING - GBP_APLAY2_BAND - 1u)
 
