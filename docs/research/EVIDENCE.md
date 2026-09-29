@@ -11952,3 +11952,16 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
 
 ---
+
+### GBP-HW-370 — the latency of the native audio path, `L(T, A)` = (`c` + 2 048 (A + 1) - 2 048 phi) / 65 594 samples a second + 0.122 ms: 120.8 ms at T256 / A1, 105.1 at T192 / A1, 323.7 at T704 / A4, with a floor of 93.6 ms at AHEAD 1 — INFERENCE (derived from the code and RUN 55's levels; no latency was measured); the conservation it rests on is FACT on the real chain on the host; the ring model it is checked with agrees with the console to 0.9 %
+
+**Source.** `HARDWARE_TESTS.md` §V28.22; `tools/v28latency.py`; `tests/unit/test_v28_stock.c` (36 checks), `tests/host/test_v28latency.py`; the levels are `GBP-HW-367`'s (RUN 55, 3b hold: mean chunk start 3 828, mean ring 3 097, min ring after 10 s 2 272).
+
+- **FACT (the code, on the host model).** The stock (ring + the chunk being filled + 2 048 x READY + the programmed chunk + the unplayed part of the playing one) is conserved by the producer and the hand-off; it changes only by the feed, the playout and one sample per correction; on the real chain at the console's cadence it is flat to 0.30-0.34 ms over 120 periods while the ring alone swings by over 1 500 samples; at a chunk start it equals `c + 2 048 (A + 1) - 2 048 phi` to within one sample. The latency of a sample is therefore the stock over the playout rate.
+- **INFERENCE: the numbers.** They rest on the AI playing continuously at its measured 32 028.483 Hz (`GBP-HW-325`), on the resampler's 0.122 ms (`GBP-HW-350`, modelled), on `c` = TARGET - 268 (measured at T4096 only, and 3 826-3 837 on the host across feeds; not measured at another TARGET), and on the chunk programmed at a hand-off being fully stock until it starts (the DMA's semantics, not measured).
+- **CORROBORATED (weakly, one hold).** The model predicts the ring's mean from `c` and the production time (3 070 against the console's 3 097) and its minimum from `c_min` (used to DERIVE `c_min` = 3 789, so not a check).
+- **The old figure.** #122's 122.9 ms at T256 / A1 becomes 120.8: the resampler -1.83 ms (the path), the ring -0.11, the chunks -0.06 (the measured clock), the phase -0.17; `c` at TARGET - BAND was already in the old formula.
+
+**What this does NOT establish.** A physical latency; the audio-versus-video offset (the video path is not here); the AI's DMA and DAC and the television's audio path (excluded by definition); the upper spread of `c`; any state with the ring on the production gate.
+
+---
