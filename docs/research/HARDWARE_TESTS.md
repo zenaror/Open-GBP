@@ -39484,3 +39484,50 @@ the calibrated host model CORROBORATED by an a-priori match (15 underruns agains
 **Not established.** That the fixes reproduce the (l,s) cell with the label present; that the corrector holds its target at 0.18 %; that 0.18 % is a floor; the instruction-level cause; audibility.
 
 **Next.** Two fixes derived from the measurement, a pre-registered prediction, and `validation_run` with both (the next entry).
+
+### V28.19 The fixes RUN 54 derived, their host proofs, and the PRE-REGISTERED prediction for the next run — 2026-09-29 (Issue #138, `U-GBP-050`)
+
+*Appended. §V28.18 stands. Nothing is built into a candidate, staged or run by this entry; it registers the design and the prediction BEFORE the image exists.*
+
+**The two fixes (source: `gbp_v28_step.h`, `gbp_atrans2.{h,c}`, `poc/gbp-audio-v28/source/main.c`).**
+
+1. **Steady production step 64 pushes a call, in every state.** `gbp_v28_step.h`'s hook (`ap2.step_pushes`) is installed in every plan but `diag_loss` (whose step arm is its own). A working 64-push call is about 1.3 k ticks (RUN 54: 1 316 k production ticks a second over 1 021 working calls; 2.5 k at 128).
+2. **The label's `H` is sampled once a second** (`label_handed_once_a_second`): the text changes when the clock does, so the label re-renders about once a second, not 29 times. The per-frame draw stays. The perceptual label is a clock and its own setting count only and already changed once a second (`tests/host/test_v28_run54_fixes.py` pins both).
+3. **Per-phase records for every plan** (SD only): `V28PHC` / `V28PHD` at every phase's start and end (blocks, taps, underruns, `dup`, `drop`, `starved`, produced, handed, ring-gated, ring), read by `tools/v28verdict.py` as "PHASE LOSS", so the premise below is measured per phase, not only over the session.
+
+**Why one mode, and what the landing needed (the Orchestrator's rule on #138: every defect of this front lived at a state boundary; try 64 everywhere first).** I first proposed 128 during transitions and 64 otherwise; the Orchestrator preferred no mode switch unless the host gave a reason. The host was run at 64 everywhere on the calibrated harness (124.8 calls a period, RUN 52's begin rings, four feeds, jitter, stalls, late calls):
+the whole battery passed EXCEPT four things, all with one cause. **The landing depends on the step, and the header said so:** "the landing call finds the ring after its own recovery produce (128 pushes)". That recovery is one production call, `step` pushes, so at 64 the deterministic landing rose from target - 160 to target - 96 (the bias was a fixed 32),
+and the lateness a landing call may have before it lands ABOVE target fell from 2.44 ms to 1.47 ms: `landing call 2 ms late` landed above target in 450 of 450 moves, and one stall move did. **The cause is not "nothing in flight"** (the cut still waits for the chunk in flight, which now spans 32 calls, and the whole battery passes on that), it is the size of the last production call. The fix is one constant's meaning: `GBP_ATRANS2_LAND_POINT` = 160 replaces
+`GBP_ATRANS2_LAND_BIAS` = 32; the cut aims `160 - step` below the level it wants (32 at 128, exactly the validated value, 96 at 64), so the LANDING is target - 160 at both steps, to within a few samples. **Cost in mute: none** (the mutes are sample-flow derivations: the battery reports `fill_short 0` at both). **Cost in call rate: the pump's minimum doubles.**
+A chunk is 32 calls at 64: AHEAD 4 needs about 72 calls a period (plain) and 72 with call jitter, against 36 / 42 at 128 (measured floors: 64 calls fails at 64 pushes, 72 passes; 30 fails at 128, 36 passes plain, 42 with jitter). The console runs 122-125: a 1.7 x margin at 64, 3.0 x at 128 (RUN 54: 3 913-4 011 pump calls a second).
+`tests/unit/test_v28_sweep_landing.c` runs the whole battery at both steps (334 checks), adds the 0.18 % feed, and pins the floor (48 calls a period fails at 64 pushes); the 3a, 3b, sweep, nulling, zero-feed, DMA-stall, residue, atrans2 and aplay2 unit tests also pass with the default step set to 64 (a scratch build, not a commit).
+
+**Byte-identical output, the host proof (`tests/unit/test_v28_step_partition.c`, 583 checks).** The real chain (`gbp_aplay2` over `gbp_adec2`), the same ring content, 24 chunks, steps 128, 64, 32, 16, 37 and an irregular per-chunk mix of 128 and 64, in three regimes (fill above target then drifting, DUP, DROP): every chunk's bytes (CRC-32), its correction count, the `dup`/`drop`/`forgone` totals and the ring left behind equal the 128 run's. The corrector decides from the fill latched at the chunk's start (`cur_s0`, `cur_target`), so a step cannot change it; a 64-push call never passes a sub-block start (128 pushes) uncorrected (`corr_forgone` 0). A mutation that makes 64 skip DUPs is caught. What the test does not model is the time-driven feed: that is the landing battery's job.
+
+**What 32 would cost, not chosen (no data).** 64 calls a chunk (2 044 working calls a second of about 4 000), about 80 ticks a call more (RUN 54: 41 k ticks a second for the 511 extra calls from 128 to 64, 0.10 % of the CPU; 0.20 % more at 32), the pump's minimum rate doubling again (AHEAD 4: about 144 calls a period, above the console's 125: the landing battery fails at 32), and the 4 k-8 k pump stretches that are not production's left where they are. At 32 the landing battery already fails at 125 calls a period (`late`, above target). It would need the design, not a constant.
+
+**THE PRE-REGISTERED PREDICTION (the next hardware run is `validation_run` with both fixes).** The premise: with the loss back near RUN 43's 0.18 % (a quarter of the corrector's authority, 0.78 %), the ring leaves the production gate and the corrector holds `target`. From the calibrated host at feed 0.9982 (`holdfit`, `hold3b`, the harness of §V28.10-V28.15, nothing fitted to RUN 54):
+
+```text
+P1  loss per phase (V28PHC, over the whole phase): 0.10-0.35 % in every ENDED phase; the central expectation 0.2-0.3 %.
+    REFUTED if any ended phase reads above 0.5 %: the premise that the label's per-frame draw and the transitions cost little is false.
+    (RUN 54, label on / step 64 at 29 renders a second: 0.70 %; label off / step 64: 0.18 %. At one render a second the label's share is
+     taken as about 1/29 of its 0.52 points, INFERENCE from a twelve-point fit.)
+P2  3b, AHEAD 1 at T256 (4096): mean chunk start (V28_3BM mean_cs) about 3 839 = target - BAND, host 3 831-3 839 at feeds 0.18-0.5 % slow; mean ring about 2 930;
+    min ring after 10 s about 2 040.  REFUTED if mean_cs < 3 000 (the gate-bound level was 2 136 in RUN 51-53).
+P3  3b, AHEAD 1: 0 underruns in the 60 s hold (host 0 at 0.18 %, 0.30 % and 0.50 %; 13 at 1.5 %, hardware 15 in RUN 54).  0-1 CONFIRMS; 2-4 UNRESOLVED;
+    5 or more REFUTES the premise (the loss or the gate is not what set the underruns).  The hold now ENDS at its first underrun and escalates to AHEAD 2 (both hooks
+    are live, #128 section 2), so an underrun also shows as a second 3b record.
+P4  3a, `dup` in a 6 s hold at AHEAD 4: about 336 (host, T5632 to T2560, 192 chunks, 0.18 % of 2 048 = 3.7 a chunk) against 3 040-3 056 in RUN 51-53 (saturated at 99 %
+    of the 3 072 maximum); `dup` 0 at T2048.  THE 3a "FLOOR" BRACKET 2304 / 2336 WILL PROBABLY APPEAR AGAIN, AND IT IS NOT A FLOOR OF THE PATH: it is the production gate
+    (a chunk starts only at 2049) plus BAND (256), the ring's lowest level at which the corrector can still add a DUP; it is independent of the loss and the host reproduces it
+    at 0.18 % (dup 336 at T2560, 0 at T2048). Reading it as "the lowest depth the path holds" was retracted in GBP-HW-362 and stays retracted.
+P5  the sweep: 18 of 18 GATE moves, landings near target - 160 to target - 190 (host: -160 exact feed, about -20 more per 0.5 % of deficit), continuity gate PASS in every row.
+    The two RUN 53 failures were the tail of a landing distribution sized for a wrong deficit; at 0.18 % the deficit the design assumed is nearer than at 1.6 %.
+P6  the tap: taps == blocks_in in every phase, 0 failed, 0 wrong-length (V28PHC).
+```
+
+**What would be a surprise, and what it would mean.** A phase above 0.5 % with the label at once a second: the label's draw path (43 a second, about 800 ticks each) matters more than the render, and the next fix is the draw. P3 refuted at a loss near 0.18 %: the underruns had another cause than the deficit (the AHEAD-1 margin, 25 ms, against a stall RUN 54 measured at up to 92 k ticks = 2.3 ms is not the explanation).
+P2 refuted with P1 met: the corrector's authority is not the only thing holding the ring off the gate.
+
+**What this does NOT establish.** That the loss returns to 0.18 % with the label present; that the ROTATE landing holds at 64 pushes on the console (the host says it does at 1.7 x the minimum call rate; RUN 53's console validation was at 128); audibility of anything; the perceptual run, which stays unauthorised until a validation run measures the ladder with a corrector that can hold its target.

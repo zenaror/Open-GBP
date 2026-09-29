@@ -50,17 +50,22 @@ class TheValidationLabelShowsAMovingHandoffCount(unittest.TestCase):
         """The count that actually moves while the AI DMA hands off chunks -- not a static
         "started" flag RUN 48 taught us not to trust."""
         _, validation = split_branches(label_text_body(read()))
-        self.assertIn("ap2.handed", validation,
-                      "the validation label no longer shows ap2.handed -- RUN 48's stall would "
+        # Issue #138: sampled once a second by label_handed_once_a_second(), which reads ap2.handed (RUN 54: a value that changed on
+        # every hand-off re-rendered the label ~29 times a second and cost 0.41 points of loss)
+        self.assertIn("label_handed_once_a_second(elapsed_s)", validation,
+                      "the validation label no longer shows the hand-off count -- RUN 48's stall would "
                       "again look identical to healthy playback on screen")
+        m = re.search(r"static uint32_t label_handed_once_a_second\(uint32_t elapsed_s\)\n\{(.*?)\n\}", read(), re.S)
+        self.assertIsNotNone(m)
+        self.assertIn("(uint32_t)ap2.handed", m.group(1))
 
     def test_the_marker_is_formatted_as_a_number_not_a_static_flag(self):
         """A fixed string like " A" once ai_started fires proves the DMA started once; it cannot
         show started-then-stalled, the exact case RUN 48 turned out to be. Require an actual %lu
         conversion of ap2.handed in the snprintf call, not a literal substring."""
         _, validation = split_branches(label_text_body(read()))
-        self.assertRegex(validation, r'snprintf\([^;]*"[^"]*%lu[^"]*"[^;]*\(unsigned long\)ap2\.handed',
-                         "ap2.handed is not passed through a %lu conversion in the label's snprintf")
+        self.assertRegex(validation, r'snprintf\([^;]*"[^"]*H%lu[^"]*"[^;]*\(unsigned long\)label_handed_once_a_second\(elapsed_s\)',
+                         "the hand-off count is not passed through a %lu conversion in the label's snprintf")
 
     def test_the_perceptual_branch_never_reads_ap2(self):
         """v28_label_text()'s own header comment: "never ... anything from atrans2/aplay2/adec2 in
@@ -77,8 +82,9 @@ class TheValidationLabelShowsAMovingHandoffCount(unittest.TestCase):
         #if/#else split were mis-parsed and split_branches silently returned the same text for both
         branches, test_the_perceptual_branch_never_reads_ap2 above would pass vacuously."""
         perceptual, validation = split_branches(label_text_body(read()))
-        self.assertIn("ap2.handed", validation)
+        self.assertIn("label_handed_once_a_second", validation)
         self.assertNotIn("ap2.handed", perceptual)
+        self.assertNotIn("label_handed_once_a_second", perceptual)
 
 
 if __name__ == "__main__":

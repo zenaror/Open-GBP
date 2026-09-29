@@ -25,6 +25,7 @@ cut before its own natural end.
 import os
 import re
 import sys
+from fractions import Fraction
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import v28syncpe  # noqa: E402
@@ -255,10 +256,37 @@ def label_cost(text):
             "ticks_max": int(r["ticks_max"])}
 
 
+TB_HZ = 40_500_000          # the GameCube time base: every tick in the log
+BLOCKS_PER_S = 4096
+
+
+def phase_loss(text):
+    """Issue #138 (RUN 54): the drain's loss PER PHASE, from the V28PHC / V28PHD records (counters at each phase's start and end, with
+    their own timestamps): loss = 1 - blocks_in / (4096 x seconds). RUN 54 measured 1.5 % in the production configuration and
+    0.18 % with the production step and the label render removed; the next image is predicted to sit near the latter in every
+    phase. Exact fractions; a phase with no record, or an empty window, is absent; a phase the run did not finish says `ended=0`."""
+    rows = []
+    detail = dict((int(m["p"]), m) for m in find_all(text, "V28PHD"))
+    for m in find_all(text, "V28PHC"):
+        d = detail.get(int(m["p"]))
+        if d is None:
+            continue               # a phase whose second record was lost (a full ring) is not half-reported
+        t0, t1 = int(m["t0"], 16), int(m["t1"], 16)
+        secs = Fraction(t1 - t0, TB_HZ)
+        blocks = int(m["blocks_in"])
+        rows.append({"p": int(m["p"]), "ended": m["ended"] == "1", "secs": secs, "blocks_in": blocks,
+                     "taps": int(m["taps"]), "failed": int(m["failed"]), "wrong": int(m["wrong"]),
+                     "underruns": int(m["underruns"]), "dup": int(d["dup"]), "drop": int(d["drop"]),
+                     "starved": int(d["starved"]), "produced": int(d["produced"]), "handed": int(d["handed"]),
+                     "gated": int(d["gated"]), "ring": [int(x) for x in d["ring"].split(",")],
+                     "loss": (1 - Fraction(blocks) / (BLOCKS_PER_S * secs)) if secs > 0 else None})
+    return {"have": bool(rows), "rows": rows}
+
+
 def analyse(text):
     return {"admissibility": admissibility(text), "descent_3a": descent_3a(text),
             "hold_3b": hold_3b(text), "underruns": underrun_accounting(text), "sweep": sweep(text),
-            "label": label_cost(text)}
+            "label": label_cost(text), "phase_loss": phase_loss(text)}
 
 
 FAIL_NAMES = {0: "NONE", 1: "OUT_OF_BAND", 2: "UNDERRUN", 3: "UNMASKED", 4: "SPLICE"}    # gbp_v28_sweep.h's enum
@@ -381,6 +409,21 @@ def render(out):
                      % ", ".join("%d (%d samples cut after the landing or at period %d)" % c for c in cg["late_gate_cuts"]))
     else:
         lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- PASS in every GATE row")
+
+    pl = out["phase_loss"]
+    if pl["have"]:
+        lines.append("PHASE LOSS (V28PHC; loss = 1 - blocks_in / (4096 x seconds); RUN 54: 1.5 % in the production configuration, 0.18 % with the")
+        lines.append("  step and the label render removed):")
+        for r in pl["rows"]:
+            per_min = float(r["underruns"] / r["secs"] * 60) if r["secs"] > 0 else 0.0
+            lines.append("  p%d %-8s %7.1f s%s  blocks_in %d  loss %s  taps-blocks %d failed %d wrong %d  underruns %d (%.1f/min)  dup %d drop %d"
+                         "  produced %d  gated %d  ring %d -> %d" % (
+                             r["p"], PHASE_NAMES.get(r["p"], "?"), float(r["secs"]), "" if r["ended"] else " (NOT ENDED)",
+                             r["blocks_in"], "n/a" if r["loss"] is None else "%.3f %%" % float(r["loss"] * 100),
+                             r["taps"] - r["blocks_in"], r["failed"], r["wrong"], r["underruns"], per_min, r["dup"], r["drop"],
+                             r["produced"], r["gated"], r["ring"][0], r["ring"][1]))
+    else:
+        lines.append("PHASE LOSS: no V28PHC record (this log predates Issue #138)")
 
     lbl = out["label"]
     if lbl["have"]:
