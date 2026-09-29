@@ -752,7 +752,8 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
  * on one assumption no run has measured: the callback fires when the block programmed LAST time has just STARTED, and programs the next. If it were wrong every L is a
  * whole chunk (31.2 ms) off, in a direction the measurement gives. At every callback's ENTRY, before the hand-off and before AUDIO_InitDMA, this reads the AI DMA's
  * start-address register and its bytes-left counter (libogc: two loads of the DSP registers) and compares the address with the chunks the previous two callbacks
- * returned. Nothing is written to the device; the callback's own behaviour is unchanged; everything else is bounded static stores, printed only at teardown
+ * returned; it reads the address register ONCE MORE right after AUDIO_InitDMA (the review's finding: a write-through latch reads back the previous write whatever the
+ * pipeline behind it, so the entry address alone cannot tell AHEAD + 1 from AHEAD + 2). Nothing is written to the device; the callback's own behaviour is unchanged; everything else is bounded static stores, printed only at teardown
  * (V28DMA / V28DMAR, SD log only, never the screen). Pre-registered readings, HARDWARE_TESTS.md V28.23:
  *   address == the chunk returned at the PREVIOUS callback, bytes left near 4 000 (the block has just started)  -> AHEAD + 1 (the table stands);
  *   address == the chunk returned TWO callbacks ago                                                             -> AHEAD + 2 (every L +31.2 ms);
@@ -767,8 +768,8 @@ static void live_dma_cb(void)
     const uint32_t dma_left = (uint32_t)AUDIO_GetDMABytesLeft();
     const uint64_t t = gettime();
     const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, t);
-    gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c);
     AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES);
+    gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c, (uint32_t)AUDIO_GetDMAStartAddr());   /* the third read, AFTER the init: does the register read back what was just written? */
 }
 
 /* ---- Issue #27: the per-change KEY record (unchanged domain) --------------------------------- */
@@ -1968,6 +1969,8 @@ int main(void)
                            (unsigned long)(v28_dma.n ? v28_dma.left_sum / v28_dma.n : 0u), (unsigned long)v28_dma.bins[0],
                            (unsigned long)v28_dma.bins[1], (unsigned long)v28_dma.bins[2], (unsigned long)v28_dma.bins[3],
                            (unsigned long)v28_dma.bins[4], (unsigned long)v28_dma.bins[5]);
+            ringlog_printf(&rl, "V28DMAP new=%lu kept=%lu amb=%lu other=%lu", (unsigned long)v28_dma.post_new, (unsigned long)v28_dma.post_kept,
+                           (unsigned long)v28_dma.post_amb, (unsigned long)v28_dma.post_other);
             for (q = 0u; q < v28_dma.raw_n && q < GBP_V28_DMA_RAW; q++)
                 ringlog_printf(&rl, "V28DMAR i=%lu addr=%lx left=%lu ret1=%lx ret2=%lx dt=%lu", (unsigned long)q,
                                (unsigned long)v28_dma.raw[q].addr, (unsigned long)v28_dma.raw[q].left,

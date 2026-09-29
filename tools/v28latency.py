@@ -151,8 +151,25 @@ def dma_semantics(text):
     f1, f2 = p1 / classified, p2 / classified
     hi = (bins[4] + bins[5]) / n           # left >= 3500
     lo = bins[0] / n                       # left < 1000
+    latch = None
+    mp = re.search(r"^\d{6} V28DMAP (.*)$", text, re.M)
+    if mp:
+        dp = kv(mp.group(1))
+        pn, pk, pa, po = (int(dp[k]) for k in ("new", "kept", "amb", "other"))
+        out["post"] = [pn, pk, pa, po]
+        decided = pn + pk + po
+        if decided >= 50:
+            latch = "write-through" if pn / decided >= 0.99 else "keeps-active" if pk / decided >= 0.99 else "mixed"
+        out["latch"] = latch
     if f1 >= 0.99 and hi >= 0.95:
-        out.update({"reading": "R1", "offset_ms": 0.0, "why": "the register holds the chunk returned at the previous callback (%.1f %%), %.1f %% of the callbacks with >= 3 500 bytes left: the block has just started; AHEAD + 1" % (f1 * 100, hi * 100)})
+        why = "the register holds the chunk returned at the previous callback (%.1f %%), %.1f %% of the callbacks with >= 3 500 bytes left: the block has just started" % (f1 * 100, hi * 100)
+        if latch == "keeps-active":
+            why += "; the register kept the ACTIVE block's address across the init, so the address arm is informative: AHEAD + 1"
+        elif latch == "write-through":
+            why += "; BUT the register read back the chunk just programmed (write-through latch): the address arm only echoes the previous write and CANNOT exclude AHEAD + 2, so this is consistent with AHEAD + 1 by the bytes-left arm alone, NOT proof"
+        else:
+            why += "; the register's write-through / keeps-active behaviour is %s, so the address arm is not known to be informative: AHEAD + 1 is consistent, not proven" % ("mixed" if latch else "not read in this log")
+        out.update({"reading": "R1", "offset_ms": 0.0, "why": why})
     elif f2 >= 0.99:
         out.update({"reading": "R2", "offset_ms": PERIOD_MS, "why": "the register holds the chunk returned TWO callbacks ago (%.1f %%): AHEAD + 2, every L +%.3f ms" % (f2 * 100, PERIOD_MS)})
     elif f1 >= 0.99 and lo >= 0.95:

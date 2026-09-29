@@ -28,7 +28,7 @@ static void run(struct gbp_v28_dma *d, uint32_t callbacks, uint32_t lag, uint32_
     for (k = 1; k <= callbacks; k++) {
         const void *ret = (silent_every && k % (uint32_t)silent_every == 0u) ? (const void *)silence : (const void *)pool[k % 16u];
         const void *seen = lag == 0u ? (const void *)(pool[15] + 64) : (lag == 1u ? hist[0] : hist[1] ? hist[1] : hist[0]);
-        gbp_v28_dma_note(d, gbp_v28_dma_phys(seen), left0 - (k % 5u) * 8u, (uint64_t)k * 1264u, ret);
+        gbp_v28_dma_note(d, gbp_v28_dma_phys(seen), left0 - (k % 5u) * 8u, (uint64_t)k * 1264u, ret, gbp_v28_dma_phys(ret));
         hist[2] = hist[1]; hist[1] = hist[0]; hist[0] = ret;
     }
 }
@@ -81,7 +81,7 @@ static void test_silences_are_counted_apart(void)
     uint32_t k;
     gbp_v28_dma_init(&d);
     gbp_v28_dma_seed(&d, silence);
-    for (k = 0; k < 10u; k++) gbp_v28_dma_note(&d, gbp_v28_dma_phys(silence), 3990u, (uint64_t)k, silence);
+    for (k = 0; k < 10u; k++) gbp_v28_dma_note(&d, gbp_v28_dma_phys(silence), 3990u, (uint64_t)k, silence, gbp_v28_dma_phys(silence));
     eqi(d.same12, 9, "two consecutive silences cannot be told apart by their pointers: counted, never classified (the seed is the silence too, so the first is not a pair)");
     eqi(d.prev1 + d.prev2 + d.none, 1, "only the call before the second silence had two DIFFERENT last chunks... the seeded silence and no earlier one");
 }
@@ -97,15 +97,53 @@ static void test_no_seed_no_classification(void)
 {
     struct gbp_v28_dma d;
     gbp_v28_dma_init(&d);
-    gbp_v28_dma_note(&d, 0x1000u, 3000u, 5u, pool[1]);
+    gbp_v28_dma_note(&d, 0x1000u, 3000u, 5u, pool[1], 0x1000u);
     eqi(d.prev1 + d.prev2 + d.none + d.same12, 0, "before the seed nothing is classified");
     eqi(d.n, 1, "but the read is counted");
     eqi(d.bins[3], 1, "and binned (3 000-3 499)");
 }
 
+static void test_an_unexplained_register_in_a_silence_run_is_none_not_same12(void)
+{
+    struct gbp_v28_dma d;
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_seed(&d, silence);
+    gbp_v28_dma_note(&d, gbp_v28_dma_phys(silence), 3990u, 1u, silence, gbp_v28_dma_phys(silence));   /* the seed alone is one silence: prev1 */
+    gbp_v28_dma_note(&d, gbp_v28_dma_phys(silence), 3990u, 2u, silence, gbp_v28_dma_phys(silence));   /* ret1 == ret2 == silence, the register agrees */
+    gbp_v28_dma_note(&d, 0x4000u, 3990u, 3u, silence, 0x4000u);                                      /* ret1 == ret2 == silence, the register matches neither */
+    eqi(d.same12, 1, "only the agreeing one is a silence pair");
+    eqi(d.none, 1, "the register that matches neither is never hidden in same12");
+}
+
+static void test_the_register_read_after_the_init(void)
+{
+    struct gbp_v28_dma d;
+    uint32_t k;
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_seed(&d, pool[0]);
+    /* a write-through latch: after the init it reads back the chunk just programmed */
+    for (k = 1; k <= 10u; k++) gbp_v28_dma_note(&d, gbp_v28_dma_phys(pool[k - 1u]), 3990u, k, pool[k], gbp_v28_dma_phys(pool[k]));
+    eqi(d.post_new, 10, "the register reads back what was just written");
+    eqi(d.post_kept + d.post_amb + d.post_other, 0, "and nothing else");
+    /* a register that keeps the active block's address until the block ends */
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_seed(&d, pool[0]);
+    for (k = 1; k <= 10u; k++) gbp_v28_dma_note(&d, gbp_v28_dma_phys(pool[k - 1u]), 3990u, k, pool[k], gbp_v28_dma_phys(pool[k - 1u]));
+    eqi(d.post_kept, 10, "the register keeps the entry value");
+    eqi(d.post_new, 0, "");
+    /* the same chunk returned as the register held: indistinguishable, counted apart; something else: other */
+    gbp_v28_dma_init(&d);
+    gbp_v28_dma_note(&d, gbp_v28_dma_phys(silence), 3990u, 1u, silence, gbp_v28_dma_phys(silence));
+    gbp_v28_dma_note(&d, gbp_v28_dma_phys(pool[1]), 3990u, 2u, pool[2], 0x5000u);
+    eqi(d.post_amb, 1, "the returned chunk is the one the register already held");
+    eqi(d.post_other, 1, "neither the new chunk nor the entry value");
+}
+
 int main(void)
 {
     printf("test_gbp_v28_dma\n");
+    test_an_unexplained_register_in_a_silence_run_is_none_not_same12();
+    test_the_register_read_after_the_init();
     test_the_assumed_semantics();
     test_ahead_plus_two();
     test_a_finished_block();

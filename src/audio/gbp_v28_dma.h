@@ -32,6 +32,7 @@ struct gbp_v28_dma_raw { uint32_t addr, left, ret1, ret2, dt; };
 
 struct gbp_v28_dma {
     uint32_t n, prev1, prev2, none, same12;
+    uint32_t post_new, post_kept, post_amb, post_other;   /* the register read again right AFTER the init: what the callback just programmed, the entry value, indistinguishable, or neither */
     uint32_t left_min, left_max;
     uint32_t bins[GBP_V28_DMA_BINS];
     uint32_t raw_n;
@@ -49,8 +50,10 @@ uint32_t gbp_v28_dma_phys(const void *p);
 /* The first chunk, programmed by the pump slot's own hand-off before the DMA is started: what the FIRST callback should find in the register. */
 void gbp_v28_dma_seed(struct gbp_v28_dma *d, const void *first);
 
-/* One callback: `addr` and `left` are the two register reads at its ENTRY, `t` its time (ticks), `returned` the chunk the hand-off returned (to be programmed next). */
-void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned);
+/* One callback: `addr` and `left` are the two register reads at its ENTRY, `t` its time (ticks), `returned` the chunk the hand-off returned (programmed next), `post` the address
+ * register read again right after that programming. `post` tells a write-through latch (it reads back what was just written: `addr` then only echoes the previous write and cannot
+ * separate AHEAD + 1 from AHEAD + 2) from a register that keeps the ACTIVE block's address until the block ends (`post` keeps the entry value: the address arm is informative). */
+void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned, uint32_t post);
 
 #ifdef __cplusplus
 }

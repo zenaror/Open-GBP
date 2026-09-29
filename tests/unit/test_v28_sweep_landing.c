@@ -415,8 +415,8 @@ static void battery(uint32_t step)
     /* Issue #139: the nulling grid's top (57344 to 59392) used to leave the ring within two chunks of its 65 536 capacity, so the cut came early and the landing
      * carried the feed deficit of the whole remaining mute: it tolerated about 0.7 %, not 1 %, and the 1 % case left those four moves out. With the ring at
      * 131 072 the grid's top is HALF-EMPTY and those four moves now pass at 1 %. The same regime still exists at the ring's OWN edge (target 122 880 at AHEAD 4:
-     * target + 4 x 2048 = the whole ring): the three moves that touch 122 880 or 124 928 tolerate about 0.7 % and are left out of the 1 % case, kept in the exact
-     * and 0.5 % cases above. The ladder never goes there (P2_HI is 57 344). */
+     * target + 4 x 2048 = the whole ring): four moves touch 122 880 or 124 928 (120 832 -> 122 880 passes at 1 %; the last three, 122 880 -> 120 832, 122 880 -> 124 928 and
+     * 124 928 -> 122 880, tolerate about 0.7 %) and those last three are left out of the 1 % case, kept in the exact and 0.5 % cases above. The ladder never goes there (P2_HI is 57 344). */
     cur_n = n_other - 3u;
     test_case("3b/T192/nulling, the grid's top included: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
     check(n_other >= 51u && OTHER[n_other - 1u].from_t == 124928u && OTHER[n_other - 3u].from_t == 122880u,

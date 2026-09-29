@@ -484,6 +484,12 @@ def render(out):
     else:
         lines.append("DMA SEMANTICS (V28DMA, %d callbacks, %d classified; prev1 %d prev2 %d none %d same12 %d; bytes left min %d mean %d max %d): %s -- %s" % (
             dm["n"], dm["classified"], dm["prev1"], dm["prev2"], dm["none"], dm["same12"], dm["left_min"], dm["left_mean"], dm["left_max"], dm["reading"], dm["why"]))
+        if "post" in dm:
+            lines.append("DMA REGISTER AFTER THE INIT (post: new %d, kept %d, ambiguous %d, other %d): %s" % (
+                dm["post"][0], dm["post"][1], dm["post"][2], dm["post"][3],
+                {"write-through": "reads back what was just written (the address arm cannot separate AHEAD + 1 from AHEAD + 2)",
+                 "keeps-active": "keeps the active block's address (the address arm is informative)",
+                 "mixed": "mixed: neither reading holds", None: "too few decided callbacks"}[dm["latch"]]))
 
     lbl = out["label"]
     if lbl["have"]:
