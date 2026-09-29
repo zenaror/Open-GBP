@@ -2867,3 +2867,6 @@ Open: (1) where the blocks go (the drain reads fewer than the HSP delivers, or a
 Supersedes `U-GBP-049`'s premise (a 0.5 % deficit "half the corrector's authority"), which was read from a saturating counter.
 
 STAYS OPEN.
+
+**AMENDMENT 2026-09-29 (Issue #137), on top: the ids the entry above should carry.** RUN 38's drain read 4 060-4 081 AUDIO blocks a second, 0.62 % not drained, in losses of at most about two blocks (`GBP-HW-322`, FACT; 25.41 blocks/s, restated 24.50 in
+`GBP-HW-339`); `GBP-HW-332` is the half-size-step result. This build's 1.6 % is about 2.6 times RUN 38's 0.62 %. The entry above cited `GBP-HW-329` for the 25.4 figure; that id is RUN 39's `P` names `produce`, not the loss.
