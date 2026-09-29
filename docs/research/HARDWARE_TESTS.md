@@ -39745,3 +39745,21 @@ P7  the AI DMA's hand-off semantics, at least 100 callbacks, 50 of them classifi
 **Other review findings, none an error of the code.** (a) A callback in a run of two silences whose register matches NEITHER pointer was counted `same12`, where an unexplained register would hide; it is now counted `none` (`same12` only when the register agrees with the shared pointer). (b) P3 registers the chunk start as "3 831-3 838" and P8 as "3 828 +- 15" for the same quantity; they overlap and P3 refutes only below 3 000. In RUN 56, **P8's band is the acceptance for the comparison with RUN 55** (its own measured 3 828); P3's "3 831-3 838" is the calibrated host's prediction, held by RUN 55 at 3 828, and neither refutes the other. (c) The comment in `tests/unit/test_v28_sweep_landing.c` and §V28.23 speak of "three moves that touch 122 880 or 124 928": FOUR do (120 832 -> 122 880, 122 880 -> 120 832, 122 880 -> 124 928, 124 928 -> 122 880); the FIRST passes at 1 % and is kept, the LAST THREE tolerate about 0.7 % and are what the 1 % case leaves out (the code was right; the count in the sentence was not). (d) The memory margin (`tests/host/test_ring_capacity_constant.py`) is derived from RUN 43's `bss_end`, an older image: +131 072 B against about 4.4 MB is negligible, and the built image's own `bss_end` is read when the candidate is built. (e) Every plan (validation, perceptual, diag_loss) shares `live_dma_cb` and the V28DMA teardown block, so the blinded perceptual image will carry the reads and the ring change unless deliberately stripped; and `poc/gbp-audio-native-probe`, the only other image including `gbp_aplay2.h`, changes bytes when rebuilt (a 256 KB ring instead of 128 KB) -- consistent with the rule that a frozen image reproduces at its own commit.
 
 **What this does NOT establish.** Which of R1-R4 the hardware gives; the bytes-left arm has the same limit as any single reading of a moving counter (it says the block has just started, not how many blocks are queued behind it).
+
+### V28.24 `23-v28v` rebuilt for RUN 56, re-pinned a ninth time and staged — 2026-09-29 (Issue #139)
+
+*Appended. §V28.23 and its amendment §V28.23a stand as the registered prediction (P1-P8, P7 as reworded); this entry names the image. Not run.*
+
+```text
+image      poc/gbp-audio-v28, PLAN=validation_run, build v28-validation-0001, TEST_ID GBP-AUDIO-V28, commit 7dc6193 (clean, no -dirty)
+DOL        build/swiss/23-v28v/boot.dol   sha256 cc2813e322b54f8e467d81fc38135eae6bfa4af0e9d6b654b8d90408f4b6b47f
+replaces   the eighth pin 73dcaae9791fb2ea1a3bc56fd307f8f4bbdab739e2963f34b8094b61b7685290 (RUN 55's image, commit 7e0dc0c)
+rebuilds   two separate clean Docker rebuilds (the plan directory removed between them), byte-identical (cmp), commit=7dc6193; bss_end 0x80f9acd8
+layout     tools/swiss-layout.tsv row 23 (v28v) re-frozen at the new hash; tests/host/test_swiss_export.py pins it
+card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from the card equal to the build's; every other file under Open-GBP/ hashed before and after: the only
+           difference is 23-v28v/boot.dol; INDEX.txt untouched (md5 e66e409d...)
+```
+
+**What the Operator does and sees.** As RUN 55 (§V28.20): the same `validation_run` plan, phase caps and label (`P<n>/4 H<count> RUN <s>s`, changing once a second), booted from `23-v28v/boot.dol`; navigate ends on the C-stick DOWN as before. Nothing on the screen or in the sound is new: the DMA reads are silent and go to the SD log only, at teardown. It is not the perceptual run and needs no listening beyond RUN 55's markers. The log is archived from the card before the next boot overwrites it.
+
+**What differs in the log against RUN 55.** `V28DMA` (n, prev1, prev2, none, same12, bytes-left figures, six bins), `V28DMAP` (new, kept, amb, other), `V28DMAR` (the first 32 callbacks raw); 3a's first row carries no navigate `dup` or underrun. The ring's size is not printed: the ring is proven on the host (`tests/host/test_ring_capacity_constant.py`) and by P8.
