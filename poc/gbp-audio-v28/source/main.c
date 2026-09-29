@@ -1046,6 +1046,19 @@ static void syncpe_edges(void)
     }
 }
 
+/* Issue #137: nonzero once for every increase of the AI underrun counter since the last call (read from the
+ * pump slot only; the counter is written by the DMA callback, a 32-bit aligned load is atomic on the Gekko). The
+ * snapshot advances whether or not a handler was listening, so an underrun from an earlier phase never
+ * reads as a new one at the next phase's first tick. */
+static int v28_underrun_edge(void)
+{
+    static uint32_t seen;
+    const uint32_t now_n = ap2.underruns;
+    const int edge = now_n != seen;
+    seen = now_n;
+    return edge;
+}
+
 static void live_step(void)
 {
     const struct gbp_transport *t = in_transport;
@@ -1075,7 +1088,12 @@ static void live_step(void)
             if (tick_flags & GBP_WALKER_TICK_PHASE_END) v28_cut(kind_before, now);
             switch (gbp_walker_current_kind(&walker)) {
             case GBP_WALKER_DESCENT_3A: {
-                const int f = gbp_v28_3a_tick(&s3a, &tr, &ap2, &adec2, now);
+                int f;
+                /* Issue #137: the handler header's contract ("call whenever the caller observes underruns_total
+                 * increase") had NO caller in this file until now -- a "clean" dwell was UNOBSERVED, not clean.
+                 * The edge is read once a slot (v28_underrun_edge), before the tick that could end the dwell. */
+                if (v28_underrun_edge()) gbp_v28_3a_underrun_observed(&s3a, now);
+                f = gbp_v28_3a_tick(&s3a, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3A_TICK_DEPTH_DONE) {
                     /* the POC supplies the dwell's own counter DELTAS; this checkpoint reads them
                      * directly from gbp_aplay2/gbp_adec2's cumulative counters at depth_done() time
@@ -1098,7 +1116,9 @@ static void live_step(void)
                 break;
             }
             case GBP_WALKER_HOLD_3B: {
-                const int f = gbp_v28_3b_tick(&s3b, &tr, &ap2, &adec2, now);
+                int f;
+                if (v28_underrun_edge()) gbp_v28_3b_underrun_observed(&s3b, now);   /* Issue #137, see 3a's case */
+                f = gbp_v28_3b_tick(&s3b, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3B_TICK_HOLD_DONE) gbp_v28_3b_hold_done(&s3b);
                 if (f & GBP_V28_3B_TICK_PHASE_COMPLETE)
                     /* Issue #131/#133: the same move as 3a's own just above -- gbp_v28_sweep_start()
