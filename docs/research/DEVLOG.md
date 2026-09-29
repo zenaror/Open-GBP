@@ -19661,3 +19661,18 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** The recount tests learn the log (`GBP-HW-375`); `tools/v28latency.py` no longer prints "RUN 55's" for any log's 3b hold.
 
 **Next.** The perceptual image (unstaged, unissued): its heavy review, two identical rebuilds and the `strings` check; its draft Hardware Issue now takes the CORROBORATED label.
+
+## 2026-09-29 — Issue #139 / #141: the perceptual image reviewed — no blocker; the run had no end at 16 settings, the old handler's end press was a silent no-op, and the first-START premise was mislabelled (`HARDWARE_TESTS.md` §V28.29a)
+
+**Goal.** A heavy adversarial review of the perceptual image and its draft before anything is built into a candidate.
+
+**Done.** No blocker and no major finding: the handler matches #128 §3-§4 and §7; the reviewer's exhaustive driver (8 rungs, 2 mappings, 2 sticks), its ASan/UBSan run, its compile of all four plans with and without the mark, and its wider begin-ring and back-to-back sweeps agree. Taken: nothing ended the run at 16 settings and a press after the last confirm still moved the latency (now refused, and the phase completes); the old `step()` did NOT begin a same-level ROTATE at a grid end (a silent no-op the Operator could have felt: the defect most relevant to the leak rules, missing from my own record); nulling presses can begin within 0-31 ms of a landing, a begin state the sweep never had (now a committed test, 640 checks); the underrun/overflow deltas were untested against a non-zero baseline (a mutation survived; killed); the first-START premise said the default target is 4 096 (it is 8 192, so navigate's ring 7 456 is 736 BELOW it; the test was valid, its label was not); the reader now flags a setting with no press or a short dwell; several draft claims over-reached (G3 "not evidence", O2's "most supports", the 94 ms level "not held", "about 1 s").
+
+**Two things worth their own lines.**
+
+1. **A record that lists consequences lists the ones the author looked for.** My §V28.28 named three consequences of the old handler; the fourth, the silent end press, was the one the leak rules turn on, and it was in the diff of the function I had already read.
+2. **A test that agrees with the code is not a test of the code:** the underrun delta was right and unproven because the baseline started at zero, exactly where the real first setting does not.
+
+**Tests.** `tests/unit/test_gbp_v28_nulling.c` (640), `tests/host/test_v28_run57_perceptual.py`; the full gate is recorded in the closeout on Issue #139.
+
+**Next.** The full gate, two identical rebuilds of `perceptual_no_phase1` and the `strings` check; then wait for the Orchestrator's procedure text.

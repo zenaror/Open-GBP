@@ -310,7 +310,8 @@ static uint32_t mute_add;
  * RUN 51-53. 0 = the console's measured begin rings (BEGIN_OFF), 1 = near target (0..-256): a higher begin ring only makes the cut larger. */
 static int begin_near;
 /* Issue #141: the perceptual run's FIRST start begins from navigate's end state, not from a rung the corrector held: RUN 56's phase 0 ended with the ring at 7 456 at the default
- * target 4 096, AHEAD 1 (V28PHC p0 `ring 16 -> 7456`), i.e. 3 360 ABOVE the target. begin_over puts every move's begin ring that far above its from-target. */
+ * target (gbp_aplay2's default GBP_APLAY2_TARGET, 8 192), AHEAD 1 (V28PHC p0 `ring 16 -> 7456`): the ring is 7 456. begin() replaces the target, so what matters is the begin RING; the moves' from-target
+ * here is T256, and begin_over puts every begin ring at 7 456 (3 360 above T256's 4 096). (The first version of this comment said the default target was 4 096: the reviewer's correction.) */
 static int begin_over;
 #define BEGIN_OVER 3360
 
@@ -475,7 +476,7 @@ static void battery(uint32_t step)
     cur_moves = FIRST;
     cur_n = GBP_V28_RUNGS;
     begin_over = 1;
-    test_case("first START from navigate's end (ring 3 360 above): exact feed", 1.0, 0.0, 0.0, 0.0, 0, 51u);
+    test_case("first START from navigate's end (ring 7 456): exact feed", 1.0, 0.0, 0.0, 0.0, 0, 51u);
     test_case("first START from navigate's end: 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 52u);
     begin_over = 0;
     cur_moves = MOVES;

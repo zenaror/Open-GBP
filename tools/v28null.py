@@ -16,6 +16,9 @@ CENSORED (#128 section 4, per setting and per END, recorded at the moment it hap
 censored at the floor (the null lies at or below it); the mirror, confirmed at the TOP rung (T704 A4) after at least one press against the top, is censored at the top (the null lies at or
 above it: the symmetric reading, not named in #128 section 4). VERDICT: fewer than 3 settings completed -> INCONCLUSIVE (t4, section V27.5); every completed setting censored at the floor
 -> AT THE VALIDATED FLOOR (T, A, L); every one at the top -> AT THE LADDER'S TOP; otherwise the null is estimated from the uncensored settings and k of n censored (each end) is reported.
+"S" in #128 section 4's (T, A, S, L) is not defined in the design text; it is read here as the SETTING's seeded start (the START rung and the stick mapping), printed beside (T, A, L).
+SUSPECT settings (flagged, never dropped): confirmed with NO press at all (steps 0 and no end press: an agreement at the seeded start, or a double confirm), or confirmed less than 5 s after the
+previous confirm (the C-stick's dead time is 250 ms, a START lands within 312 ms: a second UP a second later records a setting at a random rung). The verdict is printed as read; the count is beside it.
 Precedence: (t5) the assignment or the randomisation is absent from the log, (t3) a press before the prompt and (t1) the manipulation check are the Executor's mechanistic gates,
 tools/v28verdict.py's, not this reader's.
 """
@@ -29,6 +32,8 @@ import v28latency as L  # noqa: E402
 RUNGS = ((11264, 4), (9216, 4), (7168, 4), (5120, 4), (4096, 4), (4096, 3), (4096, 2), (4096, 1))   # gbp_v28_ladder.h GBP_V28_RUNG, deepest first (pinned by tests)
 LABELS = ("bounded", "assumed", "M1", "M2")
 MIN_SETTINGS = 3
+TB_HZ = 40_500_000
+MIN_DWELL_S = 5.0
 
 
 def read_settings(text):
@@ -94,13 +99,20 @@ def analyse(text, label="bounded"):
     for s in st:
         cls = classify(s)
         base = rung_l(s["rung"])
-        rows.append(dict(s, cls=cls, L=base, L_lo=base + lo, L_hi=base + hi, ok=consistent(s), mech=mech.get(s["n"]), gate=gate_of(s, mech.get(s["n"]))))
+        prev = st[s["n"] - 1] if s["n"] > 0 and s["n"] - 1 < len(st) else None
+        dwell = (s["t"] - prev["t"]) / TB_HZ if prev is not None else None
+        suspect = []
+        if s["steps"] == 0 and s["floor_refused"] == 0 and s["top_refused"] == 0:
+            suspect.append("no press")
+        if dwell is not None and dwell < MIN_DWELL_S:
+            suspect.append("dwell %.1f s" % dwell)
+        rows.append(dict(s, cls=cls, L=base, L_lo=base + lo, L_hi=base + hi, ok=consistent(s), mech=mech.get(s["n"]), gate=gate_of(s, mech.get(s["n"])), dwell_s=dwell, suspect=suspect))
     n = len(rows)
     kf = sum(1 for r in rows if r["cls"] == "floor")
     kt = sum(1 for r in rows if r["cls"] == "top")
     inter = [r for r in rows if r["cls"] == "interior"]
     gated = [r for r in rows if r["gate"] is not None]
-    out = {"gates": {k: (sum(1 for r in gated if r["gate"][k]), len(gated)) for k in ("fill", "ready", "underruns", "overflow")}, "missing_mech": n_missing(rows),
+    out = {"suspect": sum(1 for r in rows if r["suspect"]), "gates": {k: (sum(1 for r in gated if r["gate"][k]), len(gated)) for k in ("fill", "ready", "underruns", "overflow")}, "missing_mech": n_missing(rows),
            "label": label, "settings": rows, "n": n, "k_floor": kf, "k_top": kt, "interior": len(inter), "inconsistent": sum(1 for r in rows if not r["ok"])}
     if n < MIN_SETTINGS:
         out["verdict"] = "INCONCLUSIVE (t4): %d of the %d settings the rule needs completed" % (n, MIN_SETTINGS)
@@ -147,7 +159,8 @@ def render(a):
     for r in a["settings"]:
         w("  setting %2d  start rung %d  dir %s  steps %2d (deeper %d, shallower %d)  floor presses %d  top presses %d  ->  rung %d = (T%d, A%d)  L %s  [%s]%s" % (
             r["n"] + 1, r["start"], "LEFT=deeper" if r["dir"] == 0 else "LEFT=shallower", r["steps"], r["deeper"], r["shallower"], r["floor_refused"], r["top_refused"],
-            r["rung"], r["target"] // 16, r["ahead"], fmt(r["L"], r["L_lo"] - r["L"], r["L_hi"] - r["L"]), r["cls"], "" if r["ok"] else "  INCONSISTENT: (T, A) is not the rung's"))
+            r["rung"], r["target"] // 16, r["ahead"], fmt(r["L"], r["L_lo"] - r["L"], r["L_hi"] - r["L"]), r["cls"], ("" if r["ok"] else "  INCONSISTENT: (T, A) is not the rung's") +
+            ("  dwell %.0f s" % r["dwell_s"] if r["dwell_s"] is not None else "") + ("  SUSPECT: " + ", ".join(r["suspect"]) if r["suspect"] else "")))
     g = a["gates"]
     w("  MECHANISTIC GATE (the Executor's): fill tracks the target %d of %d, READY at AHEAD-1 or AHEAD %d of %d, no underrun %d of %d, no dropped sample %d of %d%s" % (
         g["fill"][0], g["fill"][1], g["ready"][0], g["ready"][1], g["underruns"][0], g["underruns"][1], g["overflow"][0], g["overflow"][1],
@@ -156,6 +169,8 @@ def render(a):
         w("  (t1) THE FILL DID NOT TRACK THE TARGET at %d setting(s): the manipulation did not happen there; every perceptual result at those settings is void" % (g["fill"][1] - g["fill"][0]))
     if g["underruns"][1] and g["underruns"][0] < g["underruns"][1]:
         w("  (t2) an underrun in %d setting(s): audible dropouts are heard as instability, not latency, and contaminate the judgement there" % (g["underruns"][1] - g["underruns"][0]))
+    if a["suspect"]:
+        w("  %d SUSPECT setting(s) (no press at all, or confirmed within %.0f s of the previous confirm): flagged, not dropped; the verdict below counts them" % (a["suspect"], MIN_DWELL_S))
     w("  VERDICT: " + a["verdict"])
     if a["inconsistent"]:
         w("  DEFECT: %d record(s) whose (T, A) is not their rung's (T, A): a defect in the log, not a finding" % a["inconsistent"])

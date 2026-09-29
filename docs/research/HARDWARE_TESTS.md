@@ -40029,3 +40029,48 @@ T256  A4 214.7   A3 183.5   A2 152.2   A1 121.0 ms      T320 A4 230.4   T448 A4 
 ```
 
 **What this does NOT establish.** The address stage (assumed identical to the length stage); the audio-versus-video offset; audibility of the perceptual ladder; why T4608 varies.
+
+### V28.29a Amendment to §V28.28 and §V28.29 — what the adversarial review corrected, the CORROBORATED label RUN 57 earned, and the leak rules restated for the perceptual screen — 2026-09-29 (Issue #139 / #141)
+
+*Appended; §V28.28 and §V28.29 stand except where this entry says otherwise. No blocker and no major finding; the handler matches #128 §3-§4 and §7 as amended by #136. Still a DRAFT: unstaged, unissued.*
+
+**Corrections to §V28.28 (the record of the defect).**
+1. "31 for that climb" is the AHEAD-4 figure. At AHEAD 1, the AHEAD the old handler ran at, the mute a 51 200-sample climb needs is 1 + ceil((51 200 + 2 666) / 2 048) = 28 periods, not 7; the old floor (T384 at AHEAD 1) is 152.4 ms by `tools/v28latency.py` ("about 153" was a rounding of an older figure).
+2. **A fourth consequence the record omitted, and the one that matters most to the leak rules:** the old `step()` returned 0 at a grid end WITHOUT calling `begin()`: an end press was a silent no-op, not the same-level ROTATE #128 §7 requires, so the Operator could have heard the end of the scale (a press that does nothing). The rebuilt handler runs the same ROTATE at the same mute.
+3. "Every nulling step is now exactly a transition the sweep already validated" holds for the TYPE, the mute and the rung pair. It did not hold for the BEGIN STATE: the sweep has about 3 s dwells, while a nulling press can begin within 0-31 ms of the previous landing (the C-stick dead time is 250 ms; a step lands within 250 ms of its begin). The reviewer's ad-hoc harness (a step, an end press or a START begun 0, 1, 15, 31, 62 and 125 pump calls after a landing: 1 056 runs at five cadences) landed in band with no splice, no underrun and no lost sample; it is now a committed test (`test_a_press_right_after_a_landing_lands_on_its_rung`, `tests/unit/test_gbp_v28_nulling.c`).
+4. The first-START premise was mislabelled: the default target is `GBP_APLAY2_TARGET` = 8 192, not 4 096 (`gbp_aplay2.h`, and #128 Amendment A), so navigate's end ring (7 456, RUN 56 V28PHC p0) is 736 BELOW the default target, not 3 360 above a 4 096. `begin()` replaces the target; what matters is the begin RING, and the test's begin state (ring 7 456, AHEAD 1) is numerically the one the console has. The comment and this record are corrected; the reviewer swept the begin ring from 2 596 to 7 924 across all 64 STARTs and the perceptual starts: exact feed and 0.5 % slow with jitter pass everywhere.
+5. The test counts in §V28.28 (804, 443) are stale: the landing test now runs 892 checks (the first START from navigate's end included) and the nulling test 640. "What this does NOT establish ... navigate's end, not 3b's" is stale for the host; it stays true of the console.
+6. "The design says a setting starts at a seeded rung": the uniform draw over the eight rungs and the 50/50 mapping come from #122 and `gbp_async`'s Phase 2, not from the #128 text.
+
+**Corrections to §V28.29 (the draft).**
+1. "the run ends at the cap, at 16 settings, or on Z" was FALSE for 16 settings: nothing ended the run there and a press after the 16th confirm still moved the latency, recorded nowhere. Now: `step()` refuses once the exercise is finished (`refused_step_over`) and `main.c` completes the phase (the label reads `DONE`, a SAFE instant like `setting k`).
+2. **G3 is not "a build defect and not evidence".** At AHEAD 1 or 2 an underrun is a rate-bounded event (RUN 55 and 56's 3b bounded it below 0.05 a second at 95 % over a 60 s hold at AHEAD 1). A setting with an underrun is CONTAMINATED (t2: audible dropouts are heard as instability, not as latency), reported by the reader as such, and does not by itself void the run; G1 (the fill does not track the target) does.
+3. O2's "the outcome the record most supports" contradicts the next sentence. RUN 43's confirmed setting was censored at about 248 ms modelled (old path, AHEAD 4): it supports "the null lies at or below about 250 ms", which is consistent with an INTERIOR rung on this ladder (the rungs run 121-324 ms). The interior is the more probable outcome; the floor-censored reading is possible, the top-censored one foreseen. RUN 43's grid top was 3 584 / 4 096 = 0.875 s, not "about 1 s".
+4. O2's "not a level the chain holds without underruns" for the 94 ms gate level is UNMEASURED, not refuted: RUN 56's 3a held T2432, T2368 and T2336 at AHEAD 4 with no underrun (T2304 underran once); below T4096 at AHEAD 1 nothing was measured.
+5. The 218.75 and 312.5 ms are 7 and 10 nominal 31.25 ms periods; at the AI's measured clock they are 218.6 and 312.2 ms.
+6. "(T, A, S, L)" (#128 §4): S is not defined in the design text; the reader prints the seeded start (rung, mapping) beside (T, A, L) and says so.
+7. The reader now flags (never drops) a SUSPECT setting: confirmed with no press at all, or less than 5 s after the previous confirm (an accidental second UP; the reviewer's finding), and prints each setting's dwell.
+
+**The label RUN 57 earned (§V28.30, `GBP-HW-374`).** M1: the DMA's length stage was measured one callback deep in 29 of 29 marks; the address stage is assumed identical. Every L in this draft is therefore **as tabulated, "CORROBORATED: length stage measured, address stage assumed identical"** (`tools/v28null.py --label M1`), and the bound "or +31.222 ms" in §V28.29's O2 and O3 is CLOSED: T256 A1 = 121.0 ms, T256 A2 152.2, A3 183.5, A4 214.7, T320 A4 230.4, T448 A4 261.7, T576 A4 293.1, T704 A4 324.4 ms (audio path only: ring entry to the AI's DMA reload, INFERENCE for the values; NOT the audio-versus-video offset). The O3 top reading reads "AT THE LADDER'S TOP (T704, A4, L 324.4 ms)".
+
+**The leak rules of #128 §7, restated for the perceptual screen (nothing here changes; the tests that pin them are `tests/host/test_v28_leak.py` and `test_v28_run57_perceptual.py`).**
+
+```text
+SAFE (kind-independent instants; on the screen, the label and the live channel)
+  Phase 0     the phase name and a clock:                  "PHASE 0 <s>s"
+  nulling     the setting number when settings_n changes:  "NULL SET <k> <s>s"   (k changes at his own confirm, an audible event anyway; NOT at the confirm's return value)
+  the end     "DONE <s>s"    (the phase ending: at the 240 s cap, at the 16th confirm, or on Z; a SAFE instant)
+  post-run    "V28 nulling / setting <k>" and the live line "OPENGBP-V28 phase=nulling setting=<k>"
+NEVER, in the perceptual image (compiled OUT of its branch, not hidden at run time; the SD log only)
+  accepted step counts, plans, acted, C-stick event counts, refusal or busy counters (refused_step_end, refused_step_busy, refused_step_over, cs_busy)
+  any visible response to a LEFT / RIGHT press (the label does not change; a refused or busy press changes nothing)
+  his answers; which stick direction is deeper (the seeded mapping); the seeded start rung
+  the TARGET or AHEAD in force, the rung, or anything read from gbp_atrans2 / gbp_aplay2 / gbp_adec2; L; the ladder
+  AUDIO: a step, an end press and a START are silences that depend on nothing but their kind (218.6 ms for a step and an end press, 312.2 ms for a START), the same at every rung, in either direction,
+  at either end. What the Operator can tell apart, and it is inherent and not a leak: a START (longer, and it follows his own confirm) from a step; and that an end press produced silence with no
+  change in the audio's delay.
+```
+
+**For the Orchestrator's procedure text (facts, not text).** A press or confirm during a transition's mute is dropped silently and the stick edge is consumed (steps land within 250 ms, the dead time is 250 ms; after a START, whose mute is 312 ms, a press at 250-312 ms is lost). A setting that STARTS at the floor rung and is followed by an exploratory press in the shallower direction is counted censored by the pre-registered rule (a press against the floor is the operand); that is by design and worth one sentence to him.
+
+**What this does NOT change.** The design, the ladder, the predictions G1-G6 and O1-O5 as amended here.

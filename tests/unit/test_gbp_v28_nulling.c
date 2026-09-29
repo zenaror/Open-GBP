@@ -297,6 +297,9 @@ static void test_confirm_records_and_starts_the_next_setting(void)
 {
     uint64_t now = steady();
     const struct gbp_v28_nulling_setting *rec;
+    /* the real first setting starts with NON-ZERO counters (RUN 55 / 56: phase 0 ends with underruns 1): the deltas are against the baseline taken at the setting's begin */
+    ap.underruns = 2u;
+    adec.overflow = 3u;
     (void)gbp_v28_nulling_start(&nl, &tr, &ap, &adec, now, SEED);
     settle(&now, 40u);
     eqi(gbp_v28_nulling_step(&nl, &tr, &ap, &adec, now, GBP_V28_NULLING_RIGHT), 1, "one deeper step (rung 2 -> 1)");
@@ -366,6 +369,38 @@ static void test_confirm_is_refused_while_busy(void)
     eqi((long long)nl.settings_n, 0, "nothing recorded");
 }
 
+/* The reviewer's finding (Issue #141): nulling presses can begin within 0-31 ms of the previous landing (the C-stick dead time is 250 ms, a step lands within 250 ms of its begin), a begin state the
+ * sweep's ~3 s dwells never had. A step, an end press and a confirm (a START) begun 0, 1, 15, 31, 62 and 125 pump calls after the previous landing all land on their rung with no underrun and no
+ * dropped sample. */
+static void test_a_press_right_after_a_landing_lands_on_its_rung(void)
+{
+    static const uint32_t DELAY[6] = { 0, 1, 15, 31, 62, 125 };
+    uint32_t d, k;
+    for (d = 0; d < 6u; d++) {
+        uint64_t now = steady();
+        uint32_t u0, o0, seed = 100u + d;
+        (void)gbp_v28_nulling_start(&nl, &tr, &ap, &adec, now, seed);
+        settle(&now, 40u);
+        u0 = ap.underruns; o0 = adec.overflow;
+        for (k = 0; k < 6u; k++) {
+            uint32_t i, j;
+            for (j = 0; j < DELAY[d]; j++) { give2(&adec, slice2(j), 100); pump2(now); now++; }      /* the pump runs `DELAY` calls between the landing and the next press */
+            i = (k % 3u == 0u) ? GBP_V28_NULLING_LEFT : GBP_V28_NULLING_RIGHT;
+            if (k == 2u || k == 4u) {
+                eqi(gbp_v28_nulling_confirm(&nl, &tr, &ap, &adec, now), 1, "a confirm right after a landing");
+            } else {
+                eqi(gbp_v28_nulling_step(&nl, &tr, &ap, &adec, now, (uint8_t)i), 1, "a press right after a landing");
+            }
+            settle(&now, 40u);
+            check(!tr.active, "landed");
+            check_at_rung(nl.rung, "right after a landing");
+            check(adec.count <= GBP_V28_RUNG[nl.rung].target, "the ring is at or below the target at the landing");
+        }
+        eqi(ap.underruns, u0, "no underrun across the back-to-back presses");
+        eqi(adec.overflow, o0, "no dropped sample");
+    }
+}
+
 static void test_every_rung_is_a_reachable_start(void)
 {
     uint32_t seen[8] = { 0 }, seed, k;
@@ -399,6 +434,13 @@ static void test_the_whole_cap_finishes_and_further_confirms_are_refused(void)
     check(!tr.active, "no further plan began after the last confirm");
     eqi(gbp_v28_nulling_confirm(&nl, &tr, &ap, &adec, now), 0, "a confirm after the cap is refused");
     eqi((long long)nl.refused_confirm_over, 1, "counted as over, not as busy");
+    {
+        const uint32_t rung = nl.rung;
+        eqi(gbp_v28_nulling_step(&nl, &tr, &ap, &adec, now, GBP_V28_NULLING_LEFT), 0, "a press after the cap is refused (the latency stays where the last confirm left it)");
+        eqi(gbp_v28_nulling_step(&nl, &tr, &ap, &adec, now, GBP_V28_NULLING_RIGHT), 0, "either stick");
+        eqi((long long)nl.refused_step_over, 2, "counted as over");
+        eqi(nl.rung, rung, "the rung did not move"); check(!tr.active, "and no plan began");
+    }
     eqi((long long)nl.refused_confirm_busy, 0, "not as busy");
 }
 
@@ -415,6 +457,7 @@ int main(void)
     test_confirm_records_and_starts_the_next_setting();
     test_confirm_records_the_end_presses_of_its_own_setting();
     test_confirm_is_refused_while_busy();
+    test_a_press_right_after_a_landing_lands_on_its_rung();
     test_every_rung_is_a_reachable_start();
     test_the_whole_cap_finishes_and_further_confirms_are_refused();
     printf("test_gbp_v28_nulling: %d checks, %d failures\n", checks, failures);

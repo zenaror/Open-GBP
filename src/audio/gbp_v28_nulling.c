@@ -53,6 +53,7 @@ int gbp_v28_nulling_step(struct gbp_v28_nulling *n, struct gbp_atrans2 *t, struc
     int deeper;
     uint32_t to;
     if (stick != GBP_V28_NULLING_LEFT && stick != GBP_V28_NULLING_RIGHT) { n->refused_step_value++; return 0; }
+    if (n->finished) { n->refused_step_over++; return 0; }
     if (t->active) { n->refused_step_busy++; return 0; }
     deeper = (stick == GBP_V28_NULLING_LEFT) == (n->p2_dir[n->p2_index] == GBP_V28_NULLING_LEFT_DEEPER);
     to = n->rung;
