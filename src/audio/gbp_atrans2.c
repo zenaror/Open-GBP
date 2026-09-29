@@ -159,7 +159,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
          * rebuild that starts one call late without consequence; AHEAD 1's own floor is 0 -- no
          * chunk to spare -- so the SAME one-call-late rebuild finishes one call short when the very
          * next hand-off needs it (proven: gbp_v28_sweep's own entry 6, its rebuild ran the expected
-         * 16 calls at the expected rate, starting one call later than a
+         * 16 calls (32 at the 64-push steady step) at the expected rate, starting one call later than a
          * steady rebuild ever does). Recovering that one call here -- an ordinary, CORRECTED
          * production attempt, the exact call the caller's own dispatch would have made one tick
          * later -- lands this call's own slot back on the steady phase, not one behind it. */

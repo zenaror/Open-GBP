@@ -259,6 +259,9 @@ struct case_result {
 
 /* `mute_add`: periods added to every move's own mute, to find the smallest that works */
 static uint32_t mute_add;
+/* Issue #138: with the loss back near 0.18 % the corrector holds the ring near target, so a move BEGINS within one band of it, not 956-2666 below as in
+ * RUN 51-53. 0 = the console's measured begin rings (BEGIN_OFF), 1 = near target (0..-256): a higher begin ring only makes the cut larger. */
+static int begin_near;
 
 static void run_case(double r, double sp, double st, double late, int at, uint32_t seed, struct case_result *out)
 {
@@ -278,12 +281,13 @@ static void run_case(double r, double sp, double st, double late, int at, uint32
             now = steady(mv->from_t, mv->from_a);
             for (i = 0; i < p * HW_CALLS / PHASES; i++) one_call(&now);
             {   /* the ring as the console has it when a move begins */
-                const int32_t off = mv->mute == ST ? BEGIN_OFF_START : BEGIN_OFF[(p + m) % 17u];
+                const int32_t off = begin_near ? -(int32_t)((p * 11u + m * 29u) % 257u)
+                                               : mv->mute == ST ? BEGIN_OFF_START : BEGIN_OFF[(p + m) % 17u];
                 const int32_t lv = (int32_t)mv->from_t + off;
                 set_ring(lv > 0 ? (uint32_t)lv : 0u);
                 /* the guard against the error the review caught: a move that BEGINS at or above target - 900 is not the
                  * console's (956-1878 below, 2666 at the prelude), and the mutes must never be sized on it */
-                out->begin_high += (int32_t)adec.count - (int32_t)mv->from_t > -900;
+                if (!begin_near) out->begin_high += (int32_t)adec.count - (int32_t)mv->from_t > -900;
             }
             mon_lost = 0u;
             mon_disc = adec.discarded;
@@ -371,6 +375,11 @@ static void battery(uint32_t step)
               "exact feed: every landing sits at target - 160 (the recovery's step and the bias make up GBP_ATRANS2_LAND_POINT), to within a few samples");
     }
     test_case("hardware cadence, feed 0.18% slow", 0.9982, 0.0, 0.0, 0.0, 0, 41u);
+    begin_near = 1;
+    test_case("begin ring near target, feed 0.18% slow", 0.9982, 0.0, 0.0, 0.0, 0, 42u);
+    test_case("begin ring near target, exact feed, jitter", 1.0, 0.7, 0.0, 0.0, 0, 43u);
+    test_case("begin ring near target, 1% stalls", 0.9982, 0.7, 0.01, 0.0, 0, 44u);
+    begin_near = 0;
     test_case("hardware cadence, feed 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 2u);
     test_case("hardware cadence, feed 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 3u);
     test_case("hardware cadence, feed 0.5% fast", 1.005, 0.0, 0.0, 0.0, 0, 6u);

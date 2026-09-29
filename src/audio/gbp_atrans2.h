@@ -55,7 +55,7 @@
  * chunk built before the cut survives. If the ring
  * is about to fill (two chunks from its capacity) the cut comes early instead, or the feed's newest samples
  * would be lost and the gap heard later, at a moment that depends on TARGET. The landing cuts nothing. The
- * ring lands at target - 160 on an exact feed (the landing recovery's 128 and the bias 32), about 20 lower per
+ * ring lands at target - 160 on an exact feed (GBP_ATRANS2_LAND_POINT: the landing recovery's step, 128 or 64, and the bias that makes up the rest), about 20 lower per
  * 0.5 % of feed deficit (-180 at the console's), inside the sweep's band [target - BAND, target]; a landing call more than about 2.4 ms
  * late (each ms adds 65.5 samples of feed) lands above target, which the gate reports.
  *

@@ -1105,8 +1105,9 @@ static struct v28_phase_snap ph_start[GBP_WALKER_MAX_PHASES], ph_end[GBP_WALKER_
 
 static void v28_phase_snap_take(struct v28_phase_snap *s)
 {
-    const struct gbp_transport *t = in_transport;
-    s->t = t ? t->ticks64(t->ctx) : 0u;
+    /* gettime(), not the transport: teardown clears in_transport before the report runs, and a snapshot taken there (a phase that never ended) must
+     * still carry a real time base -- the transport's ticks64 is gettime() on the console (hsp_backend.c h_ticks64) */
+    s->t = (uint64_t)gettime();
     v28_snapshot(&s->c);
     s->have = 1u;
 }

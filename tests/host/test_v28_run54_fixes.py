@@ -140,6 +140,11 @@ class ThePerPhaseRecords(unittest.TestCase):
         self.assertIn("if (r->started && !syncpe_started_seen[i]) {", body[:a + 200])
         self.assertIn("if (r->ended && !syncpe_ended_seen[i]) {", body[:b + 200])
 
+    def test_a_snapshot_never_depends_on_the_transport_teardown_clears(self):
+        body = W.function_body(W.code(read(MAIN)), "v28_phase_snap_take")
+        self.assertIn("s->t = (uint64_t)gettime();", body)
+        self.assertNotIn("in_transport", body, "teardown sets in_transport = 0 before v28_phase_report(): an unended phase would print t1 = 0")
+
     def test_every_plan_prints_them(self):
         src = W.code(read(MAIN))
         for n, line, active in W.diag_regions(src):
