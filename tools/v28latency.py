@@ -188,9 +188,9 @@ def dma_marks(text):
     any_b = lambda v: sum(c for (b, t), c in both.items() if b == v)      # noqa: E731
     any_t = lambda v: sum(c for (b, t), c in both.items() if t == v)      # noqa: E731
     if l1 / n >= MARK_FRACTION and any_b(2) == 0 and any_t(2) == 0:
-        out.update({"reading": "M1", "offset_ms": 0.0, "offset_max_ms": 0.0, "why": "%d of %d complete marks are seen ONE callback after they were programmed in both arms (bytes left below %d, interval below %d ticks) and none two: a block programmed at a callback starts at the next, AHEAD + 1, the table stands (MEASURED)" % (l1, n, MARK_LEFT_SPLIT, MARK_DUR_SPLIT)})
+        out.update({"reading": "M1", "offset_ms": 0.0, "offset_max_ms": 0.0, "why": "%d of %d complete marks are seen ONE callback after they were programmed in both arms (bytes left below %d, interval below %d ticks) and none two: the LENGTH of a block programmed at a callback takes effect at the next, one stage deep (MEASURED); the ADDRESS is assumed latched at the same stage (libogc2 writes both in one call, Dolphin reloads both together; not measured), so AHEAD + 1 and the table STAND at CORROBORATED, not FACT" % (l1, n, MARK_LEFT_SPLIT, MARK_DUR_SPLIT)})
     elif l2 / n >= MARK_FRACTION and any_b(1) == 0 and any_t(1) == 0:
-        out.update({"reading": "M2", "offset_ms": PERIOD_MS, "offset_max_ms": PERIOD_MS, "why": "%d of %d complete marks are seen TWO callbacks after they were programmed in both arms and none one: AHEAD + 2, every L +%.3f ms (MEASURED)" % (l2, n, PERIOD_MS)})
+        out.update({"reading": "M2", "offset_ms": PERIOD_MS, "offset_max_ms": PERIOD_MS, "why": "%d of %d complete marks are seen TWO callbacks after they were programmed in both arms and none one: the LENGTH is two stages deep (MEASURED); the address is assumed to follow it: AHEAD + 2, every L +%.3f ms, at CORROBORATED" % (l2, n, PERIOD_MS)})
     elif l0 / n >= MARK_FRACTION:
         out.update({"reading": "M3", "offset_ms": None, "why": "%d of %d complete marks shortened the block that was ALREADY playing (the timing arm reads lag 0): the length is not latched for the next block; UNRESOLVED" % (l0, n)})
     else:
@@ -259,7 +259,15 @@ def dma_semantics(text):
         return None
     mk = dma_marks(text)
     out["mark"] = mk
-    if mk is not None and mk["reading"] in ("M1", "M2"):
+    conflict = mk is not None and ((mk["reading"] == "M1" and out["reading"] in ("R2", "R3")) or (mk["reading"] == "M2" and out["reading"] == "R3"))
+    if conflict:
+        # the two arms disagree about the direction (the marked block says one thing, the entry read another): neither closes the bound
+        out["conflict"] = True
+        out["reading"] = "R4"
+        out["offset_ms"] = None
+        out.pop("offset_max_ms", None)
+        out["why"] += " | MARKED BLOCK %s: %s | CONTRADICTION: the address/bytes-left arm reads the other way; UNRESOLVED" % (mk["reading"], mk["why"])
+    elif mk is not None and mk["reading"] in ("M1", "M2"):
         out["offset_ms"] = mk["offset_ms"]
         out["offset_max_ms"] = mk["offset_max_ms"]
         out["why"] += " | MARKED BLOCK %s: %s" % (mk["reading"], mk["why"])
@@ -311,7 +319,7 @@ def render(measured):
     w("This is the AUDIO PATH'S latency, ring to AI. It is NOT the audio-versus-video OFFSET the perceptual run nulls: that needs the video path's latency, which is not here.")
     mk = ((measured or {}).get("dma") or {}).get("mark")
     if mk is not None and mk["reading"] in ("M1", "M2"):
-        w("MEASURED, the AI DMA's semantics (a marked block, HARDWARE_TESTS.md V28.26): %s -- %s" % (mk["reading"], mk["why"]))
+        w("The AI DMA's semantics, a marked block (HARDWARE_TESTS.md V28.26; length stage MEASURED, address stage assumed the same): %s -- %s" % (mk["reading"], mk["why"]))
     else:
         w("ASSUMED, NOT MEASURED: the AI DMA's semantics (the callback fires when the block programmed last time has just started): AHEAD + 1 chunks in flight; if wrong, every row is off by 31.2 ms (RUN 56 excluded the LOWER case: every row is as tabulated or 31.2 ms higher).")
     w("VALID ONLY WHILE THE LOSS IS BELOW ABOUT %.2f %%: above it the corrector stops holding c (host: 3 776 at 0.70 %%, 2 121 at 1.5 %%). Uncertainty of a row: about +-0.3 ms (the host's per-sample spread +-0.25, the phase, the DUP term's residual)." % (LOSS_MAX * 100))

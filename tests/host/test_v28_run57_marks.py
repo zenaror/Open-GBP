@@ -137,7 +137,7 @@ class TheModelsReadAsRegistered(unittest.TestCase):
         self.assertIn("None/None", r["why"])
 
     def test_the_readings_survive_jitter_in_the_entry_and_the_interval(self):
-        for depth, want in ((1, "M1"), (2, "M2")):
+        for depth, want in ((1, "M1"), (2, "M2"), (0, "M3"), (9, "M4")):
             r = V.dma_marks(run_model(depth, 0, 1))
             self.assertEqual(r["reading"], want, (depth, r["why"], r["arms"]))
 
@@ -152,6 +152,31 @@ class TheModelsReadAsRegistered(unittest.TestCase):
         self.assertEqual((m4["offset_ms"], m4["offset_max_ms"]), (0.0, V.PERIOD_MS), "unresolved: the address arm's bound stands")
         none = V.dma_semantics(dma)
         self.assertIsNone(none["mark"])
+
+    def test_a_mark_that_contradicts_the_address_arm_resolves_nothing(self):
+        """The review's MAJOR 2: a resolved M1/M2 used to override an address/bytes-left reading that said the opposite."""
+        r2 = "000715 V28DMA n=1000 prev1=9 prev2=990 none=0 same12=0 left_min=3968 left_max=3968 left_mean=3968 bins=0,0,0,0,1000,0\n"
+        r3 = "000715 V28DMA n=1000 prev1=999 prev2=0 none=0 same12=0 left_min=10 left_max=60 left_mean=30 bins=1000,0,0,0,0,0\n"
+        r1 = "000715 V28DMA n=1000 prev1=999 prev2=0 none=0 same12=0 left_min=3968 left_max=3968 left_mean=3968 bins=0,0,0,0,1000,0\n"
+        for dma, marks in ((r2, run_model(1)), (r3, run_model(1)), (r3, run_model(2))):
+            d = V.dma_semantics(dma + marks)
+            self.assertEqual(d["reading"], "R4", d["why"])
+            self.assertIsNone(d["offset_ms"])
+            self.assertTrue(d["conflict"])
+            self.assertIn("CONTRADICTION", d["why"])
+        ok = V.dma_semantics(r1 + run_model(2))                     # M2 with an address arm that says R1 (a latch echo): consistent
+        self.assertFalse(ok.get("conflict"))
+        self.assertEqual(ok["offset_ms"], V.PERIOD_MS)
+
+    def test_the_resolved_wording_says_what_was_measured_and_what_was_assumed(self):
+        d = V.dma_semantics("000715 V28DMA n=1000 prev1=999 prev2=0 none=0 same12=0 left_min=3968 left_max=3968 left_mean=3968 bins=0,0,0,0,1000,0\n" + run_model(1))
+        self.assertIn("LENGTH", d["why"])
+        self.assertIn("ADDRESS is assumed latched at the same stage", d["why"])
+        self.assertIn("CORROBORATED, not FACT", d["why"])
+
+    def test_a_build_without_the_marks_says_so_instead_of_reading_assumed(self):
+        out = v28verdict.render(v28verdict.analyse("000715 V28DMA n=1000 prev1=999 prev2=0 none=0 same12=0 left_min=3968 left_max=3968 left_mean=3968 bins=0,0,0,0,1000,0\n000716 V28DMAP new=999 kept=0 amb=1 other=0\n"))
+        self.assertIn("no V28MARKS in this log", out)
 
     def test_the_verdict_prints_the_marked_block_line(self):
         out = v28verdict.render(v28verdict.analyse(run_model(2) + "000715 V28DMA n=1000 prev1=999 prev2=0 none=0 same12=0 left_min=3968 left_max=3968 left_mean=3968 bins=0,0,0,0,1000,0\n"))
@@ -187,9 +212,14 @@ class TheMarksScope(unittest.TestCase):
         (handed + 1 >= mute, the shortest mute being GBP_V28_STEP_MUTE): the interval a mark shortens is the one that STARTS at j + 1 or j + 2 and ENDS at j + 2 or j + 3."""
         step_mute = 7      # gbp_v28_ladder.h's own _Static_assert(GBP_V28_STEP_MUTE == 7u && GBP_V28_START_MUTE == 10u): a change there breaks the build first
         self.assertIn("GBP_V28_STEP_MUTE == 7u", open(os.path.join(AUDIO, "gbp_v28_ladder.h")).read())
-        last_interval_starts_at = step_mute - 2          # the interval of the last two hand-offs before the cut, counting from the mute's first hand-off as 1
-        marked_interval_ends_at = 1 + 3
-        self.assertGreater(last_interval_starts_at, marked_interval_ends_at, "the level-setting interval must not overlap a marked one, even at lag 3")
+        self.assertIn("handed + 1u >= t->mute", open(os.path.join(AUDIO, "gbp_atrans2.c"), encoding="utf-8").read(), "adjust2's own trigger: the second-to-last period of the mute")
+        # counting the mute's first hand-off as 1: adjust2 first runs at handed = mute - 1 and measures the interval (handed - 1 -> handed), which STARTS at hand-off mute - 2 = 5;
+        # a mark at hand-off 1 shortens the block that starts at 1 + lag (lag 1 or 2, the rule reads lag 3 as unresolved) and that interval ENDS at 2 + lag: 4 at lag 2, 5 at lag 3
+        landing_interval_starts = step_mute - 2
+        marked_interval_ends_lag2 = 1 + 2 + 1
+        marked_interval_ends_lag3 = 1 + 3 + 1
+        self.assertGreater(landing_interval_starts, marked_interval_ends_lag2, "no overlap, with a hand-off to spare, at the deepest lag the rule accepts")
+        self.assertGreaterEqual(landing_interval_starts, marked_interval_ends_lag3, "and even a lag-3 block ends where the landing's interval starts, never inside it")
 
 
 class TheRuleThresholds(unittest.TestCase):
