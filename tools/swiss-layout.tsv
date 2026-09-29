@@ -59,4 +59,5 @@
 22	sync	gbp-audio-sync	gbp-audio-sync.dol	gbp-audio-sync	build	1	ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
 23	v28v	gbp-audio-v28	gbp-audio-v28-validation_run.dol	gbp-audio-v28-validation_run	build	1	87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640
 24	v28d	gbp-audio-v28	gbp-audio-v28-diag_3a_stall.dol	gbp-audio-v28-diag_3a_stall	build	1	bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55
+25	v28l	gbp-audio-v28	gbp-audio-v28-diag_loss.dol	gbp-audio-v28-diag_loss	build	1	08971b525b3a7c1b94cba0063da154f113d0f196820a4d76c0bc0086f3361b90
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-

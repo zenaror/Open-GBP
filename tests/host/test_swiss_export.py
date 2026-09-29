@@ -374,9 +374,12 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["23-v28v"], "87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
+        # Issue #137 (2026-09-29): the LOSS diagnostic (U-GBP-050), built at 794297b clean, reproduced identically across two
+        # separate clean Docker rebuilds before the pin (HARDWARE_TESTS section V28.17)
+        self.assertEqual(rows["25-v28l"], "08971b525b3a7c1b94cba0063da154f113d0f196820a4d76c0bc0086f3361b90")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace", "19-split",
-                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d"])
+                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid
