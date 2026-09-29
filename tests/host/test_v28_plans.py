@@ -253,6 +253,66 @@ class TheHandlersAreStarted(unittest.TestCase):
                              "gbp_v28_3b_start()" % (fn, DISPATCH_FN))
 
 
+# Issue #137 (the third growth of this structural test): what a handler header ASKS THE CALLER to call is a
+# contract, and the contract is derived from the headers, not from a list kept here. Every public function of a
+# handler header whose name ends in one of these suffixes is one the caller must call: `_start` (begin the phase),
+# `_done` (a dwell/hold/depth ended: `depth_done`, `hold_done`), `_cut` (the walker cut the phase), and
+# `_underrun_observed` (the caller saw the AI underrun counter rise). RUN 53 showed the class again after #131: both
+# `_underrun_observed` hooks had no caller, so every "clean" hold was UNOBSERVED, and no test existed that could say so.
+HANDLER_HEADERS = ("gbp_v28_3a.h", "gbp_v28_3b.h", "gbp_v28_sweep.h", "gbp_v28_nulling.h")
+CONTRACT_SUFFIXES = ("_start", "_done", "_cut", "_underrun_observed")
+
+
+def contract_functions(header_text):
+    """Every function the header declares whose name ends in a contract suffix (comments already stripped)."""
+    names = re.findall(r"^[A-Za-z_][\w \*]*?\b(gbp_\w+)\s*\(", header_text, re.M)
+    return sorted({n for n in names if n.endswith(CONTRACT_SUFFIXES)})
+
+
+def contract_callers(main_src, names):
+    """{name: number of call sites in main.c with comments stripped}."""
+    stripped = code(main_src)
+    return {n: len(re.findall(r"\b%s\s*\(" % re.escape(n), stripped)) for n in names}
+
+
+class TheContractCallsAreMade(unittest.TestCase):
+    """No exemption list: a function a handler header names by the contract's suffixes needs a caller in main.c."""
+
+    def population(self):
+        pop = {}
+        for h in HANDLER_HEADERS:
+            pop[h] = contract_functions(code(read(os.path.join(AUDIO, h))))
+        return pop
+
+    def test_the_population_is_not_silently_empty(self):
+        pop = self.population()
+        for h, names in pop.items():
+            self.assertTrue(names, "%s yielded no contract function: the parser or the header changed" % h)
+        every = [n for names in pop.values() for n in names]
+        for suffix in CONTRACT_SUFFIXES:
+            self.assertTrue(any(n.endswith(suffix) for n in every), "no header declares a %s function" % suffix)
+        for known in ("gbp_v28_3a_start", "gbp_v28_3a_depth_done", "gbp_v28_3a_cut", "gbp_v28_3a_underrun_observed",
+                      "gbp_v28_3b_hold_done", "gbp_v28_3b_underrun_observed", "gbp_v28_sweep_cut",
+                      "gbp_v28_nulling_start"):
+            self.assertIn(known, every)
+
+    def test_every_contract_function_has_a_caller_in_main_c(self):
+        src = read(MAIN)
+        for h, names in self.population().items():
+            for n, calls in contract_callers(src, names).items():
+                self.assertGreater(calls, 0, "%s (declared in %s, a function its header asks the caller to call) has "
+                                             "no caller in main.c" % (n, h))
+
+    def test_the_check_itself_fails_on_a_missing_caller(self):
+        """The checker is run on main.c with each contract call renamed away: it must report zero callers. Without this
+        the test above could go green on a parser that finds nothing (the class of test that agrees with the bug)."""
+        src = read(MAIN)
+        for h, names in self.population().items():
+            for n in names:
+                mutated = re.sub(r"\b%s\s*\(" % re.escape(n), "removed_call(", src)
+                self.assertEqual(contract_callers(mutated, [n])[n], 0)
+
+
 class TheMakefileCleanTarget(unittest.TestCase):
     """Issue #131: `make clean` for gbp-audio-v28 removed the wrong set of plan directories --
     its own `clean:` target hardcoded validation_run and perceptual_no_phase1 and had never heard
