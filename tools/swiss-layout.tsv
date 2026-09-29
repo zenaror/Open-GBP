@@ -57,7 +57,7 @@
 20	game	gbp-audio-game	gbp-audio-game.dol	gbp-audio-game	build	1	2e73a39d931ee161df1144b4bfb01b358e21acb3ea5ceb3ede9a366378b76725
 21	game2	gbp-audio-game2	gbp-audio-game2.dol	gbp-audio-game2	build	1	ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa
 22	sync	gbp-audio-sync	gbp-audio-sync.dol	gbp-audio-sync	build	1	ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
-23	v28v	gbp-audio-v28	gbp-audio-v28-validation_run.dol	gbp-audio-v28-validation_run	build	1	cc2813e322b54f8e467d81fc38135eae6bfa4af0e9d6b654b8d90408f4b6b47f
+23	v28v	gbp-audio-v28	gbp-audio-v28-validation_run.dol	gbp-audio-v28-validation_run	build	1	877eac1e176987a85a033f213e52a03f0512c314ca9e8a4a721edee60be8e77c
 24	v28d	gbp-audio-v28	gbp-audio-v28-diag_3a_stall.dol	gbp-audio-v28-diag_3a_stall	build	1	bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55
 25	v28l	gbp-audio-v28	gbp-audio-v28-diag_loss.dol	gbp-audio-v28-diag_loss	build	1	08971b525b3a7c1b94cba0063da154f113d0f196820a4d76c0bc0086f3361b90
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-

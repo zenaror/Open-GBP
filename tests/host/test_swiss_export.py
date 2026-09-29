@@ -371,9 +371,9 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # commit e1eb4bd, REVERTED: never run) -> 87d03f81... (Issue #136: the ROTATE level set in silence, the
         # SPLICE gate, START_MUTE 10 / STEP_MUTE 7, the steady-level diagnostics, commit 33de2db, RUN 53) ->
         # 73dcaae9... (Issue #138, the fixes RUN 54 derived: the 64-push production step with the landing point 160 less the step, the label's H
-        # once a second, the per-phase V28PHC/V28PHD records, both underrun hooks live, commit 7e0dc0c, RUN 55; the eighth pin) -> cc2813e3... (Issue #139, the RUN 56 image: the AI DMA hand-off semantics read at every callback, the decoder ring doubled to 131 072, 3a's first row repaired, commit 7dc6193, RUN 56; the ninth pin).
+        # once a second, the per-phase V28PHC/V28PHD records, both underrun hooks live, commit 7e0dc0c, RUN 55; the eighth pin) -> cc2813e3... (Issue #139, the RUN 56 image: the AI DMA hand-off semantics read at every callback, the decoder ring doubled to 131 072, 3a's first row repaired, commit 7dc6193, RUN 56; the ninth pin) -> 877eac1e... (Issue #139, the RUN 57 image: the marked DMA block, the first silent hand-off of each mute 256 bytes shorter, validation_run only, commit 369dd94, RUN 57; the tenth pin).
         # Reproduced identically across two separate clean Docker rebuilds before each pin.
-        self.assertEqual(rows["23-v28v"], "cc2813e322b54f8e467d81fc38135eae6bfa4af0e9d6b654b8d90408f4b6b47f")
+        self.assertEqual(rows["23-v28v"], "877eac1e176987a85a033f213e52a03f0512c314ca9e8a4a721edee60be8e77c")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
         # Issue #137 (2026-09-29): the LOSS diagnostic (U-GBP-050), built at 794297b clean, reproduced identically across two
