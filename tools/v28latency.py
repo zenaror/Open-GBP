@@ -169,7 +169,8 @@ def dma_semantics(text):
             why += "; BUT the register read back the chunk just programmed (write-through latch): the address arm only echoes the previous write and CANNOT exclude AHEAD + 2, so this is consistent with AHEAD + 1 by the bytes-left arm alone, NOT proof"
         else:
             why += "; the register's write-through / keeps-active behaviour is %s, so the address arm is not known to be informative: AHEAD + 1 is consistent, not proven" % ("mixed" if latch else "not read in this log")
-        out.update({"reading": "R1", "offset_ms": 0.0, "why": why})
+        # the bytes-left arm excludes a finished block (R3, -31.222 ms) either way; only a register that keeps the ACTIVE block's address excludes AHEAD + 2 as well
+        out.update({"reading": "R1", "offset_ms": 0.0, "offset_max_ms": 0.0 if latch == "keeps-active" else PERIOD_MS, "why": why})
     elif f2 >= 0.99:
         out.update({"reading": "R2", "offset_ms": PERIOD_MS, "why": "the register holds the chunk returned TWO callbacks ago (%.1f %%): AHEAD + 2, every L +%.3f ms" % (f2 * 100, PERIOD_MS)})
     elif f1 >= 0.99 and lo >= 0.95:
@@ -221,7 +222,7 @@ def render(measured):
       % (AI_HZ, AI_HZ_NOMINAL, PERIOD_MS, RATE, DELTA * 100))
     w("EXCLUDED: everything before the tap (AGB, Game Boy Player, HSP drain, decode scheduling) and everything after the AI's DMA reload (its 32-byte FIFO, about 0.25-0.5 ms, the DAC, the television's audio path).")
     w("This is the AUDIO PATH'S latency, ring to AI. It is NOT the audio-versus-video OFFSET the perceptual run nulls: that needs the video path's latency, which is not here.")
-    w("ASSUMED, NOT MEASURED: the AI DMA's semantics (the callback fires when the block programmed last time has just started): AHEAD + 1 chunks in flight; if wrong, every row is off by 31.2 ms.")
+    w("ASSUMED, NOT MEASURED: the AI DMA's semantics (the callback fires when the block programmed last time has just started): AHEAD + 1 chunks in flight; if wrong, every row is off by 31.2 ms (RUN 56 excluded the LOWER case: every row is as tabulated or 31.2 ms higher).")
     w("VALID ONLY WHILE THE LOSS IS BELOW ABOUT %.2f %%: above it the corrector stops holding c (host: 3 776 at 0.70 %%, 2 121 at 1.5 %%). Uncertainty of a row: about +-0.3 ms (the host's per-sample spread +-0.25, the phase, the DUP term's residual)." % (LOSS_MAX * 100))
     w("")
     w("chunk-start level c = TARGET - %d (RUN 55, 3b at T4096: mean_cs 3 828), floored at the production gate %d; phi at a chunk start %.4f of a period (a host value)." % (C_BELOW_TARGET, GATE, PHI_START))
@@ -258,7 +259,10 @@ def render(measured):
             w("  DMA semantics: NOT READ in this log (V28DMA is RUN 56's): every figure above is under the assumed AHEAD + 1.")
         else:
             w("  DMA semantics READ (%d callbacks, %d classified): %s -- %s" % (dm["n"], dm["classified"], dm["reading"], dm["why"]))
-            if dm["offset_ms"] is not None:
+            if dm["offset_ms"] is not None and dm.get("offset_max_ms", dm["offset_ms"]) > dm["offset_ms"]:
+                w("  every L in the table is BOUNDED under this reading: %+.3f to %+.3f ms (this hold: %.2f to %.2f ms); the upper end is not excluded" % (
+                    dm["offset_ms"], dm["offset_max_ms"], m["L_mean_ms"] + dm["offset_ms"], m["L_mean_ms"] + dm["offset_max_ms"]))
+            elif dm["offset_ms"] is not None:
                 w("  every L in the table shifts by %+.3f ms under this reading (this hold: %.2f ms)" % (dm["offset_ms"], m["L_mean_ms"] + dm["offset_ms"]))
     return "\n".join(out)
 

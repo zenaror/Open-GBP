@@ -11967,3 +11967,58 @@ A later recount appends its own entry here, at the end of the file, under the ne
 ---
 
 **AMENDMENT 2026-09-29 (Issue #139), on `GBP-HW-370`, on top: an adversarial review corrected its numbers and its wording before any number entered a ladder table.** The latency is NOT the stock over the playout rate alone: the corrector inserts DUPs ahead of a sample while it waits in the ring, a DUP delay of (the ring's mean) x delta / playout (+0.15 to +0.64 ms tagged per sample at T256 / A1 to T704 / A4); the corrected table reads 121.0 ms at T256 / A1, 105.3 at T192 / A1, 324.4 at T704 / A4 (`HARDWARE_TESTS.md` §V28.22a). The status stays INFERENCE. The "FACT" of the entry is only the host conservation figures; the `(A + 1)` chunks in flight rest on the AI DMA's semantics, which are NOT measured (a physical check is proposed: the AI's start-address and bytes-left registers at a callback's entry); the model's ring-mean agreement (0.9 %) has a 27-sample console residual that is not understood; the table holds only while the loss is below about 0.65 % (`c` collapses above it); the "floor" is the formula's level at the production gate, not one the chain holds.
+
+---
+
+### GBP-HW-371 — RUN 56 (`validation_run`, the DMA-semantics read and the doubled ring): every measurement RUN 55 established holds again (loss 0.33-0.38 %, chunk start 3 827, sweep 18/18), the AHEAD-1 hold at T256 ran its full 60 s clean for the SECOND observed boot, the ring doubling changed nothing, and 3a's first row is repaired — FACT (the measurements, one boot); AHEAD 1 at T256 clean for a minute is CORROBORATED on TWO observed boots; the doubled ring is neutral in steady state, CORROBORATED (one boot, host proofs); P4's steady band is MISSED at one dwell, not refuted
+
+**Source.** `HARDWARE_TESTS.md` §V28.25; `logs/run56/GBP-AUDIO-V28_v28-validation-0001.log` sha256 `c74f701b3f862e7fe2d9e19d9e656a8813e4902e41d056a46bd85caf9cf20e1f` (archived byte-identical), build `v28-validation-0001` at commit `7dc6193`, slot `23-v28v` (boot.dol `cc2813e3…b47f`); read with `tools/v28verdict.py` and `tools/v28latency.py` at `615f66d`; the predictions are `HARDWARE_TESTS.md` §V28.23 and §V28.23a.
+
+```text
+V28PHC   p0 navigate 33.1 s loss 0.349 %   p1 3a 103.6 s 0.362 %   p2 3b 60.0 s 0.379 %   p3 sweep 35.3 s 0.327 %      (taps == blocks_in, 0 failed, 0 wrong-length, every phase)
+3b       AHEAD 1 at T256 (4096), 60.0 s, underrun_seen 0, ONE V28_3B record; mean ring 3 097 (-999), mean chunk start 3 827 (-269), min ring after 10 s 2 256, 1 914 chunks; V28PHC p2 underruns 0
+3a       T6144 3 102  T5632 3 074  T5120 3 072  T4608 2 240  T4096 1 744  T3584 1 648  T3072 1 712  T2560 1 824  T2048 0 (starved 12 701)   dup per 6 s dwell
+sweep    PASS, 18/18 GATE, no cut after unmute; landings (ring - target) -206 .. -149, mean -168; begin rings -652 .. -432
+ring     GBP_APLAY2_RING 131 072: chunk start 3 827, min ring 2 256, overflow 0, lost 0, trans_faults 0, ENVSTORE ok
+```
+
+- **FACT.** The per-phase losses (P1 registered 0.10-0.35 %, refuted above 0.5 %: two phases, p1 and p2, read 0.012 and 0.029 points above the band's top, p0 and p3 inside it, none near the line); the chunk-start level (P2, about 3 831-3 838, refuted below 3 000); the hold's 60.0 s with `underrun_seen` 0 (P3); the sweep's 18 PASS and continuity gate (P5); `taps == blocks_in` per phase (P6); the ring's neutrality figures (P8: 3 827 against 3 828 +- 15; 2 256 against 2 272 +- 60).
+- **CORROBORATED, two observed boots: AHEAD 1 at T256 is clean for a minute** at this loss (RUN 55 and RUN 56, the hook demonstrably live in both). Same console, same game, same fixes: not independent hardware. RUN 51-53 stay UNOBSERVED; RUN 54 underran 15 times at 1.513 %.
+- **CORROBORATED (one boot, host proofs), NEUTRAL: the ring at 131 072 changed nothing in steady state.** What it buys (the nulling grid's top keeping the standard landing tolerance) is host-proven and was NOT exercised on the console (`validation_run` does not walk the grid's top).
+- **FACT: 3a's first row is repaired.** T6144 dup 3 102, underruns 0 (RUN 51-55: 15-16 k and the navigate underrun).
+- **P4 (re-registered), scored in the registered wording.** The first two dwells are saturated (3 074, 3 072) and T6144 reads 3 102: the recovery hypothesis's prediction HELD; the hypothesis stays a HYPOTHESIS about the cause (`GBP-HW-368`) with a repeated observation. The steady band 1 400-2 100 is MISSED at T4608 (2 240, 140 above the top, 560 below the refutation line 2 800; RUN 55 read 1 568 there) and held at the other four dwells (1 648-1 824): not refuted, not held. Why T4608 read 2 240: UNKNOWN. T2048 dup 0 as registered; the 2 304 / 2 336 bracket reappeared and means the production gate (`GBP-HW-368`).
+
+**What this does NOT establish.** The upper spread of the level; audibility; the top of the nulling grid on the console; why T4608 read 2 240; the DMA's hand-off semantics (next entry).
+
+---
+
+### GBP-HW-372 — the AI DMA's hand-off semantics, READ on the console: the bytes-left register reads 3 968 of 4 000 at EVERY callback (the callback fires as a block starts: the -31.222 ms case is EXCLUDED), and the start-address register is a write-through latch (it reads back the value just written in 100 %), so the address arm cannot exclude AHEAD + 2 — FACT (the readings); INFERENCE (that the bytes-left register is the active block's countdown, hence R3 excluded); UNKNOWN (AHEAD + 1 or AHEAD + 2: the latency table is BOUNDED, as tabulated or +31.222 ms, never lower)
+
+**Source.** `HARDWARE_TESTS.md` §V28.25 and its predecessors §V28.23 / §V28.23a; the log of `GBP-HW-371`; `src/audio/gbp_v28_dma.c`, `poc/gbp-audio-v28/source/main.c` (`live_dma_cb`), `tools/v28latency.py` (`dma_semantics()`). The libogc2 register accessors: `external/libogc2/libogc/audio.c` (`AUDIO_GetDMAStartAddr`, `AUDIO_GetDMABytesLeft`, `AUDIO_InitDMA`); Dolphin's model: `external/dolphin/Source/Core/Core/HW/DSP.cpp`.
+
+```text
+V28DMA   n 7 425  prev1 7 238  prev2 0  none 0  same12 187   bytes left min = mean = max = 3 968   (chunk 4 000 bytes = 125 units)
+V28DMAP  post-init read of the address register: new 7 238  kept 0  amb 187  other 0
+```
+
+- **FACT.** The three readings above. Nothing was written to the device beyond the `AUDIO_InitDMA` the callback always made; the callback's behaviour is unchanged.
+- **R3 EXCLUDED (INFERENCE from the register's semantics).** If the callback fired as a block FINISHED, the countdown would read near 0; it reads 124 units of 125 every time, so the callback fires at the START of a block, one unit consumed. This depends on `AUDIO_GetDMABytesLeft` being the ACTIVE block's remaining count (libogc2's accessor over `_dspReg[29]`, Dolphin's model reading remaining blocks - 1): it is not the length latch, which would read 125 units (4 000 bytes) and is what `AUDIO_InitDMA` writes.
+- **R2 NOT EXCLUDED.** The address register reads what was last written (write-through), so it says "the callback k+1 sees the value callback k wrote" under EVERY pipeline depth. AHEAD + 1 (single latch: a block programmed at callback k starts at k + 1) and AHEAD + 2 (a staging stage: it starts at k + 2) give the same 100 %. UNKNOWN. The architecture argument (libogc2's and Dolphin's single latch) favours AHEAD + 1 and is not a measurement.
+- **What follows for the latency table (`GBP-HW-370`, INFERENCE).** Every L(T, A) is as tabulated or 31.222 ms higher, never lower: T256 / A1 121.0 or 152.2 ms, T192 / A1 105.3 or 136.5, T704 / A4 324.4 or 355.6. Every figure carries "assumed DMA semantics (+31.2 ms not excluded)". The perceptual run stays unauthorised (its Hardware Issue's stop condition needs the semantics resolved).
+- **Next (proposed, `HARDWARE_TESTS.md` §V28.26).** A MARKED block: program a silence block of a different length during a mute and read at which later callback the bytes-left register (and the interval between callbacks) shows it. It needs no address register.
+
+**What this does NOT establish.** Which of AHEAD + 1 and AHEAD + 2 the hardware runs; that the semantics are the same at every operating point (one boot, the validation plan).
+
+---
+
+### GBP-HW-373 — GBP-HW-272's CLAIM 1 recomputed over 67 logs (RUN 56 adds one cartridge-present log, `0x92`): 13 at `0x90`, 54 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-369`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 56 (`v28-validation-0001-run56`, Issue #139) ran with the same GBA cartridge in the slot and records `orig=92`, as the split predicts. Before this run the population was 66 logs, 13 at `0x90` and 53 at `0x92`; after it, it is **67: 13 at `0x90` and 54 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     54 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.

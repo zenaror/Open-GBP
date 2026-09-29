@@ -101,6 +101,23 @@ class TheReadings(unittest.TestCase):
         self.assertNotIn("latch", none)
         self.assertIn("not read in this log", none["why"])
 
+    def test_r1_under_a_write_through_register_is_a_bounded_row_never_a_zero_shift(self):
+        """RUN 56's ingestion caught the tool printing "shifts by +0.000 ms" for exactly this reading."""
+        wt = V.dma_semantics(dma_line(post=(999, 0, 1, 0)))
+        self.assertEqual((wt["offset_ms"], wt["offset_max_ms"]), (0.0, V.PERIOD_MS))
+        ka = V.dma_semantics(dma_line(post=(0, 999, 1, 0)))
+        self.assertEqual(ka["offset_max_ms"], 0.0)
+        unread = V.dma_semantics(dma_line())
+        self.assertEqual(unread["offset_max_ms"], V.PERIOD_MS, "no post read: the upper end is not excluded either")
+        m = {"target": 4096, "ahead": 1, "hold_s": 60.0, "calls_per_period": 122.8, "feed_hz": 65288.0, "blocks_s": 4080.5, "loss": 0.00379, "delta": 0.00467,
+             "tau_ms": 8.14, "feed_tau": 531.0, "mean_cs": 3827, "mean_ring": 3097, "min_ring_late": 2256, "c_min": 3773.0, "ring_mean_model": 3069.0,
+             "L_mean_ms": 121.01, "L_low_ms": 120.18, "L_of_target_ms": 121.03, "in_domain": True, "underrun_seen": 0, "chunk_starts": 1914, "dma": wt}
+        out = V.render(m)
+        self.assertIn("BOUNDED under this reading: +0.000 to +31.222 ms", out)
+        self.assertNotIn("shifts by +0.000", out)
+        m["dma"] = ka
+        self.assertIn("shifts by +0.000 ms", V.render(m))
+
     def test_the_verdict_prints_the_register_after_the_init(self):
         out = v28verdict.render(v28verdict.analyse(dma_line(post=(999, 0, 1, 0))))
         self.assertIn("DMA REGISTER AFTER THE INIT (post: new 999, kept 0, ambiguous 1, other 0)", out)

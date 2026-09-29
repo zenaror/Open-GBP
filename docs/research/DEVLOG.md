@@ -19587,3 +19587,22 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `tests/unit/test_gbp_v28_dma.c` (34 checks: silence-run `none`, the three post-init readings), `tests/host/test_v28_run56_dma.py` (the callback's order, the tool's reading of `post`).
 
 **Next.** Two identical clean rebuilds of `validation_run`, the pin and the card staging; the hash to the Orchestrator.
+
+## 2026-09-29 — Issue #139 / Hardware Issue #140: RUN 56 ingested — the DMA's bytes-left says a block STARTS at every callback, the address register is a latch and cannot say which of two depths (`HARDWARE_TESTS.md` §V28.25, `GBP-HW-371`..`373`, `U-GBP-049`)
+
+**Goal.** Score P1-P8 against RUN 56 with the tools as they stood; propose statuses; read the DMA semantics.
+
+**Done.** P1 (against the refutation line), P2, P3 (the SECOND observed clean boot of the AHEAD-1 hold), P5 (18/18 again), P6 and P8 (the doubled ring changes nothing: chunk start 3 827, min ring 2 256, no fault) hold; 3a's first row is repaired (T6144 dup 3 102, no navigate underrun). P4 (re-registered): the recovery hypothesis's prediction HELD (T5632 3 074, T5120 3 072), and the steady band is MISSED at T4608 (2 240, 140 above the top; RUN 55 read 1 568) and held at the other four dwells: recorded as missed and not rescued, not refuted (the line is 2 800). P7 half-resolves: bytes left is 3 968 of 4 000 at all 7 425 callbacks (the callback fires as a block starts: -31.222 ms excluded), and the post-init read returns the written value in 100 % (write-through latch: +31.222 ms NOT excluded). The latency table is bounded [as tabulated, +31.222 ms].
+
+**A wording defect of mine, caught while ingesting.** `tools/v28latency.py` printed "every L shifts by +0.000 ms under this reading" for R1 under a write-through register, which is what §V28.23a said R1 could not be. It now prints the bound. The review's instrument was right; the sentence that presented its reading was not, and the test that would have caught it did not exist (a test of the sentence under `post=write-through`).
+
+**Two things worth their own lines.**
+
+1. **The instrument paid for itself, and its own limit was registered in advance.** Without the third read the same log would have printed "R1, the table stands".
+2. **The zero spread is the finding, and it deserves a second arm.** 3 968 at 7 425 of 7 425, with no spread at all, from an interrupt entry whose latency was never measured: it is a reading to be cross-checked, and the callback-to-callback interval (31.16-31.28 ms) is an independent arm for the marked-block check that follows.
+
+**Tests.** `tests/host/test_v28_run56_dma.py` (the bounded rendering); the recount tests learn the log (`GBP-HW-373`).
+
+**Not done, on purpose.** The perceptual run (stays unauthorised); any change to the pinned image.
+
+**Next.** The discriminator: a marked silence block during a mute (`HARDWARE_TESTS.md` §V28.26), designed and reviewed before any image.
