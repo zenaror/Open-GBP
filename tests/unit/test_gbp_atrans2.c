@@ -248,6 +248,33 @@ static void test_a_mute_too_short_to_fill_the_ring_is_reported_and_cuts_nothing(
           "short mute: the ring lands short of target -- the honest result the sweep gate then shows");
 }
 
+/* Issue #136: `unmasked` means a cut was made AND a chunk built before it is still queued at the landing. The landing
+ * branch is driven directly with that state (a real run cannot leave an old chunk: it is freed by the builds), once with a
+ * cut and once without. */
+static void land_with(uint32_t cut, uint32_t old_left)
+{
+    int b;
+    uint64_t now = steady2(GBP_APLAY2_TARGET);
+    gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, STEP_MUTE_6, 0u, 0u, GBP_APLAY2_TARGET, GBP_APLAY2_AHEAD);
+    tr.adjusted = 1u;
+    tr.disc_n = cut;
+    tr.old_chunks = old_left;
+    tr.to_build = 0u;
+    ap.handed = tr.handed_at_start + tr.mute + 1u;          /* past the first audible hand-off: the landing */
+    (void)gbp_atrans2_step(&tr, &ap, &adec, now, &b);
+}
+
+static void test_unmasked_means_a_cut_with_an_old_chunk_still_queued(void)
+{
+    land_with(100u, 1u);
+    eqi(tr.completed, 1, "unmasked: the landing branch ran");
+    eqi(tr.unmasked, 1, "a cut and an old chunk still queued: unmasked");
+    land_with(100u, 0u);
+    eqi(tr.unmasked, 0, "a cut and every old chunk replaced: not unmasked");
+    land_with(0u, 1u);
+    eqi(tr.unmasked, 0, "no cut, so no discontinuity to hear: not unmasked");
+}
+
 static void test_held_no_climb(void)
 {
     const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_HELD, 0u, GBP_APLAY2_AHEAD);
@@ -370,6 +397,7 @@ int main(void)
     test_rotate_no_climb();
     test_rotate_with_discard();
     test_a_mute_too_short_to_fill_the_ring_is_reported_and_cuts_nothing();
+    test_unmasked_means_a_cut_with_an_old_chunk_still_queued();
     test_held_no_climb();
     test_held_with_climb();
     test_begin_refuses_a_plan_over_a_running_one();
