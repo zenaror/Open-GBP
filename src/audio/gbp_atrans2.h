@@ -47,7 +47,7 @@
  * is silent and never a discontinuity (a chunk the ordinary producer had in flight at begin is finished first,
  * and the old top-up of the queue toward the new AHEAD is gone: it built chunks the cut then threw away). There,
  * with nothing in flight, the level is set with ONE discard (gbp_adec2_discard): the ring is cut to
- *     target + ahead x PUSHES - (the feed until the landing call) - GBP_ATRANS2_LAND_BIAS,
+ *     target + ahead x PUSHES - (the feed until the landing call) - (GBP_ATRANS2_LAND_POINT - the step of the recovery produce),
  * the time to the landing measured from the callback's own hand-off instants (so a late pump call is compensated,
  * not guessed; the call counts are the fallback) at the NOMINAL feed (one PUSHES a period: an estimate of the
  * feed's own rate from the ring's growth was tried, and it turned a delivery gap into an error, so it is not
@@ -65,10 +65,11 @@
  * prelude; on the calibrated host this is the corrector's steady state at the console's feed, not a
  * transient). gbp_v28_ladder.h derives GBP_V28_STEP_MUTE (7) and GBP_V28_START_MUTE (10) from it. A mute too
  * short to fill the ring is REPORTED (`fill_short`, `fill_shorts`), never hidden and never turned into a cut:
- * the ring lands short and the sweep gate shows it. The `ahead` builds need ahead x 16 pump calls inside the
- * last two periods: at the console's 125 a period there is a 3.5x margin; about 48 a period passes with call
- * jitter (tests/unit/test_v28_sweep_landing.c), below about 36 (AHEAD 4) a build is still in flight at the landing
- * (`late`), the queue holds a pre-cut chunk and the row fails.
+ * the ring lands short and the sweep gate shows it. The `ahead` builds need ahead x (2048 / step) pump calls inside the
+ * last two periods: at 128 pushes a call (16 calls a chunk) and the console's 125 a period there is a 3.5x margin, about 48 a period passes with call
+ * jitter, below about 36 (AHEAD 4) a build is still in flight at the landing (`late`), the queue holds a pre-cut chunk and the row fails.
+ * AT 64 PUSHES A CALL (Issue #138, the steady production step) a chunk is 32 calls: AHEAD 4 wants about 72 a period, the console's 125 is a 1.7x
+ * margin, and 48 fails (tests/unit/test_v28_sweep_landing.c runs the whole battery at both steps and pins where each stops).
  *
  * WHAT IS CHECKED. `disc_rel` is the period the cut ran in relative to the first audible hand-off (negative:
  * inside the mute), `rot_post` the builds after it (`unmasked` when a cut was made and a chunk built
@@ -92,14 +93,15 @@ extern "C" {
 
 enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRANS2_ROTATE = 2 };
 
-/* Issue #136: the level-setting cut aims this far BELOW target. The landing call finds the ring after its own
- * recovery produce (128 pushes) and after whatever the pump's first call past the hand-off let the feed add
- * (65.5 samples per ms late); the sweep's band is [target - BAND, target], so a late call can only push the
- * ring toward the upper edge. 32 leaves the landing at target - 160 on an exact feed: 160 below the upper edge
- * (a landing call up to 2.44 ms late) and 96 above the lower one (76 at the console's 0.5 % feed deficit before the
- * measured feed rate is folded in, about 96 after it). */
-#define GBP_ATRANS2_LAND_BIAS 32u
-
+/* Issue #136, restated by Issue #138: where the landing ends, as a distance BELOW target. The landing call finds the ring after its own
+ * recovery produce, ONE production call of `step` pushes (128 in every image before RUN 54; the hook's answer since), and after whatever the
+ * pump's first call past the hand-off let the feed add (65.5 samples per ms late). The sweep's band is [target - BAND, target], so a late call can
+ * only push the ring toward the upper edge. 160 below target is the point RUN 53 validated (a 128-push recovery and a bias of 32): 160 below the
+ * upper edge (a landing call up to 2.44 ms late) and 96 above the lower one. The cut aims `GBP_ATRANS2_LAND_POINT - step` below the level it
+ * wants, so the LANDING is the same 160 whatever the step: at 64 pushes the recovery is 64 and the bias 96 (tests/unit/test_v28_sweep_landing.c,
+ * exact feed: -160 at 128 and at 64). Without that the landing rises with a smaller step (-96 at 64) and the lateness it tolerates falls from
+ * 2.44 ms to 1.47 ms. */
+#define GBP_ATRANS2_LAND_POINT 160u
 /* `disc_rel` before the level was set (no cut yet): far below any real period */
 #define GBP_ATRANS2_NO_CUT (-100)
 

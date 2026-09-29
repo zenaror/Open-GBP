@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include "gbp_atrans2.h"
 #include "gbp_v28_ladder.h"
+#include "gbp_v28_step.h"
 
 static int checks, failures;
 
@@ -131,6 +132,15 @@ static void one_call(uint64_t *now)
 
 /* the chain playing at (from, ahead) with the ring at the level, then SETTLE_PERIODS at the case's
  * own rate so the corrector sits where it would sit on the hardware */
+/* Issue #138: the production step the whole battery runs at (0 = gbp_aplay2's default, 128). RUN 54 put the loss on the 128-push call. */
+static uint32_t land_step;
+static uint32_t land_hook(void *user, uint32_t seq)
+{
+    (void)user;
+    (void)seq;
+    return land_step;
+}
+
 static uint64_t steady(uint32_t from, uint32_t ahead)
 {
     uint64_t now = 0;
@@ -138,6 +148,7 @@ static uint64_t steady(uint32_t from, uint32_t ahead)
     memset(&ap, 0, sizeof ap);
     gbp_adec2_init(&adec, ring, GBP_APLAY2_RING);
     gbp_aplay2_init(&ap, pool, silence, keep, events);
+    if (land_step) ap.step_pushes = land_hook;
     gbp_atrans2_init(&tr);
     ap.ahead = ahead;
     gbp_aplay2_set_target(&ap, from);
@@ -344,16 +355,22 @@ static struct case_result test_case(const char *name, double r, double sp, doubl
     return c;
 }
 
-int main(int argc, char **argv)
+/* the whole battery at one production step. The landing lands at the SAME point whatever the step (GBP_ATRANS2_LAND_POINT), so every
+ * property is asserted at both; what the step changes is the pump's minimum call rate (a chunk is 2048 / step calls). */
+static void battery(uint32_t step)
 {
-    if (argc > 1) mute_add = (uint32_t)atoi(argv[1]);
-    build_other();
-    {   /* on an exact feed the landing is DETERMINISTIC: target - 128 (the landing recovery's sub-block) - LAND_BIAS */
+    char nm[96];
+    land_step = step;
+    printf("  -- production step %u --\n", step ? step : GBP_APLAY2_STEP_PUSHES);
+    cur_moves = MOVES;
+    cur_n = 18u;
+    calls_pp = 125u;
+    {   /* on an exact feed the landing is DETERMINISTIC: target - GBP_ATRANS2_LAND_POINT, whatever the step */
         const struct case_result c0 = test_case("hardware cadence, exact feed", 1.0, 0.0, 0.0, 0.0, 0, 1u);
-        check(c0.off_min >= -160 - 6 && c0.off_max <= -160 + 6,
-              "exact feed: every landing sits at target - 160 (the recovery's 128 and the bias 32), to within a few samples");
-        check(GBP_ATRANS2_LAND_BIAS == 32u, "the landing bias is the 32 the header's tolerances are computed with");
+        check(c0.off_min >= -(int)GBP_ATRANS2_LAND_POINT - 6 && c0.off_max <= -(int)GBP_ATRANS2_LAND_POINT + 6,
+              "exact feed: every landing sits at target - 160 (the recovery's step and the bias make up GBP_ATRANS2_LAND_POINT), to within a few samples");
     }
+    test_case("hardware cadence, feed 0.18% slow", 0.9982, 0.0, 0.0, 0.0, 0, 41u);
     test_case("hardware cadence, feed 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 2u);
     test_case("hardware cadence, feed 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 3u);
     test_case("hardware cadence, feed 0.5% fast", 1.005, 0.0, 0.0, 0.0, 0, 6u);
@@ -363,14 +380,16 @@ int main(int argc, char **argv)
     /* the two calls the sequence is exposed at. The call after the hand-off that opens the period the level is
      * set in is MEASURED against the callback's own instant, so any lateness is compensated; the landing call
      * reads the ring after whatever the feed added since the hand-off, 65.5 samples a ms, and the sweep's band
-     * tolerates 2.4 ms of it (GBP_ATRANS2_LAND_BIAS) */
+     * tolerates 2.4 ms of it (GBP_ATRANS2_LAND_POINT), at either step */
     test_case("level-setting call 6 ms late", 1.0, 0.0, 0.0, 6000.0, -1, 10u);
     test_case("landing call 2 ms late", 1.0, 0.0, 0.0, 2000.0, 1, 11u);
-    /* the pump's minimum rate: the `ahead` builds need ahead x 16 calls inside the last two periods, so AHEAD 4 wants
-     * about 36 a period; a third of the console's 125 still passes (below 36 a build is left in flight at the landing) */
-    calls_pp = 48u;
-    test_case("pump at 48 calls a period, 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 30u);
-    test_case("pump at 48 calls a period, 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 31u);
+    /* the pump's minimum rate: the `ahead` builds need ahead x (2048 / step) calls inside the last two periods, so AHEAD 4 wants
+     * about 36 a period at 128 and about 72 at 64; a third of the console's 125 still passes at 128, and 96 passes at 64 */
+    calls_pp = step == GBP_V28_STEP_STEADY ? 96u : 48u;
+    snprintf(nm, sizeof nm, "pump at %u calls a period, 0.5%% slow", calls_pp);
+    test_case(nm, 0.995, 0.0, 0.0, 0.0, 0, 30u);
+    snprintf(nm, sizeof nm, "pump at %u calls a period, 0.5%% slow, jitter", calls_pp);
+    test_case(nm, 0.995, 0.7, 0.0, 0.0, 0, 31u);
     calls_pp = 125u;
     /* the other users, same properties, the two cases that bracket the console */
     cur_moves = OTHER;
@@ -382,6 +401,30 @@ int main(int argc, char **argv)
      * The 1 % case therefore leaves those four moves out (the 0.5 % case above keeps them). */
     cur_n = n_other - 4u;
     test_case("3b/T192/nulling below the top: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
+    cur_moves = MOVES;
+    cur_n = 18u;
+}
+
+/* WHERE THE 64-PUSH STEP STOPS (pinned, so the claim in gbp_atrans2.h is a test and not a sentence): below about 72 calls a period at AHEAD 4 a
+ * build is still in flight at the landing. The battery above passes at 96; here 48 does not, and the failure is the named one (`late`). */
+static void the_floor_at_64(void)
+{
+    struct case_result c;
+    land_step = GBP_V28_STEP_STEADY;
+    calls_pp = 48u;
+    run_case(0.995, 0.0, 0.0, 0.0, 0, 30u, &c);
+    check(c.late_rot > 0u, "at 64 pushes a call, 48 pump calls a period is BELOW the floor: builds are still in flight at the landing");
+    calls_pp = 125u;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc > 1) mute_add = (uint32_t)atoi(argv[1]);
+    build_other();
+    check(GBP_ATRANS2_LAND_POINT == 160u, "the landing point is the 160 RUN 53 validated (a 128-push recovery and a bias of 32)");
+    battery(0u);                      /* the default, 128: what every image before RUN 54 ran */
+    battery(GBP_V28_STEP_STEADY);     /* 64: the steady production step (gbp_v28_step.h) */
+    the_floor_at_64();
     printf("test_v28_sweep_landing: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

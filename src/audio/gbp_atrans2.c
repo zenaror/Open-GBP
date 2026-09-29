@@ -77,6 +77,16 @@ static int finish2(struct gbp_atrans2 *t, uint64_t now)
 /* Issue #136: the ring's level is set INSIDE the mute, once, and every chunk that will be heard is
  * built after it. See gbp_atrans2.h ("THE ROTATE LEVEL IS SET IN SILENCE"). */
 
+/* Issue #138: the bias that puts the LANDING at GBP_ATRANS2_LAND_POINT below target whatever the production step: the landing call's own recovery
+ * is one production call, `step` pushes, and the bias is the rest of the point. The step is the one gbp_aplay2 will take for the next chunk (the
+ * hook's answer, or its default), clamped exactly as gbp_aplay2.c clamps it. With the default 128 this is 32, the value RUN 53 validated. */
+static uint32_t land_bias(const struct gbp_aplay2 *p)
+{
+    uint32_t step = p->step_pushes ? p->step_pushes(p->step_pushes_user, p->produced) : GBP_APLAY2_STEP_PUSHES;
+    if (step == 0u || step > GBP_APLAY2_PUSHES) step = GBP_APLAY2_STEP_PUSHES;
+    return GBP_ATRANS2_LAND_POINT > step ? GBP_ATRANS2_LAND_POINT - step : 0u;
+}
+
 static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint32_t handed, uint64_t now)
 {
     /* how far into the current hand-off period we are, in samples of inflow already gone: from the hand-off
@@ -104,7 +114,7 @@ static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec
         /* signed: at AHEAD 1 and a low target the ring the sequence needs at the cut is below zero (the inflow of
          * the two tail periods alone exceeds target + one chunk), i.e. cut the ring empty */
         const int64_t w = (int64_t)t->target + (int64_t)p->ahead * GBP_APLAY2_PUSHES - (int64_t)inflow
-                        - (int64_t)GBP_ATRANS2_LAND_BIAS;
+                        - (int64_t)land_bias(p);
         want = w > 0 ? (uint32_t)w : 0u;
     }
     t->adjusted = 1u;

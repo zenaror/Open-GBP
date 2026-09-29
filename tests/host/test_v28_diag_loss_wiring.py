@@ -64,7 +64,7 @@ def diag_regions(src):
 
 
 class InstrumentsAreOnlyInTheDiagImage(unittest.TestCase):
-    IDENT = re.compile(r"\b(loss_hist|loss_ctr|loss_snapshot|loss_step_pushes|gbp_v28_loss_\w+|gbp_v28_hist_\w+|gbp_v28_hists_\w+|"
+    IDENT = re.compile(r"\b(loss_hist|loss_ctr|loss_step_pushes|gbp_v28_loss_\w+|gbp_v28_hist_\w+|gbp_v28_hists_\w+|"
                        r"struct gbp_v28_(?:loss|hist)\w*|loss\.\w+|&loss\b|v28_loss_report\w*|GBP_V28_(?:LOSS|H_|NHIST)\w*)")
 
     def test_every_use_sits_in_a_region_only_that_image_compiles(self):
@@ -136,7 +136,7 @@ class ThePhaseIsWired(unittest.TestCase):
         m = re.search(r"case GBP_WALKER_LOSS: \{(.*?)break;\s*\}", self.live_step(), re.S)
         self.assertIsNotNone(m)
         blk = m.group(1)
-        order = [blk.index(x) for x in ("loss_snapshot(&loss_ctr);", "gbp_v28_loss_underrun_observed(&loss, now);",
+        order = [blk.index(x) for x in ("v28_snapshot(&loss_ctr);", "gbp_v28_loss_underrun_observed(&loss, now);",
                                         "gbp_v28_loss_tick(&loss, &tr, &ap2, &adec2, now, &loss_ctr, loss_hist)",
                                         "gbp_v28_loss_hold_done(&loss);", "gbp_walker_phase_complete(&walker, now, tr.active)")]
         self.assertEqual(order, sorted(order), "snapshot -> underrun hook -> tick -> hold_done -> phase_complete")
@@ -170,7 +170,7 @@ class ThePhaseIsWired(unittest.TestCase):
         blk = m.group(1)
         self.assertLess(blk.index("gbp_v28_loss_cut(&loss, now, &loss_ctr, loss_hist);"),
                         blk.index("gbp_v28_loss_hold_done(&loss);"))
-        self.assertLess(blk.index("loss_snapshot(&loss_ctr);"), blk.index("gbp_v28_loss_cut("),
+        self.assertLess(blk.index("v28_snapshot(&loss_ctr);"), blk.index("gbp_v28_loss_cut("),
                         "the cut's end counters are read at the cut, not left from the last tick")
         self.assertIn("if (loss.hold_pending) gbp_v28_loss_hold_done(&loss);", blk,
                       "a cut with no hold running (an entry, between holds) owes no acknowledgement: refused_done stays 0")
@@ -199,7 +199,7 @@ class TheInstrumentsMeasureTheRightThings(unittest.TestCase):
         self.assertIsNotNone(m, "the decode call must sit between its own two tick reads, result test unchanged")
 
     def test_the_counters_the_handler_snapshots_are_the_ones_the_tap_and_the_chain_keep(self):
-        body = function_body(code(read(MAIN)), "loss_snapshot")
+        body = function_body(code(read(MAIN)), "v28_snapshot")
         for field, src_expr in (("target", "ap2.target"), ("ahead", "ap2.ahead"), ("blocks_in", "adec2.blocks_in"), ("taps", "live_taps"), ("taps_failed", "live_taps_failed"),
                                 ("wrong_len", "live_wrong_len"), ("underruns", "ap2.underruns"), ("starved", "ap2.starved_steps"),
                                 ("produced", "ap2.produced"), ("handed", "ap2.handed"), ("ring_gated", "ap2.ring_gated"),

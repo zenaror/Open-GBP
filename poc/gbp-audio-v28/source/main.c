@@ -143,6 +143,7 @@
 #include "gbp_v28_3b.h"
 #include "gbp_v28_sweep.h"
 #include "gbp_v28_nulling.h"
+#include "gbp_v28_step.h"
 
 #ifndef OPENGBP_APP_NAME
 #define OPENGBP_APP_NAME "gbp-audio-v28"
@@ -616,6 +617,26 @@ static uint32_t live_taps, live_taps_failed, live_wrong_len;
 static uint64_t live_gap_max, live_gap_at, live_last_t;
 static int ai_started, ai_stopped;
 
+/* Issue #138: the counters the diagnostic snapshots per hold, and every plan snapshots per PHASE (SD only): the chain's own cumulative counters, read
+ * in one place. Reads only; nothing here decides anything. */
+static void v28_snapshot(struct gbp_v28_loss_ctr *c)
+{
+    c->blocks_in = (uint32_t)adec2.blocks_in;
+    c->taps = live_taps;
+    c->taps_failed = live_taps_failed;
+    c->wrong_len = live_wrong_len;
+    c->underruns = (uint32_t)ap2.underruns;
+    c->dup = (uint32_t)ap2.dup;
+    c->drop = (uint32_t)ap2.drop;
+    c->starved = (uint32_t)ap2.starved_steps;
+    c->produced = (uint32_t)ap2.produced;
+    c->handed = (uint32_t)ap2.handed;
+    c->ring_gated = (uint32_t)ap2.ring_gated;
+    c->ring = (uint32_t)adec2.count;
+    c->target = (uint32_t)ap2.target;
+    c->ahead = (uint32_t)ap2.ahead;
+}
+
 /* ---- Issue #137 (U-GBP-050): the LOSS diagnostic's instruments. ONLY in the diag_loss image: every other plan compiles none
  * of this, so validation_run and the perceptual image keep their own timing byte for byte. The handler (gbp_v28_loss.h) decides
  * the cell; this file applies it (the label block of submit_ready, ap2.step_pushes) and measures: ticks around the tap, its
@@ -637,23 +658,6 @@ static uint32_t loss_step_pushes(void *user, uint32_t seq)
     (void)user;
     (void)seq;
     return loss.step_half ? GBP_V28_LOSS_STEP_HALF : GBP_V28_LOSS_STEP_FULL;
-}
-static void loss_snapshot(struct gbp_v28_loss_ctr *c)
-{
-    c->blocks_in = (uint32_t)adec2.blocks_in;
-    c->taps = live_taps;
-    c->taps_failed = live_taps_failed;
-    c->wrong_len = live_wrong_len;
-    c->underruns = (uint32_t)ap2.underruns;
-    c->dup = (uint32_t)ap2.dup;
-    c->drop = (uint32_t)ap2.drop;
-    c->starved = (uint32_t)ap2.starved_steps;
-    c->produced = (uint32_t)ap2.produced;
-    c->handed = (uint32_t)ap2.handed;
-    c->ring_gated = (uint32_t)ap2.ring_gated;
-    c->ring = (uint32_t)adec2.count;
-    c->target = (uint32_t)ap2.target;
-    c->ahead = (uint32_t)ap2.ahead;
 }
 #else
 #define V28_LABEL_ON()          1
@@ -954,7 +958,7 @@ static void v28_cut(enum gbp_walker_kind kind, uint64_t now)
         break;
     case GBP_WALKER_LOSS:
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
-        loss_snapshot(&loss_ctr);
+        v28_snapshot(&loss_ctr);
         gbp_v28_loss_cut(&loss, now, &loss_ctr, loss_hist);
         if (loss.hold_pending) gbp_v28_loss_hold_done(&loss);   /* the same two-step contract as 3a and 3b; a cut with no hold
                                                                     * running (an entry, between holds) owes nothing */
@@ -1093,6 +1097,20 @@ static void v28diag_edge(uint32_t p, const char *edge, uint64_t t)
 }
 #endif /* GBP_V28_PLAN_DIAG_3A_STALL */
 
+/* Issue #138: the chain's counters at every phase's start and end, every plan, SD only (printed at teardown as V28PHC). The loss the next run must
+ * show near 0.18 % is measured PER PHASE, not only over the whole session; the snapshot is taken in the slot that sees the edge (a few ms late at most:
+ * its own timestamp is printed, and the reader divides by it). */
+struct v28_phase_snap { uint8_t have; uint64_t t; struct gbp_v28_loss_ctr c; };
+static struct v28_phase_snap ph_start[GBP_WALKER_MAX_PHASES], ph_end[GBP_WALKER_MAX_PHASES];
+
+static void v28_phase_snap_take(struct v28_phase_snap *s)
+{
+    const struct gbp_transport *t = in_transport;
+    s->t = t ? t->ticks64(t->ctx) : 0u;
+    v28_snapshot(&s->c);
+    s->have = 1u;
+}
+
 static void syncpe_edges(void)
 {
     uint32_t i;
@@ -1102,6 +1120,7 @@ static void syncpe_edges(void)
         if (!r) continue;
         if (r->started && !syncpe_started_seen[i]) {
             syncpe_started_seen[i] = 1u;
+            v28_phase_snap_take(&ph_start[i]);
             if (sync_line_admit())
                 ringlog_printf(keylog_rl, "SYNCPE p=%lu edge=start t=%llx why=none", (unsigned long)i,
                                (unsigned long long)r->t_start);
@@ -1116,6 +1135,7 @@ static void syncpe_edges(void)
         }
         if (r->ended && !syncpe_ended_seen[i]) {
             syncpe_ended_seen[i] = 1u;
+            v28_phase_snap_take(&ph_end[i]);
             if (sync_line_admit())
                 ringlog_printf(keylog_rl, "SYNCPE p=%lu edge=end t=%llx why=%s", (unsigned long)i,
                                (unsigned long long)r->t_end, syncpe_why(r->reason));
@@ -1225,7 +1245,7 @@ static void live_step(void)
                 /* Issue #137: the handler decides the cell and the entries, this file applies the arms and measures.
                  * Ticked BEFORE the slot's own produce/step call below (the entry's landing is read from tr.active). */
                 int f;
-                loss_snapshot(&loss_ctr);
+                v28_snapshot(&loss_ctr);
                 {
                     uint32_t u;
                     for (u = 0u; u < underrun_now && u < 64u; u++) gbp_v28_loss_underrun_observed(&loss, now);
@@ -1542,6 +1562,22 @@ static void v28_live_report(void)
  * never a TARGET/AHEAD figure or anything from atrans2/aplay2/adec2 in the perceptual build, only
  * the phase name, the SAFE "setting k", and a clock (elapsed seconds since the origin -- a raw tick
  * count would not be legible on a 16-pixel-tall strip). */
+/* Issue #138 (RUN 54, GBP-HW-364): `H` used to change on EVERY hand-off, so the label's text changed 32 times a second and it re-rendered about 29 times a
+ * second in the pump slot the drain's loss depends on (a 4.3k-tick call each; the label cost 0.41 percentage points of loss, 0.53 with the step fixed).
+ * The liveness signal is a number that MOVES while hand-offs move: sampled once a second it still does (a stall is the number not changing between two
+ * seconds), and the text now changes only when the clock does, so the label re-renders once a second. */
+#if !defined(GBP_V28_PLAN_PERCEPTUAL)     /* the perceptual label is a clock only: it never reads ap2 */
+static uint32_t label_h_second = 0xFFFFFFFFu, label_h_value;
+static uint32_t label_handed_once_a_second(uint32_t elapsed_s)
+{
+    if (elapsed_s != label_h_second) {
+        label_h_second = elapsed_s;
+        label_h_value = (uint32_t)ap2.handed;
+    }
+    return label_h_value;
+}
+#endif
+
 static void v28_label_text(char *out, size_t cap, uint64_t now)
 {
     const uint32_t elapsed_s = live.tb_hz ? (uint32_t)((now - walker.t_origin) / live.tb_hz) : 0u;
@@ -1576,7 +1612,7 @@ static void v28_label_text(char *out, size_t cap, uint64_t now)
          * branch only, same as the rest of this split -- ap2.handed is not a SAFE field for the
          * perceptual branch (comment above this function). */
         snprintf(out, cap, "P%lu/%lu H%lu RUN %lus", shown < count ? shown : count, count,
-                 (unsigned long)ap2.handed, (unsigned long)elapsed_s);
+                 (unsigned long)label_handed_once_a_second(elapsed_s), (unsigned long)elapsed_s);
     }
 #endif
 }
@@ -1635,6 +1671,29 @@ static void v28_loss_report(struct ringlog *rl)
     }
 }
 #endif /* GBP_V28_PLAN_DIAG_LOSS */
+
+/* Issue #138: two lines a phase (V28PHC: window and blocks; V28PHD: the corrector and the ring), every plan. Read by tools/v28verdict.py: loss = 1 - blocks_in / (4096 x seconds) over the snapshot times. */
+static void v28_phase_report(struct ringlog *rl)
+{
+    uint32_t i;
+    struct v28_phase_snap now_snap;
+    v28_phase_snap_take(&now_snap);
+    for (i = 0u; i < V28_PLAN->count; i++) {
+        const struct v28_phase_snap *a = &ph_start[i];
+        const struct v28_phase_snap *b = ph_end[i].have ? &ph_end[i] : &now_snap;
+        if (!a->have) continue;
+        ringlog_printf(rl, "V28PHC p=%lu ended=%u t0=%llx t1=%llx blocks_in=%lu taps=%lu failed=%lu wrong=%lu underruns=%lu",
+                       (unsigned long)i, (unsigned)ph_end[i].have, (unsigned long long)a->t, (unsigned long long)b->t,
+                       (unsigned long)(b->c.blocks_in - a->c.blocks_in), (unsigned long)(b->c.taps - a->c.taps),
+                       (unsigned long)(b->c.taps_failed - a->c.taps_failed), (unsigned long)(b->c.wrong_len - a->c.wrong_len),
+                       (unsigned long)(b->c.underruns - a->c.underruns));
+        ringlog_printf(rl, "V28PHD p=%lu dup=%lu drop=%lu starved=%lu produced=%lu handed=%lu gated=%lu ring=%lu,%lu",
+                       (unsigned long)i, (unsigned long)(b->c.dup - a->c.dup), (unsigned long)(b->c.drop - a->c.drop),
+                       (unsigned long)(b->c.starved - a->c.starved), (unsigned long)(b->c.produced - a->c.produced),
+                       (unsigned long)(b->c.handed - a->c.handed), (unsigned long)(b->c.ring_gated - a->c.ring_gated),
+                       (unsigned long)a->c.ring, (unsigned long)b->c.ring);
+    }
+}
 
 static uint64_t t_video_ready, t_selftest_begin, t_selftest_end, t_probe_enter;
 
@@ -1712,6 +1771,10 @@ int main(void)
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
     gbp_v28_hists_init(loss_hist);
     ap2.step_pushes = loss_step_pushes;         /* the step arm; every chunk asks at its start, the answer is the cell's */
+    ap2.step_pushes_user = 0;
+#else
+    /* Issue #138 (RUN 54): every other image takes the steady production step, 64 pushes a call, in every state (gbp_v28_step.h) */
+    ap2.step_pushes = gbp_v28_step_hook;
     ap2.step_pushes_user = 0;
 #endif
     DCFlushRange(ap2_silence, sizeof ap2_silence);
@@ -1873,6 +1936,7 @@ int main(void)
         ringlog_printf(&rl, "V28TAPS taps=%lu taps_failed=%lu wrong_len=%lu blocks_in=%lu gap_max=%llu gap_at=%llx",
                        (unsigned long)live_taps, (unsigned long)live_taps_failed, (unsigned long)live_wrong_len,
                        (unsigned long)adec2.blocks_in, (unsigned long long)live_gap_max, (unsigned long long)live_gap_at);
+        v28_phase_report(&rl);
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
         v28_loss_report(&rl);
 #endif
