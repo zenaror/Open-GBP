@@ -4,7 +4,7 @@
  * WHY. tools/v28latency.py's L(T, A) counts AHEAD + 1 chunks in flight: AHEAD - 1 READY, the chunk PROGRAMMED at the last hand-off, the chunk that hand-off STARTED. That rests on
  * one assumption no run has measured: the DMA callback fires when the block programmed LAST time has just STARTED, and programs the next. If it were wrong every L would be a whole
  * chunk (31.2 ms) off. The callback reads the AI's start-address register and bytes-left counter at its ENTRY (before the hand-off, before AUDIO_InitDMA), and this module keeps what
- * those reads say against the chunks the previous two callbacks returned. NOTHING IS WRITTEN TO THE DEVICE and nothing here touches one: a callback hands it the two numbers.
+ * those reads say against the chunks the previous two callbacks returned. The READS write nothing to the device and nothing here touches one: a callback hands it the numbers. (The one thing the callback writes differently is the LENGTH of a marked block, gbp_v28_dma_len() below, under GBP_V28_DMA_MARK in validation_run only.)
  *
  * THE READINGS, pre-registered in HARDWARE_TESTS.md V28.23 (tools/v28latency.py dma_semantics() applies them):
  *   register == the chunk returned at the PREVIOUS callback, bytes left near 4 000   -> the block has just started: AHEAD + 1 (the table stands)

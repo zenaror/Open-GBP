@@ -19606,3 +19606,22 @@ The review found one substantive fault in my design: the start-address register 
 **Not done, on purpose.** The perceptual run (stays unauthorised); any change to the pinned image.
 
 **Next.** The discriminator: a marked silence block during a mute (`HARDWARE_TESTS.md` §V28.26), designed and reviewed before any image.
+
+## 2026-09-29 — Issue #139 / #140: the marked-block discriminator designed, reviewed and pre-registered (`HARDWARE_TESTS.md` §V28.26, §V28.26a, `U-GBP-049`)
+
+**Goal.** Resolve the one question RUN 56 left: does the block a callback programs start at the next callback (AHEAD + 1) or the one after (AHEAD + 2), given an address register that cannot say.
+
+**Done.** A block of a different length can: `validation_run` programs the first silent hand-off of each mute 256 bytes (2.0 ms) shorter, and two independent arms (the bytes-left read, 3 712 against 3 968; the interval to the next callback, 29.2 against 31.2 ms) see it at the callback its start is at. The rule (M1 AHEAD + 1, M2 AHEAD + 2, M3 length applied at once, M4 unresolved) is pre-registered before any image, with a model of each hardware behaviour reading as it should; the marks are compiled into that plan alone and the source refuses any other. The landing battery ran with the marks at both lags: every move the plan uses passes; five synthetic ring-edge moves, unreachable in this plan, land below the band with a mark and are left out of the marked battery only.
+
+**What the review found (no blocker).** (1) The rule measures the LENGTH's stage; the address could in principle be staged one block deeper than the length: an M1 or M2 is CORROBORATED, not FACT, and the tool says so. (2) A resolved mark overrode an entry read that said the opposite; it is now UNRESOLVED. Smaller: an "inaudible" sentence that contradicted the M3 paragraph (withdrawn), "nothing is written" comments that were no longer true in the marked image, a constants-only test of the landing interval, the first physical write of a length other than 4 000 needing its authority stated.
+
+**Two things worth their own lines.**
+
+1. **The discriminator's blind spot is the same shape as the register's.** RUN 56's address read could not tell two depths apart; this one tells the length's depth, and the address's is assumed to follow. Saying it in the reading's own text is what keeps the status honest.
+2. **The scope argument was checked by running the thing.** Putting the ring-edge moves back into the marked battery reproduced the reviewer's numbers (36-118 samples below the band): the exclusion is a measured boundary, not a comment.
+
+**Tests.** `tests/host/test_v28_run57_marks.py` (models, rule, scope, wiring), `tests/unit/test_gbp_v28_dma.c` (55 checks), `tests/unit/test_v28_sweep_landing.c` (804 checks, with the marks).
+
+**Not done, on purpose.** The candidate (built, pinned and staged next); the perceptual run (stays unauthorised until the semantics resolve).
+
+**Next.** Two identical clean rebuilds of `validation_run`, `strings` for `V28MARKS`, the pin and the card, the hash to the Orchestrator.

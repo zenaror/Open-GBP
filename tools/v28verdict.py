@@ -490,6 +490,8 @@ def render(out):
                 {"write-through": "reads back what was just written (the address arm cannot separate AHEAD + 1 from AHEAD + 2)",
                  "keeps-active": "keeps the active block's address (the address arm is informative)",
                  "mixed": "mixed: neither reading holds", None: "too few decided callbacks"}[dm["latch"]]))
+        if dm.get("mark") is None and "post" in dm:
+            lines.append("DMA MARKED BLOCK: no V28MARKS in this log (a build without GBP_V28_DMA_MARK, i.e. RUN 56's image): the semantics stay bounded")
         if dm.get("mark") is not None:
             mk = dm["mark"]
             lines.append("DMA MARKED BLOCK (V28MARK, %d marks, %d complete; bytes lag / timing lag: %s): %s -- %s" % (

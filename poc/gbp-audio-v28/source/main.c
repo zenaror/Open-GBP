@@ -747,13 +747,13 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
     V28_NOTE(GBP_V28_H_TAP, tap_t0);
 }
 
-/* ---- Issue #139 (U-GBP-049): THE AI DMA'S HAND-OFF SEMANTICS, READ -- NEVER WRITTEN. ------------------------------------------------------------------
+/* ---- Issue #139 (U-GBP-049): THE AI DMA'S HAND-OFF SEMANTICS, READ (nothing written but the length of a marked block, below). ------------------------------------------------------------------
  * The latency table L(T, A) counts AHEAD + 1 chunks in flight (AHEAD - 1 READY, the chunk PROGRAMMED at the last hand-off, the chunk that hand-off STARTED). That rests
  * on one assumption no run has measured: the callback fires when the block programmed LAST time has just STARTED, and programs the next. If it were wrong every L is a
  * whole chunk (31.2 ms) off, in a direction the measurement gives. At every callback's ENTRY, before the hand-off and before AUDIO_InitDMA, this reads the AI DMA's
  * start-address register and its bytes-left counter (libogc: two loads of the DSP registers) and compares the address with the chunks the previous two callbacks
  * returned; it reads the address register ONCE MORE right after AUDIO_InitDMA (the review's finding: a write-through latch reads back the previous write whatever the
- * pipeline behind it, so the entry address alone cannot tell AHEAD + 1 from AHEAD + 2). Nothing is written to the device; the callback's own behaviour is unchanged; everything else is bounded static stores, printed only at teardown
+ * pipeline behind it, so the entry address alone cannot tell AHEAD + 1 from AHEAD + 2). Nothing is written to the device by these reads (the ONE change to what the callback writes is the marked block's length under GBP_V28_DMA_MARK, further down); everything else is bounded static stores, printed only at teardown
  * (V28DMA / V28DMAR, SD log only, never the screen). Pre-registered readings, HARDWARE_TESTS.md V28.23:
  *   address == the chunk returned at the PREVIOUS callback, bytes left near 4 000 (the block has just started)  -> AHEAD + 1 (the table stands);
  *   address == the chunk returned TWO callbacks ago                                                             -> AHEAD + 2 (every L +31.2 ms);
