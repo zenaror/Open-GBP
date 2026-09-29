@@ -369,9 +369,11 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # V28_SWEEPM/3b margin diagnostics and the SYNCPE-end fix, commit e629d96, RUN 52) ->
         # c40412b1... (Issue #136: the step landing's last-period aim, the trim/late/V28_3BM diagnostics,
         # commit e1eb4bd, REVERTED: never run) -> 87d03f81... (Issue #136: the ROTATE level set in silence, the
-        # SPLICE gate, START_MUTE 10 / STEP_MUTE 7, the steady-level diagnostics, commit 33de2db, RUN 53).
+        # SPLICE gate, START_MUTE 10 / STEP_MUTE 7, the steady-level diagnostics, commit 33de2db, RUN 53) ->
+        # 73dcaae9... (Issue #138, the fixes RUN 54 derived: the 64-push production step with the landing point 160 less the step, the label's H
+        # once a second, the per-phase V28PHC/V28PHD records, both underrun hooks live, commit 7e0dc0c, the next validation run; the eighth pin).
         # Reproduced identically across two separate clean Docker rebuilds before each pin.
-        self.assertEqual(rows["23-v28v"], "87d03f812b74923d4db0a9de8033ffca38c954736ca3c2f7ab34c6d71c1f4640")
+        self.assertEqual(rows["23-v28v"], "73dcaae9791fb2ea1a3bc56fd307f8f4bbdab739e2963f34b8094b61b7685290")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
         # Issue #137 (2026-09-29): the LOSS diagnostic (U-GBP-050), built at 794297b clean, reproduced identically across two
