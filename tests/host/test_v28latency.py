@@ -41,8 +41,23 @@ class TheArithmetic(unittest.TestCase):
         self.assertEqual(V.stock_at_chunk_start(3828, 4, 0.0), 3828 + 2048 * 5)
 
     def test_run_55s_hold(self):
-        self.assertAlmostEqual(V.latency_ms(3828, 1), (3828 + 4096 - 2048 * V.PHI_START) / V.RATE * 1000 + V.RESAMPLER_MS, places=9)
-        self.assertAlmostEqual(V.latency_ms(3828, 1), 120.75, places=2)
+        stock = (3828 + 4096 - 2048 * V.PHI_START) / V.RATE * 1000 + V.RESAMPLER_MS
+        self.assertAlmostEqual(V.latency_ms(3828, 1), stock + V.dup_delay_ms(3828), places=9)
+        self.assertAlmostEqual(V.latency_ms(3828, 1), 121.01, places=2)
+        self.assertAlmostEqual(stock, 120.80, places=1)                   # the stock alone, before the DUP delay the review found
+
+    def test_the_dup_delay_is_the_rings_mean_times_the_deficit_over_the_playout_rate(self):
+        self.assertAlmostEqual(V.dup_delay_ms(3828), (3828 - 758.5) * 0.00442 / V.RATE * 1000, places=9)
+        self.assertAlmostEqual(V.dup_delay_ms(10996), 0.69, places=2)
+        self.assertEqual(V.dup_delay_ms(100), 0.0)
+        self.assertGreater(V.dup_delay_ms(10996), 3 * V.dup_delay_ms(3828))     # it grows with TARGET
+        self.assertLess(V.dup_delay_ms(3828, delta=0.0027), V.dup_delay_ms(3828))   # and with the deficit
+
+    def test_the_host_tagging_test_and_the_tool_agree_on_the_formula(self):
+        c = read(os.path.join(ROOT, "tests", "unit", "test_v28_latency_tag.c"))
+        self.assertIn("(c - (2048 - feed x tau) / 2) x delta / playout", c)
+        self.assertIn("#define AI_HZ       32028.483", c)
+        self.assertIn("#define CALLS       122.8", c)
 
     def test_each_ahead_adds_exactly_one_chunk_period(self):
         for c in (2049, 3828, 10996):
@@ -56,9 +71,10 @@ class TheArithmetic(unittest.TestCase):
             self.assertEqual(c, t - 268)                              # every rung is above the production gate
             self.assertAlmostEqual(l, V.latency_ms(t - 268, a), places=9)
         by = {(t, a): l for t, a, c, l in rows}
-        self.assertAlmostEqual(by[(4096, 1)], 120.75, places=2)
-        self.assertAlmostEqual(by[(3072, 1)], 105.1, places=1)
-        self.assertAlmostEqual(by[(11264, 4)], 323.7, places=1)
+        self.assertAlmostEqual(by[(4096, 1)], 121.01, places=2)
+        self.assertAlmostEqual(by[(3072, 1)], 105.33, places=2)
+        self.assertAlmostEqual(by[(11264, 4)], 324.44, places=2)
+        self.assertAlmostEqual(by[(7168, 2)], 199.28, places=2)
         self.assertGreater(by[(9216, 1)], by[(7168, 1)])
 
     def test_the_gate_floors_c(self):
@@ -68,7 +84,8 @@ class TheArithmetic(unittest.TestCase):
         for a in (1, 2, 3, 4):
             self.assertAlmostEqual(V.floor_ms(a), V.latency_ms(2049, a), places=9)
             self.assertLess(V.floor_ms(a), V.latency_ms(V.c_of_target(3072), a))
-        self.assertAlmostEqual(V.floor_ms(1), 93.6, places=1)
+        self.assertAlmostEqual(V.gate_level_ms(1), 93.8, places=1)
+        self.assertIs(V.floor_ms, V.gate_level_ms)
 
 
 class TheOldFigure(unittest.TestCase):
@@ -78,12 +95,13 @@ class TheOldFigure(unittest.TestCase):
         # old: ring, chunks, resampler.  new: ring, chunks, phase, resampler
         self.assertAlmostEqual(sum(o), V.old_formula_ms(4096, 1), places=9)
         self.assertAlmostEqual(sum(n), V.latency_ms(V.c_of_target(4096), 1), places=9)
-        delta = (n[0] - o[0]) + (n[1] - o[1]) + n[2] + (n[3] - o[2])
+        delta = (n[0] - o[0]) + (n[1] - o[1]) + n[2] + (n[3] - o[2]) + n[4]
         self.assertAlmostEqual(V.latency_ms(V.c_of_target(4096), 1) - V.old_formula_ms(4096, 1), delta, places=9)
         self.assertLess(n[3] - o[2], -1.7)                 # the resampler dominates (1.95 ms -> 0.12 ms)
         self.assertLess(abs(n[0] - o[0]), 0.2)             # c sits at TARGET - BAND - 12 in both
         self.assertLess(abs(n[1] - o[1]), 0.1)             # the AI's measured clock against the nominal
         self.assertLess(abs(n[2]), 0.3)                    # the phase
+        self.assertGreater(n[4], 0.15)                     # the DUP delay: a term #122's formula did not have
 
 
 class TheRealLog(unittest.TestCase):
@@ -94,9 +112,11 @@ class TheRealLog(unittest.TestCase):
         self.assertEqual((m["target"], m["mean_cs"], m["mean_ring"], m["min_ring_late"], m["chunk_starts"]), (4096, 3828, 3097, 2272, 1914))
         self.assertAlmostEqual(m["calls_per_period"], 122.8, delta=0.3)
         self.assertAlmostEqual(m["blocks_s"], 4081.5, delta=1.0)
-        self.assertAlmostEqual(m["L_mean_ms"], 120.75, places=2)
+        self.assertAlmostEqual(m["L_mean_ms"], 121.01, delta=0.03)
+        self.assertTrue(m["in_domain"])
+        self.assertAlmostEqual(m["loss"], 0.00355, delta=0.0002)
         self.assertAlmostEqual(m["c_min"], 3789, delta=3)
-        self.assertAlmostEqual(m["L_low_ms"], 120.16, delta=0.05)
+        self.assertAlmostEqual(m["L_low_ms"], 120.41, delta=0.05)
         self.assertLess(abs(m["mean_ring"] - m["ring_mean_model"]), 40)          # the model's own check
         self.assertIn("EXCLUDED", V.render(m))
 
@@ -106,7 +126,7 @@ class TheRealLog(unittest.TestCase):
     def test_the_table_says_what_it_excludes_and_what_it_is_not(self):
         text = V.render(None)
         for needed in ("EXCLUDED: everything before the tap", "everything after the AI", "NOT the audio-versus-video OFFSET", "measured",
-                       "32028.483"):
+                       "32028.483", "ASSUMED, NOT MEASURED", "VALID ONLY WHILE THE LOSS IS BELOW", "not a level the chain holds without underruns"):
             self.assertIn(needed, text)
 
 
