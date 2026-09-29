@@ -203,7 +203,7 @@ static const struct move MOVES[18] = {
 /* the other users of the step mechanism: 3b's entry from every 3a floor the bracket can return (T2048 to T4096,
  * AHEAD 4 -> 1 and -> 2), the sweep's T192 INFO rungs, and the perceptual plan's nulling steps (+-2048 at
  * AHEAD 1 and 4, across the whole target range, GBP_V28_STEP_MUTE) */
-static struct move OTHER[80];
+static struct move OTHER[96];
 static uint32_t n_other;
 static void add_other(const char *n, uint32_t ft, uint32_t fa, uint32_t tt, uint32_t ta, uint32_t mute)
 {
@@ -232,6 +232,13 @@ static void build_other(void)
             add_other("nulling up", tg, a, tg + 2048u, a, S);
             add_other("nulling down", tg + 2048u, a, tg, a, S);
         }
+    /* Issue #139: the ring's own top. GBP_APLAY2_RING is 131 072; at AHEAD 4 a target of 122 880 needs target + 4 x 2048 = the whole ring at the cut, so the
+     * capacity guard (gbp_atrans2.c: the cut comes early when the ring is within two chunks of full) is exercised by these moves, not by the nulling grid's
+     * top (57 344 to 59 392), which the doubled ring now leaves half empty. Up and down across the guard's threshold, and at the ceiling's edge. */
+    for (tg = 116736u; tg <= 122880u; tg += 2048u) {
+        add_other("ring top up", tg, GBP_V28_A4, tg + 2048u, GBP_V28_A4, S);
+        add_other("ring top down", tg + 2048u, GBP_V28_A4, tg, GBP_V28_A4, S);
+    }
 }
 
 static const struct move *cur_moves = MOVES;
@@ -405,11 +412,15 @@ static void battery(uint32_t step)
     cur_n = n_other;
     test_case("3b/T192/nulling: exact feed", 1.0, 0.0, 0.0, 0.0, 0, 21u);
     test_case("3b/T192/nulling: 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 22u);
-    /* the top of the nulling grid (57344 to 59392) leaves the ring within two chunks of full, so the cut comes early
-     * and the landing then carries the feed deficit of the whole remaining mute: it tolerates about 0.7 %, not 1 %.
-     * The 1 % case therefore leaves those four moves out (the 0.5 % case above keeps them). */
-    cur_n = n_other - 4u;
-    test_case("3b/T192/nulling below the top: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
+    /* Issue #139: the nulling grid's top (57344 to 59392) used to leave the ring within two chunks of its 65 536 capacity, so the cut came early and the landing
+     * carried the feed deficit of the whole remaining mute: it tolerated about 0.7 %, not 1 %, and the 1 % case left those four moves out. With the ring at
+     * 131 072 the grid's top is HALF-EMPTY and those four moves now pass at 1 %. The same regime still exists at the ring's OWN edge (target 122 880 at AHEAD 4:
+     * target + 4 x 2048 = the whole ring): the three moves that touch 122 880 or 124 928 tolerate about 0.7 % and are left out of the 1 % case, kept in the exact
+     * and 0.5 % cases above. The ladder never goes there (P2_HI is 57 344). */
+    cur_n = n_other - 3u;
+    test_case("3b/T192/nulling, the grid's top included: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
+    check(n_other >= 51u && OTHER[n_other - 1u].from_t == 124928u && OTHER[n_other - 3u].from_t == 122880u,
+          "the last three moves are the ones at the ring's own edge (the 1 % case leaves exactly those out)");
     cur_moves = MOVES;
     cur_n = 18u;
 }

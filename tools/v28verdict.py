@@ -29,6 +29,7 @@ from fractions import Fraction
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import v28syncpe  # noqa: E402
+import v28latency  # noqa: E402
 
 PHASE_NAMES = {0: "navigate", 1: "3a", 2: "3b", 3: "sweep"}
 N_PHASES = 4
@@ -329,7 +330,7 @@ def analyse(text):
 def _analyse(text):
     return {"admissibility": admissibility(text), "descent_3a": descent_3a(text),
             "hold_3b": hold_3b(text), "underruns": underrun_accounting(text), "sweep": sweep(text),
-            "label": label_cost(text), "phase_loss": phase_loss(text)}
+            "label": label_cost(text), "phase_loss": phase_loss(text), "dma": v28latency.dma_semantics(text)}
 
 
 FAIL_NAMES = {0: "NONE", 1: "OUT_OF_BAND", 2: "UNDERRUN", 3: "UNMASKED", 4: "SPLICE"}    # gbp_v28_sweep.h's enum
@@ -476,6 +477,13 @@ def render(out):
                              r["produced"], r["gated"], r["ring"][0], r["ring"][1]))
     else:
         lines.append("PHASE LOSS: no V28PHC record (this log predates Issue #138)")
+
+    dm = out["dma"]
+    if dm is None:
+        lines.append("DMA SEMANTICS: not read in this log (V28DMA is RUN 56's): the latency table is under the ASSUMED AHEAD + 1")
+    else:
+        lines.append("DMA SEMANTICS (V28DMA, %d callbacks, %d classified; prev1 %d prev2 %d none %d same12 %d; bytes left min %d mean %d max %d): %s -- %s" % (
+            dm["n"], dm["classified"], dm["prev1"], dm["prev2"], dm["none"], dm["same12"], dm["left_min"], dm["left_mean"], dm["left_max"], dm["reading"], dm["why"]))
 
     lbl = out["label"]
     if lbl["have"]:

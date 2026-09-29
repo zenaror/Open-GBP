@@ -128,6 +128,41 @@ def kv(rest):
     return dict(re.findall(r"(\S+)=(\S+)", rest))
 
 
+def dma_semantics(text):
+    """The AI DMA's hand-off semantics as READ at every callback's entry (V28DMA, RUN 56 on; HARDWARE_TESTS.md V28.23's pre-registered readings). Returns None for a log
+    without the record. The reading, in the order the registration lists them:
+        R1  address == the chunk the PREVIOUS callback returned, bytes left near 4 000 (the block has just started)  -> AHEAD + 1, the table stands, offset 0
+        R2  address == the chunk returned TWO callbacks ago                                                          -> AHEAD + 2, every L +31.222 ms
+        R3  address == the previous chunk, bytes left near 0 (the block has just FINISHED)                           -> AHEAD, every L -31.222 ms
+        R4  anything else                                                                                            -> UNRESOLVED, the table is not usable
+    `prev` fractions are over the CLASSIFIED callbacks (two silences in a row, `same12`, cannot tell the pointers apart and are counted apart)."""
+    m = re.search(r"^\d{6} V28DMA (n=.*)$", text, re.M)
+    if not m:
+        return None
+    d = kv(m.group(1))
+    n, p1, p2, none, same = (int(d[k]) for k in ("n", "prev1", "prev2", "none", "same12"))
+    bins = [int(x) for x in d["bins"].split(",")]
+    classified = p1 + p2 + none
+    out = {"n": n, "prev1": p1, "prev2": p2, "none": none, "same12": same, "classified": classified, "left_min": int(d["left_min"]),
+           "left_max": int(d["left_max"]), "left_mean": int(d["left_mean"]), "bins": bins}
+    if n < 100 or classified < 50:
+        out.update({"reading": "R4", "offset_ms": None, "why": "too few callbacks (%d, %d classified)" % (n, classified)})
+        return out
+    f1, f2 = p1 / classified, p2 / classified
+    hi = (bins[4] + bins[5]) / n           # left >= 3500
+    lo = bins[0] / n                       # left < 1000
+    if f1 >= 0.99 and hi >= 0.95:
+        out.update({"reading": "R1", "offset_ms": 0.0, "why": "the register holds the chunk returned at the previous callback (%.1f %%), %.1f %% of the callbacks with >= 3 500 bytes left: the block has just started; AHEAD + 1" % (f1 * 100, hi * 100)})
+    elif f2 >= 0.99:
+        out.update({"reading": "R2", "offset_ms": PERIOD_MS, "why": "the register holds the chunk returned TWO callbacks ago (%.1f %%): AHEAD + 2, every L +%.3f ms" % (f2 * 100, PERIOD_MS)})
+    elif f1 >= 0.99 and lo >= 0.95:
+        out.update({"reading": "R3", "offset_ms": -PERIOD_MS, "why": "the register holds the previous chunk with < 1 000 bytes left in %.1f %% of the callbacks (the block has just FINISHED): AHEAD, every L -%.3f ms" % (lo * 100, PERIOD_MS)})
+    else:
+        out.update({"reading": "R4", "offset_ms": None, "why": "prev1 %.1f %%, prev2 %.1f %%, none %.1f %%, left >= 3 500 in %.1f %%, < 1 000 in %.1f %%: none of the registered readings" % (
+            f1 * 100, f2 * 100, none / classified * 100, hi * 100, lo * 100)})
+    return out
+
+
 def from_log(text):
     """The 3b hold's measured levels and what they give, from a validation_run log that carries V28_3BM and V28PHC (RUN 55 on)."""
     m3b = [kv(m.group(1)) for m in re.finditer(r"^\d{6} V28_3B (.*)$", text, re.M)]
@@ -158,7 +193,7 @@ def from_log(text):
             "mean_ring": int(bm["mean_ring"]), "min_ring_late": int(bm["min_ring_late"]), "c_min": c_min,
             "ring_mean_model": ring_mean_model, "L_mean_ms": latency_ms(c, 1, delta=delta), "L_low_ms": latency_ms(c_min, 1, delta=delta),
             "L_of_target_ms": latency_ms(c_of_target(target), 1, delta=delta), "in_domain": loss < LOSS_MAX,
-            "underrun_seen": int(a1["underrun_seen"]), "chunk_starts": int(bm["chunk_starts"])}
+            "underrun_seen": int(a1["underrun_seen"]), "chunk_starts": int(bm["chunk_starts"]), "dma": dma_semantics(text)}
 
 
 def render(measured):
@@ -201,6 +236,13 @@ def render(measured):
             m["min_ring_late"], m["c_min"], m["L_low_ms"], m["L_mean_ms"] - m["L_low_ms"]))
         w("  the model's check: mean ring = c - (2048 - feed x tau)/2 = %.0f, measured %d (%+.0f: a residual of 27 samples, not understood)" % (m["ring_mean_model"], m["mean_ring"], m["mean_ring"] - m["ring_mean_model"]))
         w("  the table's own value at this rung (c = target - %d): %.2f ms" % (C_BELOW_TARGET, m["L_of_target_ms"]))
+        dm = m.get("dma")
+        if dm is None:
+            w("  DMA semantics: NOT READ in this log (V28DMA is RUN 56's): every figure above is under the assumed AHEAD + 1.")
+        else:
+            w("  DMA semantics READ (%d callbacks, %d classified): %s -- %s" % (dm["n"], dm["classified"], dm["reading"], dm["why"]))
+            if dm["offset_ms"] is not None:
+                w("  every L in the table shifts by %+.3f ms under this reading (this hold: %.2f ms)" % (dm["offset_ms"], m["L_mean_ms"] + dm["offset_ms"]))
     return "\n".join(out)
 
 
