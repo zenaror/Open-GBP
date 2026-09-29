@@ -128,7 +128,77 @@ def kv(rest):
     return dict(re.findall(r"(\S+)=(\S+)", rest))
 
 
-def dma_semantics(text):
+# THE MARKED-BLOCK RULE (HARDWARE_TESTS.md V28.26, pre-registered before the image). RUN 57's validation_run programs a block 256 bytes (8 units, 2.0 ms) shorter than a chunk at the FIRST
+# silent hand-off of each mute (`V28MARK`: j = the callback that programmed it, left[i] = the bytes-left read at ENTRY of callback j + i + 1, dur[k] = the ticks of the block that
+# STARTED at callback j + k). The chunk is 4 000 bytes and a block that has just started reads 3 968 (RUN 56: at every callback), so a marked block that has just started reads 3 712.
+MARK_SHORT = 256
+MARK_LEFT_SPLIT = 3840                                  # below: a marked block's reading (3 712); at or above: an ordinary one (3 968, 3 936 with a late entry)
+TB_HZ = 40_500_000
+MARK_DUR_SPLIT = int(TB_HZ * FRAMES / AI_HZ * (1.0 - MARK_SHORT / 8000.0))   # mid-way between an ordinary block (31.222 ms) and a marked one (29.222 ms), ticks
+MARK_MIN = 10                                           # complete marks needed to read the rule at all
+MARK_FRACTION = 0.9                                     # of the complete marks that must agree, in BOTH arms, for M1 or M2
+
+
+def read_marks(text):
+    """Every V28MARK record of the log as a dict, in order (a partial one has done 0)."""
+    out = []
+    for m in re.finditer(r"^\d{6} V28MARK (i=.*)$", text, re.M):
+        d = kv(m.group(1))
+        out.append({"i": int(d["i"]), "j": int(d["j"]), "left": [int(x) for x in d["left"].split(",")],
+                    "dur": [int(x) for x in d["dur"].split(",")], "done": int(d["done"])})
+    return out
+
+
+def mark_lag(mark):
+    """The callback offset (from the callback that programmed the mark) at which each arm sees the shorter block, or None when the arm sees it at no callback or at more than
+    one. bytes: left[i] is the read at j + i + 1, so the lag is i + 1; time: dur[k] is the block that started at j + k, so the lag is k (0: the block that was ALREADY playing when
+    the mark was programmed was the short one, i.e. the length took effect immediately)."""
+    b = [i + 1 for i, v in enumerate(mark["left"]) if v < MARK_LEFT_SPLIT]
+    t = [k for k, v in enumerate(mark["dur"]) if v < MARK_DUR_SPLIT]
+    return (b[0] if len(b) == 1 else None), (t[0] if len(t) == 1 else None)
+
+
+def dma_marks(text):
+    """The marked-block reading (RUN 57 on). None for a log without V28MARKS. The rule, in the order registered:
+        M1  at least MARK_MIN complete marks, at least 90 % of them read lag 1 in BOTH arms, none lag 2 in either  -> a block programmed at a callback STARTS at the next: AHEAD + 1, the table STANDS
+        M2  the same at lag 2                                                                                      -> AHEAD + 2, every L +31.222 ms
+        M3  the timing arm reads lag 0 in at least 90 %                                                            -> the length took effect on the block already playing: not a latch, UNRESOLVED
+        M4  anything else (too few marks, the arms disagree, no mark seen)                                         -> UNRESOLVED, the raw records say what happened"""
+    m = re.search(r"^\d{6} V28MARKS n=(\d+) short=(\d+) chunk=(\d+)", text, re.M)
+    if not m:
+        return None
+    marks = read_marks(text)
+    done = [k for k in marks if k["done"]]
+    lags = [mark_lag(k) for k in done]
+    both = {}
+    for b, t in lags:
+        both[(b, t)] = both.get((b, t), 0) + 1
+    n = len(done)
+    out = {"marks": int(m.group(1)), "complete": n, "arms": {"%s/%s" % (b, t): c for (b, t), c in sorted(both.items(), key=lambda x: str(x[0]))},
+           "short": int(m.group(2)), "chunk": int(m.group(3))}
+    if int(m.group(2)) != MARK_SHORT:
+        out.update({"reading": "M4", "offset_ms": None, "why": "the log's mark length (%s) is not the registered %d: the thresholds do not apply" % (m.group(2), MARK_SHORT)})
+        return out
+    if n < MARK_MIN:
+        out.update({"reading": "M4", "offset_ms": None, "why": "%d complete marks, fewer than the %d the rule needs" % (n, MARK_MIN)})
+        return out
+    l1 = both.get((1, 1), 0)
+    l2 = both.get((2, 2), 0)
+    l0 = sum(c for (b, t), c in both.items() if t == 0)
+    any_b = lambda v: sum(c for (b, t), c in both.items() if b == v)      # noqa: E731
+    any_t = lambda v: sum(c for (b, t), c in both.items() if t == v)      # noqa: E731
+    if l1 / n >= MARK_FRACTION and any_b(2) == 0 and any_t(2) == 0:
+        out.update({"reading": "M1", "offset_ms": 0.0, "offset_max_ms": 0.0, "why": "%d of %d complete marks are seen ONE callback after they were programmed in both arms (bytes left below %d, interval below %d ticks) and none two: a block programmed at a callback starts at the next, AHEAD + 1, the table stands (MEASURED)" % (l1, n, MARK_LEFT_SPLIT, MARK_DUR_SPLIT)})
+    elif l2 / n >= MARK_FRACTION and any_b(1) == 0 and any_t(1) == 0:
+        out.update({"reading": "M2", "offset_ms": PERIOD_MS, "offset_max_ms": PERIOD_MS, "why": "%d of %d complete marks are seen TWO callbacks after they were programmed in both arms and none one: AHEAD + 2, every L +%.3f ms (MEASURED)" % (l2, n, PERIOD_MS)})
+    elif l0 / n >= MARK_FRACTION:
+        out.update({"reading": "M3", "offset_ms": None, "why": "%d of %d complete marks shortened the block that was ALREADY playing (the timing arm reads lag 0): the length is not latched for the next block; UNRESOLVED" % (l0, n)})
+    else:
+        out.update({"reading": "M4", "offset_ms": None, "why": "of %d complete marks (bytes lag / timing lag: count) %s: none of the registered readings" % (n, ", ".join("%s: %d" % (k, c) for k, c in out["arms"].items()))})
+    return out
+
+
+def _dma_semantics_address(text):
     """The AI DMA's hand-off semantics as READ at every callback's entry (V28DMA, RUN 56 on; HARDWARE_TESTS.md V28.23's pre-registered readings). Returns None for a log
     without the record. The reading, in the order the registration lists them:
         R1  address == the chunk the PREVIOUS callback returned, bytes left near 4 000 (the block has just started)  -> AHEAD + 1, the table stands, offset 0
@@ -181,6 +251,23 @@ def dma_semantics(text):
     return out
 
 
+def dma_semantics(text):
+    """The address/bytes-left reading (RUN 56 on) combined with the marked-block reading (RUN 57 on). A RESOLVED marked-block reading (M1, M2) sets the row shift; the address arm's
+    bound stands otherwise. Returns None for a log without V28DMA."""
+    out = _dma_semantics_address(text)
+    if out is None:
+        return None
+    mk = dma_marks(text)
+    out["mark"] = mk
+    if mk is not None and mk["reading"] in ("M1", "M2"):
+        out["offset_ms"] = mk["offset_ms"]
+        out["offset_max_ms"] = mk["offset_max_ms"]
+        out["why"] += " | MARKED BLOCK %s: %s" % (mk["reading"], mk["why"])
+    elif mk is not None:
+        out["why"] += " | MARKED BLOCK %s: %s" % (mk["reading"], mk["why"])
+    return out
+
+
 def from_log(text):
     """The 3b hold's measured levels and what they give, from a validation_run log that carries V28_3BM and V28PHC (RUN 55 on)."""
     m3b = [kv(m.group(1)) for m in re.finditer(r"^\d{6} V28_3B (.*)$", text, re.M)]
@@ -222,7 +309,11 @@ def render(measured):
       % (AI_HZ, AI_HZ_NOMINAL, PERIOD_MS, RATE, DELTA * 100))
     w("EXCLUDED: everything before the tap (AGB, Game Boy Player, HSP drain, decode scheduling) and everything after the AI's DMA reload (its 32-byte FIFO, about 0.25-0.5 ms, the DAC, the television's audio path).")
     w("This is the AUDIO PATH'S latency, ring to AI. It is NOT the audio-versus-video OFFSET the perceptual run nulls: that needs the video path's latency, which is not here.")
-    w("ASSUMED, NOT MEASURED: the AI DMA's semantics (the callback fires when the block programmed last time has just started): AHEAD + 1 chunks in flight; if wrong, every row is off by 31.2 ms (RUN 56 excluded the LOWER case: every row is as tabulated or 31.2 ms higher).")
+    mk = ((measured or {}).get("dma") or {}).get("mark")
+    if mk is not None and mk["reading"] in ("M1", "M2"):
+        w("MEASURED, the AI DMA's semantics (a marked block, HARDWARE_TESTS.md V28.26): %s -- %s" % (mk["reading"], mk["why"]))
+    else:
+        w("ASSUMED, NOT MEASURED: the AI DMA's semantics (the callback fires when the block programmed last time has just started): AHEAD + 1 chunks in flight; if wrong, every row is off by 31.2 ms (RUN 56 excluded the LOWER case: every row is as tabulated or 31.2 ms higher).")
     w("VALID ONLY WHILE THE LOSS IS BELOW ABOUT %.2f %%: above it the corrector stops holding c (host: 3 776 at 0.70 %%, 2 121 at 1.5 %%). Uncertainty of a row: about +-0.3 ms (the host's per-sample spread +-0.25, the phase, the DUP term's residual)." % (LOSS_MAX * 100))
     w("")
     w("chunk-start level c = TARGET - %d (RUN 55, 3b at T4096: mean_cs 3 828), floored at the production gate %d; phi at a chunk start %.4f of a period (a host value)." % (C_BELOW_TARGET, GATE, PHI_START))

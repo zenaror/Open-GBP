@@ -760,6 +760,28 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
  *   address == the previous chunk but bytes left near 0 (the block has just FINISHED, nothing playing)          -> AHEAD (every L -31.2 ms). */
 static struct gbp_v28_dma v28_dma;      /* zero + left_min at the maximum: gbp_v28_dma_init() in main(), before the DMA can start */
 
+/* ---- Issue #139: THE MARKED BLOCK (validation_run only, GBP_V28_DMA_MARK). -------------------------------------------------------------------------------------------------
+ * The address register is a write-through latch, so RUN 56 could not tell AHEAD + 1 (a block programmed at callback k starts at k + 1) from AHEAD + 2 (it starts at k + 2). A block of
+ * a different LENGTH can: the first SILENT hand-off of each mute programs a block 256 bytes (2.0 ms) shorter, and the callback at which the bytes-left register reads the shorter block
+ * (and the interval to the next callback is 2.0 ms short) is the callback its start is at. Silence only, at a mute's first hand-off: nothing audible is shortened. Off in every other plan
+ * (the Makefile defines the macro for validation_run alone, and the #error below refuses any other plan that defines it). */
+#if defined(GBP_V28_DMA_MARK) && !defined(GBP_V28_PLAN_VALIDATION)
+#error "GBP_V28_DMA_MARK (the marked DMA block) belongs to the validation_run plan alone: it must never be in the perceptual image"
+#endif
+_Static_assert(GBP_APLAY2_CHUNK_BYTES - GBP_V28_DMA_MARK_SHORT > 0u && (GBP_APLAY2_CHUNK_BYTES - GBP_V28_DMA_MARK_SHORT) % 32u == 0u,
+               "a marked block is a whole number of 32-byte AI DMA units");
+
+static uint32_t dma_block_bytes(const uint8_t *c)
+{
+#ifdef GBP_V28_DMA_MARK
+    /* `mute_carry` is set by gbp_aplay2_irq_handoff() for exactly a MUTE hand-off (an underrun's silence leaves it clear), and a mute hands the silence buffer */
+    return gbp_v28_dma_len(&v28_dma, ap2.mute_carry != 0u && c == ap2.silence, GBP_APLAY2_CHUNK_BYTES);
+#else
+    (void)c;
+    return GBP_APLAY2_CHUNK_BYTES;
+#endif
+}
+
 /* THE AI DMA CALLBACK -- interrupt context, native handoff. Issue #139: the two register READS come first, before anything else, and the hand-off and AUDIO_InitDMA are
  * exactly what they were. */
 static void live_dma_cb(void)
@@ -768,7 +790,7 @@ static void live_dma_cb(void)
     const uint32_t dma_left = (uint32_t)AUDIO_GetDMABytesLeft();
     const uint64_t t = gettime();
     const uint8_t *c = gbp_aplay2_irq_handoff(&ap2, t);
-    AUDIO_InitDMA((u32)(size_t)c, GBP_APLAY2_CHUNK_BYTES);
+    AUDIO_InitDMA((u32)(size_t)c, dma_block_bytes(c));
     gbp_v28_dma_note(&v28_dma, dma_addr, dma_left, t, c, (uint32_t)AUDIO_GetDMAStartAddr());   /* the third read, AFTER the init: does the register read back what was just written? */
 }
 
@@ -1796,6 +1818,9 @@ int main(void)
     gbp_aplay2_init(&ap2, ap2_pool, ap2_silence, NULL, NULL);   /* no L2 keep, no store -- same as sync-0001 */
     gbp_atrans2_init(&tr);
     gbp_v28_dma_init(&v28_dma);
+#ifdef GBP_V28_DMA_MARK
+    gbp_v28_dma_marks_enable(&v28_dma);
+#endif
 #if defined(GBP_V28_PLAN_DIAG_LOSS)
     gbp_v28_hists_init(loss_hist);
     ap2.step_pushes = loss_step_pushes;         /* the step arm; every chunk asks at its start, the answer is the cell's */
@@ -1971,6 +1996,15 @@ int main(void)
                            (unsigned long)v28_dma.bins[4], (unsigned long)v28_dma.bins[5]);
             ringlog_printf(&rl, "V28DMAP new=%lu kept=%lu amb=%lu other=%lu", (unsigned long)v28_dma.post_new, (unsigned long)v28_dma.post_kept,
                            (unsigned long)v28_dma.post_amb, (unsigned long)v28_dma.post_other);
+#ifdef GBP_V28_DMA_MARK
+            ringlog_printf(&rl, "V28MARKS n=%lu short=%lu chunk=%lu", (unsigned long)v28_dma.marks_n, (unsigned long)GBP_V28_DMA_MARK_SHORT,
+                           (unsigned long)GBP_APLAY2_CHUNK_BYTES);
+            for (q = 0u; q < v28_dma.marks_n && q < GBP_V28_DMA_MARKS; q++)
+                ringlog_printf(&rl, "V28MARK i=%lu j=%lu left=%lu,%lu,%lu dur=%lu,%lu,%lu,%lu done=%lu", (unsigned long)q, (unsigned long)v28_dma.mark[q].j,
+                               (unsigned long)v28_dma.mark[q].left[0], (unsigned long)v28_dma.mark[q].left[1], (unsigned long)v28_dma.mark[q].left[2],
+                               (unsigned long)v28_dma.mark[q].dur[0], (unsigned long)v28_dma.mark[q].dur[1], (unsigned long)v28_dma.mark[q].dur[2],
+                               (unsigned long)v28_dma.mark[q].dur[3], (unsigned long)v28_dma.mark[q].done);
+#endif
             for (q = 0u; q < v28_dma.raw_n && q < GBP_V28_DMA_RAW; q++)
                 ringlog_printf(&rl, "V28DMAR i=%lu addr=%lx left=%lu ret1=%lx ret2=%lx dt=%lu", (unsigned long)q,
                                (unsigned long)v28_dma.raw[q].addr, (unsigned long)v28_dma.raw[q].left,

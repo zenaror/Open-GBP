@@ -22,6 +22,28 @@ void gbp_v28_dma_seed(struct gbp_v28_dma *d, const void *first)
     d->seeded = 1u;
 }
 
+void gbp_v28_dma_marks_enable(struct gbp_v28_dma *d)
+{
+    d->marks_on = 1u;
+}
+
+uint32_t gbp_v28_dma_len(struct gbp_v28_dma *d, int silence, uint32_t chunk_bytes)
+{
+    if (!silence) {
+        d->mute_run = 0u;
+        return chunk_bytes;
+    }
+    d->mute_run++;
+    if (d->marks_on && d->mute_run == 1u && !d->mark_pending && d->marks_n < GBP_V28_DMA_MARKS && chunk_bytes > GBP_V28_DMA_MARK_SHORT) {
+        struct gbp_v28_dma_mark *m = &d->mark[d->marks_n];
+        m->j = d->n;                                   /* the callback being handled: note() for it has not run yet */
+        d->marks_n++;
+        d->mark_pending = d->marks_n;
+        return chunk_bytes - GBP_V28_DMA_MARK_SHORT;
+    }
+    return chunk_bytes;
+}
+
 void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint64_t t, const void *returned, uint32_t post)
 {
     uint32_t bin;
@@ -52,6 +74,16 @@ void gbp_v28_dma_note(struct gbp_v28_dma *d, uint32_t addr, uint32_t left, uint6
     else if (post == rp) d->post_new++;
     else if (post == addr) d->post_kept++;
     else d->post_other++;
+    if (d->mark_pending) {
+        struct gbp_v28_dma_mark *m = &d->mark[d->mark_pending - 1u];
+        const uint32_t since = d->n - m->j;
+        if (since >= 1u && since <= 3u) m->left[since - 1u] = left;
+        if (since >= 1u && since <= 4u) m->dur[since - 1u] = d->t_last ? (uint32_t)(t - d->t_last) : 0u;
+        if (since >= 4u) {
+            m->done = 1u;
+            d->mark_pending = 0u;
+        }
+    }
     d->t_last = t;
     d->n++;
     d->ret2 = d->ret1;

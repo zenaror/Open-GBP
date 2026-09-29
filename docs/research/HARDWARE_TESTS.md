@@ -39812,3 +39812,50 @@ V28DMAR  i=0 addr=8a040 (the seed) left=3968 | i=1 addr=890a0 (what callback 0 p
 **The Operator (`logs/run56`, Hardware Issue #140).** He confirmed the image and `H` and pressed DOWN ("c down ok.. h ok"); nothing further was reported. OPERATOR OBSERVATION only.
 
 **What this does NOT establish.** Which of AHEAD + 1 and AHEAD + 2 the hardware runs (the next check is a marked block: `GBP-HW-372`'s "next"); the audio-versus-video offset; audibility; why T4608 read 2 240.
+
+### V28.26 The MARKED-BLOCK discriminator between AHEAD + 1 and AHEAD + 2 — the design and the PRE-REGISTERED reading rule, written before the image exists — 2026-09-29 (Issue #139 / #140, `U-GBP-049`)
+
+*Appended. §V28.23, §V28.23a and §V28.25 stand. Nothing is built into a candidate, staged or run by this entry; the design is under heavy review as it is written.*
+
+**The one question left.** RUN 56 (§V28.25) showed that the callback fires as a block STARTS (bytes left 3 968 of 4 000 at all 7 425 callbacks) and that the address register is a write-through latch, so it cannot say whether the block a callback programs starts at the NEXT callback (AHEAD + 1, the table stands) or at the one after (AHEAD + 2, every L +31.222 ms). The address arm cannot separate them under any depth; a block of a different LENGTH can.
+
+**The design.** In `validation_run` only (a compile-time `GBP_V28_DMA_MARK`, defined by the Makefile for that plan and refused by an `#error` in every other: never in the perceptual image), `live_dma_cb` programs the FIRST silent hand-off of each MUTE with a length 256 bytes (8 units, 2.0 ms) shorter than a chunk: 3 744 bytes, 117 units, a multiple of 32. The module is `gbp_v28_dma_len()`: only a hand-off that is a mute's silence (`ap2.mute_carry` set and the chunk the silence buffer, never an underrun's) and only the first of a run of consecutive mute hand-offs; at most 48 marks and never while an earlier mark is still being read; every other block is programmed at 4 000 exactly as before. For each mark the callback records, at teardown only, the bytes-left read at ENTRY of the next three callbacks and the durations of the four blocks starting at the mark's callback and the three after it (`V28MARK i= j= left=a,b,c dur=a,b,c,d done=`, `V28MARKS n= short= chunk=`, SD log only). Two independent arms see the same block: a shorter block that has just started reads 3 712 (3 744 - 32) instead of 3 968, and the interval to the next callback is 29.222 ms instead of 31.222 ms (1 183 6xx ticks instead of 1 264 5xx at 40.5 MHz).
+
+**Why it is inaudible and cannot move what the run measures.** A mute already plays silence; the marked block is 2.0 ms less of it. It is at the mute's FIRST hand-off; the sweep's landing measures the fraction of a period gone from the LAST TWO hand-off instants of its mute (`gbp_atrans2.c` `adjust2()`, at `handed + 1 >= mute`, the mute being 7 or 10 hand-offs), which sit at least one hand-off after the last interval a mark can shorten (a mark's block starts at j + 1 or j + 2 and ends by j + 3, the landing's last interval starts at the mute's 5th hand-off: `tests/host/test_v28_run57_marks.py`). The whole landing battery is run with the marks at lag 1 and lag 2 (`tests/unit/test_v28_sweep_landing.c`, 804 checks): every move the ladder, the sweep and 3b use passes. Five synthetic moves at the ring's own edge (a begin at or above 120 832 at AHEAD 4, the early-cut regime, the ring within two chunks of full) land 36-120 samples below the band with a mark and are left out of the MARKED battery only: the plan that carries the marks never gets near that regime (its largest target is 11 264 in a 131 072 ring; asserted). **The one case in which a mark is not silent:** if the length were applied at once to the block ALREADY PLAYING (the M3 reading), the mark at a mute's first hand-off would land on the block that has just started, which is the last AUDIBLE chunk, and cut its last 2.0 ms: a click at a mute boundary. It is not expected (libogc2's callback rewrites the length on every block, the counter reads 3 968 one unit after the reload, and Dolphin models the length as loaded at the block boundary), it would itself be the finding, and this is a run nobody is asked to listen to. AI DMA length: libogc2's `AUDIO_InitDMA` writes `len >> 5` into 15 bits of the length register and preserves the enable bit; every callback already wrote it; a different value is not a new kind of write.
+
+**THE READING RULE (`tools/v28latency.py dma_marks()`, pre-registered).** Per COMPLETE mark (four callbacks read): the BYTES arm's lag is the one callback among j + 1 .. j + 3 whose entry read is BELOW 3 840; the TIMING arm's lag is the one k among 0 .. 3 whose block (started at j + k) lasted under 1 224 035 ticks. A mark counts when both arms exist; it reads lag 1 if both say 1, lag 2 if both say 2. With at least 10 complete marks:
+
+```text
+M1  at least 90 % of the complete marks read lag 1 in BOTH arms, none reads lag 2 in either arm
+        -> the block programmed at a callback STARTS at the next: AHEAD + 1.  The latency table STANDS (MEASURED); every L as tabulated.
+M2  at least 90 % read lag 2 in both arms, none reads lag 1 in either
+        -> AHEAD + 2.  Every L +31.222 ms (T256 / A1 121.0 -> 152.2 ms).
+M3  the timing arm reads lag 0 in at least 90 %
+        -> the length took effect on the block ALREADY PLAYING: the register is not a next-block latch for the length.  UNRESOLVED (and a finding of its own).
+M4  anything else: fewer than 10 complete marks, the arms disagree, no mark seen at all (the AI ignored the length), a mixed distribution
+        -> UNRESOLVED; the raw V28MARK records say what happened.
+```
+
+The thresholds are the ones the model of each case produces (`tests/host/test_v28_run57_marks.py`: depth 1 reads M1, depth 2 M2, an effective-immediately length M3, a length the AI ignores M4, each also under jitter in the entry and the interval). The bytes arm's expected readings are 3 712 (marked, just started) and 3 968 (ordinary, RUN 56); the split 3 840 sits between them with a margin of four units on each side.
+
+**PRE-REGISTERED PREDICTIONS.**
+
+```text
+P1-P3, P5, P6, P8  UNCHANGED, held twice (RUN 55, RUN 56): loss 0.10-0.35 % (refuted above 0.5 %; RUN 56 read 0.327-0.379 %) in every ended phase; 3b at T256 mean chunk start about 3 828 +- 15 (refuted
+                   below 3 000), the AHEAD-1 hold full 60 s, underrun_seen 0, V28PHC p2 at most 1 a minute; sweep 18/18, no cut after unmute, landings (ring - target) about -168, in RUN 56's
+                   -206 .. -149 with 30 samples of margin either side; taps == blocks_in; min ring after 10 s 2 256 +- 60; overflow and lost 0; no fault.  THE MARKS MUST NOT MOVE ANY OF THESE: a landing
+                   outside -240 .. -120 or a sweep FAIL is attributed to the marks first.  THIS IS THE THIRD OBSERVED BOOT OF THE AHEAD-1 HOLD.
+P4                 the RUN 56 reading: the first two dwells saturated (3 060-3 110), T6144 3 000-3 110; steady dwells T4608..T2560 1 400-2 300 (the band RUN 56 missed by 140 at T4608 is
+                   widened to what two runs have shown: 1 568-2 240; refuted at 2 800 or more); dup 0 at T2048.  Recorded either way, not rescued.
+P7 (the question)  the marked-block rule above.  My PREDICTION, and it is a prediction and not a finding: M1 (the architecture argument: libogc2 and Dolphin model a single next-block latch).  Not
+                   registered as certain: M2 is the case the write-through address register did not exclude.
+P9 (NEW)           the marks are taken: at least 20 complete marks (28 sweep moves and the 3b entry each begin with a mute; the rule needs 10); every complete mark's ordinary entry reads are 3 968
+                   (3 936 with a late entry) and its marked read 3 712 (3 680 late); the marked interval 1 183 6xx +- 5 000 ticks and the ordinary ones 1 264 5xx +- 5 000.  A marked read that is neither
+                   3 712-ish nor 3 968-ish is an unexplained behaviour of the length register and is reported as such.
+P10 (NEW)          nothing audible or visible changes (the marks are silence): the Operator is asked for no listening beyond RUN 56's markers; his declaration of "sounded different" would be the
+                   surprise.
+```
+
+**What would be a surprise, and what it would mean.** M3 (the length applies at once) says the AI's length register is not latched the way the address register looked: the marks would then have shortened the block that was playing (a silence: inaudible) and the whole latency argument would need the timing arm alone. M4 with "no mark seen" says the AI ignores a length it was given, which no source suggests. A landing moved by the marks says the review's scope argument was wrong.
+
+**What this does NOT establish.** That the semantics are the same outside a mute (a marked block exists only there: the DMA path is one hardware and the callback is one function, but the reading is at mute hand-offs); the audio-versus-video offset; audibility.
