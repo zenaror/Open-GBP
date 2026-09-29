@@ -344,7 +344,7 @@ def render(measured):
     if measured:
         m = measured
         w("")
-        w("RUN 55's 3b hold, measured (AHEAD 1, target %d, %.1f s, underrun_seen %d, %d chunk starts, loss %.3f %%%s):" % (
+        w("This log's 3b hold, measured (AHEAD 1, target %d, %.1f s, underrun_seen %d, %d chunk starts, loss %.3f %%%s):" % (
             m["target"], m["hold_s"], m["underrun_seen"], m["chunk_starts"], m["loss"] * 100, "" if m["in_domain"] else "  -- OUTSIDE the table's domain"))
         w("  pump cadence %.1f calls a period; feed %.0f samples/s (blocks_in %.1f/s, delta %.3f %%); production tau = %d calls = %.2f ms = %.0f samples of feed" % (
             m["calls_per_period"], m["feed_hz"], m["blocks_s"], m["delta"] * 100, STEP_CALLS, m["tau_ms"], m["feed_tau"]))

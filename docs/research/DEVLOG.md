@@ -19644,3 +19644,20 @@ The review found one substantive fault in my design: the start-address register 
 **Not done, on purpose.** Staging, a slot, the Issue; the Operator's procedure text (the Orchestrator's, §V27.6).
 
 **Next.** Heavy review; two identical rebuilds and the `strings` check; then wait for RUN 57.
+
+## 2026-09-29 — Issue #139 / Hardware Issue #141: RUN 57 ingested — the marked block reads M1 in 29 of 29 marks; AHEAD + 1 holds, the latency table stands at CORROBORATED (`HARDWARE_TESTS.md` §V28.30, `GBP-HW-374`, `375`, `U-GBP-049`)
+
+**Goal.** Read the discriminator against its pre-registered rule, score P1-P10, and set the label every L figure carries.
+
+**Done.** M1: every one of the 29 marked blocks showed itself one callback after it was programmed, in the bytes-left arm (3 712 against 3 968) and the timing arm (29.2 against 31.2 ms), none at two, none at lag 0. The length's stage is measured; the address's is assumed identical (§V28.26a), so AHEAD + 1 and the table stand at CORROBORATED, not FACT. P1-P3, P5, P6, P8 hold with the marks in (loss 0.31-0.33 %, chunk start 3 830, the AHEAD-1 hold clean for the third observed boot, landings -199 .. -151): the marks moved nothing, and the Operator heard no click. P4: the recovery criterion held again; §V28.26's narrower range for the first two dwells is missed at T5120 (2 896); the steady band holds at all five dwells.
+
+**Rejected.** That the M3 case (the length applying to the block already playing) could hide behind the write-through address register: the timing arm read lag 0 in none of 29.
+
+**Two things worth their own lines.**
+
+1. **The instrument was built to say no, and had two ways to.** The address arm could not, the length arm could: RUN 56's write-latch finding is what made a second, independent arm a requirement rather than a nicety, and the both-arms rule is what lets an M1 be read as a measurement.
+2. **The status the review asked for was the status the result earned.** The address stage stays an assumption; writing it into every L figure's own label costs nothing and keeps the next reader from taking CORROBORATED for FACT.
+
+**Tests.** The recount tests learn the log (`GBP-HW-375`); `tools/v28latency.py` no longer prints "RUN 55's" for any log's 3b hold.
+
+**Next.** The perceptual image (unstaged, unissued): its heavy review, two identical rebuilds and the `strings` check; its draft Hardware Issue now takes the CORROBORATED label.
