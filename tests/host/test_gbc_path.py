@@ -120,7 +120,9 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
         for m in re.finditer(r"GBC_PATH", ev):
             head = ev[ev.rfind("\n### ", 0, m.start()):][:24]
             citing.add(head.strip().split(" ")[1] if " " in head.strip() else head.strip())
-        self.assertEqual(sorted(citing), ["GBP-HW-272", "GBP-HW-274"],
+        # Issue #144 (amended on top): GBP-KEY-011 cites section 1.2 and 4.2 because its reading is set against the
+        # Operator's recollection and the prediction recorded there -- it is ABOUT those two paragraphs.
+        self.assertEqual(sorted(citing), ["GBP-HW-272", "GBP-HW-274", "GBP-KEY-011"],
                          "EVIDENCE cites the design document from an entry that is not about it")
         self.assertIn("which offered it and promoted nothing", plain(ev))
 
