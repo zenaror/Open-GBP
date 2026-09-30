@@ -71,13 +71,13 @@ class TheReaderSaysWhichRivalReadingMatches(unittest.TestCase):
         self.assertEqual(o["cells"]["L|after:"]["verdict"], "STRETCHED")
         self.assertEqual(o["cells"]["-|after:L"]["verdict"], "NOT_STRETCHED")
         self.assertEqual(o["cells"]["-|after:"]["verdict"], "NOT_STRETCHED")
-        self.assertEqual(o["consistent_models"], ["L_MOMENTARY", "EITHER_MOMENTARY"])
+        self.assertEqual(o["consistent_models"], ["L_MOMENTARY"], "only L was sent: no reading about R is listed")
 
     def test_a_change_that_stays_after_release(self):
         o = run(frames(500, lambda i: i >= 103), [(100, L), (300, 0)])
         self.assertEqual(o["verdict"], "CHANGED")
         self.assertEqual((o["cells"]["L|after:"]["verdict"], o["cells"]["-|after:L"]["verdict"]), ("STRETCHED", "STRETCHED"))
-        self.assertEqual(o["consistent_models"], ["L_LATCH", "L_TOGGLE", "BOTH_TOGGLE"])
+        self.assertEqual(o["consistent_models"], ["L_LATCH", "L_TOGGLE"])
 
     def test_a_toggle_that_toggles_back_on_the_second_press_is_told_from_a_latch(self):
         ev = [(100, L), (200, 0), (300, L), (400, 0)]
@@ -165,6 +165,134 @@ class TheReaderSaysWhichRivalReadingMatches(unittest.TestCase):
         self.assertEqual(o["verdict"], "INADMISSIBLE")
 
 
+class TheReviewsHolesAreClosed(unittest.TestCase):
+    """Issue #151's adversarial review: each case below was a false reading before it was fixed."""
+
+    def test_a_change_of_the_height_alone_shows_only_in_the_border_rows_and_is_found(self):
+        fr = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in (0, 1, 38, 39):
+                for x in range(39, 54):
+                    fr[i]["witness"][b][x] = SKY                             # the picture reaches the border ROWS: 60 words, 3.7 % of the 1 620
+        o = run(fr, [(100, L), (400, 0)])
+        self.assertEqual(o["cells"]["L|after:"]["verdict"], "STRETCHED")
+        self.assertEqual(o["verdict"], "CHANGED")
+
+    def test_border_rows_below_half_are_partial_not_a_stretch(self):
+        fr = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in (0, 1):
+                for x in range(39, 54):
+                    fr[i]["witness"][b][x] = SKY                             # 30 of 60 -> exactly the line: a stretch; 29 would be partial
+        o1 = run(fr, [(100, L), (400, 0)])
+        self.assertEqual(o1["verdict"], "CHANGED")
+        fr2 = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in (0, 1):
+                for x in range(39, 53):
+                    fr2[i]["witness"][b][x] = SKY                            # 28 of 60
+        o2 = run(fr2, [(100, L), (400, 0)])
+        self.assertEqual(o2["leak_frames"], 0)
+        self.assertGreater(o2["partial_leak_frames"], 100)
+        self.assertNotEqual(o2["verdict"], "CHANGED")
+
+    def test_the_edge_blocks_are_0_1_38_39_and_the_flag_bit_alone_is_black(self):
+        for blocks in ((38, 39), (1, 38), (0, 39)):
+            fr = frames(500, lambda i: False)
+            for i in range(103, 500):
+                for b in blocks:
+                    for x in range(39, 54):
+                        fr[i]["witness"][b][x] = SKY
+            self.assertEqual(run(fr, [(100, L), (400, 0)])["verdict"], "CHANGED", blocks)
+        fr = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in range(40):
+                for x in range(0, 39):
+                    fr[i]["witness"][b][x] = 0x8000                          # the flag bit alone: black in the 15-bit reading
+        o = run(fr, [(100, L), (400, 0)])
+        self.assertEqual((o["leak_frames"], o["partial_leak_frames"]), (0, 0))
+        self.assertEqual(e.frame_stats(strip(False))[1:], (0, 0))
+        self.assertEqual(e.frame_stats(strip(True))[1:], (1560, 60))
+
+    def test_a_press_that_ends_exactly_at_a_frame_time_belongs_to_the_press_it_completes(self):
+        ps = e.presses([(100, 1, 0), (200, 0, 0)])
+        self.assertEqual(e.cell_of(200, [(100, 1, 0), (200, 0, 0)], ps), "-|after:L")
+        self.assertEqual(e.cell_of(199, [(100, 1, 0), (200, 0, 0)], ps), "L|after:")
+
+    def test_a_transient_change_inside_the_margins_blocks_a_not_changed(self):
+        fr = frames(600, lambda i: False)
+        for i in range(101, 121):                                            # 20 frames after the press, all inside the 30-frame margin
+            fr[i]["witness"] = strip(True)
+        o = run(fr, [(100, L), (300, 0)])
+        self.assertGreater(o["stray_leak_frames"], 0)
+        self.assertEqual(o["verdict"], "PARTIAL")
+        self.assertNotEqual(o["verdict"], "NOT_CHANGED_REACH_NOT_SHOWN")
+
+    def test_a_change_present_before_any_press_is_not_attributed_to_a_press(self):
+        fr = frames(500, lambda i: True)                                     # stretched from the first frame, the press changes nothing
+        o = run(fr, [(100, L), (300, 0)])
+        self.assertGreater(o["pre_press_leak_frames"], 0)
+        self.assertEqual(o["verdict"], "BASELINE_NOT_CLEAN")
+
+    def test_a_key_held_together_with_the_other_evaluates_neither_alone(self):
+        o = run(frames(600, lambda i: False), [(100, L), (150, L | R), (400, L), (450, 0)])
+        self.assertIn("LR|after:", o["cells"])
+        self.assertNotEqual(o["verdict"], "NOT_CHANGED_REACH_NOT_SHOWN" if "R|after:" not in o["cells"] else "x")
+
+    def test_only_the_readings_about_the_keys_sent_are_listed(self):
+        o = run(frames(500, lambda i: False), [(100, L), (300, 0)])
+        self.assertEqual(o["consistent_models"], ["NOTHING"])
+        self.assertEqual(e.models_for(["R"]), ["NOTHING", "R_MOMENTARY", "R_LATCH", "R_TOGGLE"])
+        self.assertEqual(e.models_for(["L", "R"]), list(e.MODELS))
+
+    def test_a_mixed_cell_beside_a_not_stretched_one_is_partial(self):
+        fr = frames(700, lambda i: False)
+        for i in range(140, 190):                                            # inside the L hold: half of its frames leak
+            fr[i]["witness"] = strip(True)
+        o = run(fr, [(100, L), (300, 0), (400, R), (600, 0)])
+        self.assertEqual(o["cells"]["L|after:"]["verdict"], "MIXED")
+        self.assertEqual(o["cells"]["R|after:L"]["verdict"], "NOT_STRETCHED")
+        self.assertEqual(o["verdict"], "PARTIAL")
+
+    def test_the_cell_thresholds_are_the_registered_ones(self):
+        self.assertEqual((e.CELL_STRETCHED, e.CELL_NOT, e.LEAK_X_STRETCHED, e.LEAK_Y_STRETCHED, e.LEAK_X_PARTIAL, e.LEAK_Y_PARTIAL), (0.90, 0.02, 0.25, 0.50, 0.01, 0.10))
+        # a cell at exactly 90 % leak frames is STRETCHED, at 89 % it is MIXED; at exactly 2 % it is NOT_STRETCHED, above it MIXED
+        cf = [{"legible": True, "transition": False, "cell": "L|after:", "strong": i < 90, "partial": False} for i in range(100)]
+        self.assertEqual(e.cells_of(cf)["L|after:"]["verdict"], "STRETCHED")
+        cf = [{"legible": True, "transition": False, "cell": "L|after:", "strong": i < 89, "partial": False} for i in range(100)]
+        self.assertEqual(e.cells_of(cf)["L|after:"]["verdict"], "MIXED")
+        cf = [{"legible": True, "transition": False, "cell": "L|after:", "strong": i < 2, "partial": False} for i in range(100)]
+        self.assertEqual(e.cells_of(cf)["L|after:"]["verdict"], "NOT_STRETCHED")
+        cf = [{"legible": True, "transition": False, "cell": "L|after:", "strong": i < 3, "partial": False} for i in range(100)]
+        self.assertEqual(e.cells_of(cf)["L|after:"]["verdict"], "MIXED")
+        cf = [{"legible": True, "transition": False, "cell": "L|after:", "strong": False, "partial": i < 3} for i in range(100)]
+        self.assertEqual(e.cells_of(cf)["L|after:"]["verdict"], "MIXED", "more than 2 % partial frames keep a cell from NOT_STRETCHED")
+
+    def test_the_border_columns_alone_are_a_stretch_when_a_quarter_of_them_light_up(self):
+        fr = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in range(40):
+                for x in range(0, 10):                                       # 400 of the 1 560 border-column words = 25.6 %
+                    fr[i]["witness"][b][x] = SKY
+        self.assertEqual(run(fr, [(100, L), (400, 0)])["verdict"], "CHANGED")
+        fr2 = frames(500, lambda i: False)
+        for i in range(103, 500):
+            for b in range(40):
+                for x in range(0, 9):                                        # 360 = 23 %: partial
+                    fr2[i]["witness"][b][x] = SKY
+        o = run(fr2, [(100, L), (400, 0)])
+        self.assertEqual(o["leak_frames"], 0)
+        self.assertNotEqual(o["verdict"], "CHANGED")
+
+    def test_frames_of_the_expected_windows_that_go_dark_after_the_first_press_are_reported(self):
+        fr = frames(2100, lambda i: False, lit_at=lambda i: False)
+        o = run(fr, [(100, L), (300, 0)])
+        self.assertEqual(o["verdict"], "INCONCLUSIVE_NOT_LEGIBLE")
+        self.assertEqual(o["expected_window_frames_dark"], o["expected_window_frames_after_first_press"])
+        self.assertGreater(o["expected_window_frames_dark"], 500)
+        self.assertIn("NOT separable", e.render(o))
+
+
 class TheArchivedRunIsTheNegativeControlAndTheSourceOfAPositiveOne(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -182,14 +310,14 @@ class TheArchivedRunIsTheNegativeControlAndTheSourceOfAPositiveOne(unittest.Test
         o = e.read(self.text, self.info, "gbmode-0001", COMMIT, None)
         self.assertEqual(o["verdict"], "NO_LR_WORD_SENT")
         self.assertEqual((o["frames"], o["legible"], o["leak_frames"], o["partial_leak_frames"]), (2048, 577, 0, 0))
-        self.assertEqual(o["consistent_models"], list(e.MODELS), "with no press every rival reading is consistent: nothing was asked")
+        self.assertEqual(o["consistent_models"], ["NOTHING"], "no key was sent: only the reading that needs no press is listed")
         self.assertEqual(o["cells"]["-|after:"], {"n": 577, "leak": 0, "partial": 0, "verdict": "NOT_STRETCHED"})
 
     def test_the_legible_windows_of_run_59(self):
         import gbmode_e4_read as g
         legible = []
         for rec in self.info["records"]:
-            inbox, _leak = g.frame_stats(rec["witness"])
+            inbox, _lx, _ly = g.frame_stats(rec["witness"])
             legible.append(inbox / float(g.INBOX_WORDS) >= g.LEGIBLE_MIN)
         wins, cur = [], None
         for i, ok in enumerate(legible):
