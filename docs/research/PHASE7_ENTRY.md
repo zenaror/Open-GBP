@@ -752,3 +752,21 @@ STILL OPEN    what the picture is (the sidecars are archived and not read), the 
 ## Amendment — 2026-09-30 (Issue #148): E3's picture decoded; the baseline for E4
 
 RUN 59's eight preserved frames (`HARDWARE_TESTS.md` §V29.13, `GBP-HW-379`) hold a **160 x 144 region at (40, 8) inside a black border of 40 / 8 / 40 / 8 pixels of the 240 x 160 window** (FACT), with no forced-equal pixel phase at any period 2-12 where the test can speak and at most 13 colours per frame; that the picture is unscaled, one window pixel per Game Boy pixel, is an INFERENCE argued in §V29.13. The family's own tools are INCONCLUSIVE on it by construction (a coordinate-stimulus oracle). This is the BASELINE the stretch experiment (§6, E4; `GBC_PATH.md` §4.2) needs: a stretch inside the AGB would move the picture's box towards the whole window and add a period-3 column duplication, which `tools/gbmode_picture.py` finds (tested on a synthetic stretch and on RUN 59's own content stretched in memory); read E4 against the FIXED geometry (40, 8, 199, 151), not the tool's own box (a stretched picture's ring majority may become its "border"). Still open: what the television showed, colour fidelity on retail content (no oracle), the AGB's own rule for placing or stretching, the border's real extent (black cannot be told from the picture's own black).
+
+
+## Amendment — 2026-09-30 (Issue #151): E4 designed and pre-registered, NOT run; no new image
+
+E4 (§6, the L / R stretch) is pre-registered in `HARDWARE_TESTS.md` §V30 (`GBP-GBMODE-002`, RUN 60). The committed text and the earlier amendments are unchanged. What was decided, and what stays open:
+
+```text
+THE INSTRUMENT  the UNCHANGED gbmode-0001 (slot 27, already on the card, boot.dol read back equal to its pin): no image is built and nothing is staged. The code check (V30.3): the KEY record and the strip
+                records share one time base; the witness keeps a 40-block strip of EVERY frame for about 34 s, so frames DO land after a press; the 8 full samples are on a fixed schedule and are not press-triggered.
+THE LIMIT       only a LEGIBLE frame can show a change, and RUN 59's intro has exactly four such windows (one 19-frame flash and three appearances of one backdrop, 2.2 s, 5.0 s and 2.2 s) on one observed timeline.
+                The schedule cues the presses by that scene (L held, nothing then R held, L held); every verdict is gated on legible frames counted from the run's own strips, so a shifted timeline is INCONCLUSIVE.
+THE RIVALS      nine readings implemented in tools/gbmode_e4_read.py, written before any data: nothing, a change only while a key is held, a latch, a toggle (the second press turns it back), one key only, both.
+                "The AGB does the stretch" is a HYPOTHESIS, not the expectation, and the window cannot say WHO changed it: nothing in the stream POC reacts to L or R.
+THE AMBIGUITY   "no stretch" and "the written word never reached the AGB in GB mode" are NOT separable by this image: the KEY record shows the write returned ok, the AGB's keypad window is write-only.
+                GBC_PATH 4.2's NOT CHANGED is narrowed to say so. Only a CHANGE is unambiguous.
+THE FALLBACK    named, NOT designed, NOT authorised: one variable (the witness window's position and the safety cap) with a positive control the game itself answers; cost one build and one staging.
+THE SAFETY      the one new element is a KEYPAD word carrying bit 8 or 9 in GB mode (routing FACT on GBA; the Disc forwards, GBI clears: a divergence preserved); power cycle before and after.
+```
