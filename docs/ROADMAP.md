@@ -690,6 +690,10 @@ A real cartridge produces stable audio without breaking video/input.
 Start-up Disc and GBI handle CONTROL bit `0x01` and L / R in GB/GBC mode
 (`GBP-CTL-002`, `GBP-CTL-003`, `GBP-KEY-011`; the entry's amendment). No build,
 no image, no hardware, no guard change: the guard is E2's own checkpoint.
+**2026-09-30 (Issue #147): E3 EXECUTED (RUN 59)** — on the Operator's original
+Pokémon Crystal the AV service ran to its witness target under the Issue #145 policy
+(`GBP-HW-378`, `HARDWARE_TESTS.md` §V29.12): closure and counts only; the picture, the
+audio content and GB-mode input are not established.
 
 Validate both execution families:
 

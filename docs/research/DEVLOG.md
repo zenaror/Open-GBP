@@ -19747,3 +19747,20 @@ The Operator amended the staging gate himself ("O cartao SD está conectado já.
 **Rejected.** Nothing was refuted. The registered reading of O1 was not rescued: it holds and its weakness is recorded beside it.
 
 **Next highest-value experiment.** An instrument that discriminates (a same-rung repeat, a far-rung control) and the video path's latency.
+
+
+## 2026-09-30 — Issue #147: RUN 59 (the first GB-mode session past PREUNMASK) ingested; the AV service runs with GB media under the Issue #145 policy
+
+**Goal.** Ingest RUN 59 (`gbmode-0001`, commit `4d6fe06`) as §V29.7 and §V29.8 fix it, the Operator's words first.
+
+**Changes.** The raw drop and its four sidecars archived by run number (hashes equal to the originals); `HARDWARE_TESTS.md` §V29.12 (the reader's output as printed, the gates and P1-P5 scored, the descriptive readings apart from the verdict tokens, the Operator's words on their own axis, what the run does not establish); `EVIDENCE.md` `GBP-HW-378`; `UNKNOWNS.md` amendments on `U-GBP-036` and `U-GBP-026`; `PHASE7_ENTRY.md` amendment; `tests/host/test_gbmode_run59_ingest.py` recomputes the readings from the hash-pinned archive.
+
+**Result.** All four gates pass and P1-P5 all hold: the service ran to the witness target (254 649 deliveries each acknowledged and re-armed, none refused), the frames closed at the GBA cadence, audio 1.715 per video block, the restore left bit `0x01` set, the keypad stayed idle. The Operator recognised Crystal; his unprompted "um pouco acelerada" is on its own axis: he did a hand-timed boot-to-scene comparison of GBI, the Disc and this DOL on the same Game Boy Player (37.48 / 37.57 / 37.53 s, not timing evidence) and concluded "foi impressão minha"; the handheld arm of the isolating comparison and the identity of the DOL boot are unasked.
+
+**Newly confirmed.** In this boot the policy was sufficient for the service to run with this medium; the earlier GB boots' abort was the runtime's own guard, before any unmask. Bit `0x80` was already set in the image's CONTROL byte throughout, so GBI's forced `0x80` was NOT tested (`GBP-CTL-003` stays unread beyond the static reading).
+
+**Not established.** The picture, the audio content, GB-mode input, DMG against CGB, the meaning of bit `0x01`, stability.
+
+**Tests executed.** `tests/host/test_gbmode_run59_ingest.py` (recomputes the readings, the counts against the GBA family and the frame-close cadence from the hash-pinned archive); the recount tests carried both new logs at the RUN 58 checkpoint. **Rejected.** Nothing was refuted; `GBA_STRUCTURE` was not read as identity with the baselines, and the reviewer's catch that bit `0x80` was already set withdrew a "not needed" claim before the commit.
+
+**Next highest-value experiment.** The Orchestrator's to order from `PHASE7_ENTRY.md` §6: what the picture is (an offline decoding of the archived sidecars costs no hardware time), then a pressed button and L / R (a different experiment with a new variable).

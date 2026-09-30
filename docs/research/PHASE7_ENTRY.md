@@ -726,3 +726,24 @@ STILL OPEN    what GBI's forced CONTROL bit 0x80 and skipped serial queue are FO
               written down and not tested, because copying it would be a second variable; and every question this one boot cannot answer (E4, DMG versus CGB,
               a second cartridge, GB-mode audio content).
 ```
+
+
+## Amendment — 2026-09-30 (Issue #147): E3 EXECUTED (RUN 59); the AV service runs with GB media under the Issue #145 policy
+
+E3 (§6) was run once, on the Operator's original Pokémon Crystal (JP), and all five registered predictions held (`HARDWARE_TESTS.md` §V29.12, `GBP-HW-378`). The committed text and the earlier amendments are unchanged.
+
+```text
+THE SERVICE   PREUNMASK passed and the cycle ran to the witness target: 254 649 deliveries, each acknowledged and re-armed; the INTSR clear, the whole-block AUDIO and VIDEO
+              reads and the idle keypad word (7 873 writes) were made with GB media for the first time: no write failed and the next delivery arrived (the device-side effect of the
+              acknowledge is read back in the first four cycles only). The four earlier GB boots ended at the runtime's own guard before any unmask; in this boot the policy of
+              Issue #145 was sufficient.
+THE FRAMES    closed at the GBA cadence (39.98 video blocks per frame, 59.73 frames a second by the console's time base), audio counted 1.715 per video block. That is closure and
+              counts only: equal counts are expected even for a wrong picture. Every count sits one closed frame (0.03-0.04 %) under the four GBA-family baselines, unexplained.
+THE BIT       0x01 was the only differing bit in the 20 snapshots before the teardown and read back set after the restore, as in RUN 24, 27, 28, 29 (U-GBP-036 stays open).
+THE LEAD      §3.3's candidate for "nothing arrives", GBI's forced CONTROL bit 0x80 and skipped serial queue, was NOT TESTED: bit 0x80 was already set in this image's CONTROL byte
+              from the original read to the restore read-back (0x92, 0x8e, 0x8f, 0x93) and the image has no per-pass rewrite or serial queue in any session. What they are FOR is unread.
+THE OPERATOR  recognised Crystal, described native GBA resolution in a square format ("acho que 3:2"), saw text flash at boot; his unprompted "um pouco acelerada" he settled himself
+              by a hand-timed boot-to-scene comparison (GBI 37.48 s, the Disc 37.57 s, this DOL 37.53 s): "foi impressão minha". Hand stopwatch figures, not timing evidence.
+STILL OPEN    what the picture is (the sidecars are archived and not read), the audio content, GB-mode input and L / R (a different experiment, a new variable), DMG against CGB,
+              a second cartridge, the meaning of bit 0x01, and the GBP-aware features (rumble and the rest).
+```
