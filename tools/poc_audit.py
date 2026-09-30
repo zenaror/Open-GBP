@@ -1439,7 +1439,7 @@ def _vehicle_profile():
       * NO sidecar: there is no L2 keep and no streaming writer, so `play`'s ban on sdlog_stream_* is back in force and gbp_aplay2_arm_l2 is called from nowhere;
       * the configuration is ONE call in main (gbp_aplay2_set_target), the DMA start is gbp_aplay2_start_ready's, in the pump slot; no transition machine, no mute, no front drop
         (gbp_aplay2_mute and gbp_aplay2_drop_front have no caller);
-      * the pump slot reads the pad five times (the sample, the press record, Z's edge and the two holds of the walker's stop latch), not three;
+      * the pump slot reads the pad five times (the sample, the press record, Z's edge and the two holds of the walker's stop latch), not three, and main reads it only in the final screen, after the session;
       * the phase snapshots (v28_phase_snap_take) add one gettime site.
     `live` fails this image on exactly those points; every interrupt-path pin of `live` (the write sites, INTMR, INTSR, the handlers) still holds and is part of this profile."""
     p = copy.deepcopy(PROFILES["live"])
@@ -1487,10 +1487,11 @@ VEHICLE_SYMBOL_CALLERS = {
     "gbp_aplay2_irq_handoff": {"live_dma_cb": 1, "pump": 1},
     "gbp_aplay2_mute": {}, "gbp_aplay2_drop_front": {}, "gbp_aplay2_arm_l2": {},
     "gbp_walker_start": {"live_tap": 1}, "gbp_walker_tick": {"pump": 1}, "gbp_walker_stop": {"pump": 1},
-    "gbp_walker_finished": {"live_tap": 2, "main": 2, "pump": 4, "submit_ready": 1}, "gbp_walker_phase_record": {"main": 2, "pump": 1},
+    "gbp_walker_finished": {"live_tap": 2, "main": 1, "play_screen_report": 1, "pump": 4, "submit_ready": 1}, "gbp_walker_phase_record": {"main": 2, "pump": 1},
     "gbp_play_under_summarize": {"main": 1}, "gbp_play_under_fmt_startup": {"main": 1}, "gbp_play_under_fmt_und": {"main": 1}, "gbp_play_under_fmt_sum": {"main": 1},
-    "gbp_cartdecl_fmt": {"main": 1}, "gbp_cartdecl_step": {"main": 2}, "gbp_cartdecl_count": {"decl_draw": 2}, "gbp_cartdecl_entry_at": {"decl_draw": 1},
-    "PAD_ButtonsHeld": {"pump": 5},
+    "gbp_cartdecl_fmt": {"main": 1}, "gbp_cartdecl_step": {"main": 2}, "gbp_cartdecl_count": {"decl_draw": 1}, "gbp_cartdecl_entry_at": {"decl_draw": 1},
+    # the pump slot's five; main's are the FINAL SCREEN's (the release wait, the selection, the START hold -- all after the session, none on the drain's path); GCC unrolls its loops, so the counts are its layout
+    "PAD_ButtonsHeld": {"pump": 5, "main": 5}, "PAD_ScanPads": {"main": 13, "pump": 1},
     "gettime": {"h_ticks64": 1, "main": 6, "pump": 2, "submit_ready": 1, "live_dma_cb": 1, "v28_phase_snap_take": 1},
     "gbp_alive_finished": {"live_tap": 1},
 }
