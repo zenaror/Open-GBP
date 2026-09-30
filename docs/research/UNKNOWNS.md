@@ -1132,6 +1132,13 @@ matrix, rumble included, is created when those phases are reached. Not
 on the critical path of GBP-INIT-003A.
 
 
+**2026-09-29, Issue #144 — A STATIC LEAD, NO SERIAL READING WAS DONE.** GBI's per-pass code branches on CONTROL bit
+`0x01` where it decides whether to take a queued word for its write to the SIODATA window: with the bit set it writes
+CONTROL bit `0x80` and does not take the word, with it clear it does (`GBP-CTL-003`, site 1, FACT for the code). The
+Disc's serial state machine has no test of the type bit (its type bit has one consumer, `GBP-CTL-002`). What the queue
+holds and what bit `0x80` means were not read: this is a lead for the round that reads the serial path, and the item
+stays open.
+
 ## U-GBP-027 (P1 → P2, functional part CLOSED 2026-09-16 by GBP-AV-SERVICE-001; investigative sub-items remain, non-blocking) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
 
 **2026-09-16, GBP-AV-SERVICE-001 executed (GBP-HW-048…056, GBP-IRQ-010):
@@ -1768,6 +1775,13 @@ image was sized for, and that what bounds it is an event stream tied to the
 frame rate — so any future long-session instrument must either size that store
 for the session it intends or sample it. **Nothing is unexplained**, so this
 opens no new unknown; it narrows this one.
+
+**2026-09-29, Issue #144 — STATIC READING OF THE REFERENCES; THE QUESTION IS UNCHANGED.** Neither the Start-up Disc
+nor GBI waits for, times or compares the type bit: both derive from, or echo, the byte they read (`GBP-CTL-002`,
+`GBP-CTL-003`, FACT for the code). So the references say nothing about WHY the bit arrives late, and this item's
+three parts stand as written. What is added is narrower: a runtime that copies them would not notice the late
+arrival at all, and the guard that does notice it is this project's own (`PHASE7_ENTRY.md`, the Issue #144
+amendment).
 
 ## U-GBP-037 (P1, opened 2026-09-22 after RUN 30 — **2026-09-22, Issue #64: the instrument this item names is now PRE-REGISTERED, `HARDWARE_TESTS.md` §V9, GBP-AUDIO-002 — NOT RUN, NOT AUTHORISED, the ROM does not exist, and a pre-registration answers nothing; the item STAYS OPEN** — **2026-09-22, Issue #67: RUN 31 EXECUTED. THE 256-BYTE PERIOD IS THE TRANSFER'S, NOT A TONE (`GBP-HW-296`, measured with the APU provably off), and the audio is the modulation ACROSS blocks at the predicted ratio (`GBP-HW-298`). The item's SECOND half is answered — a block is a re-read SAMPLE, not a time series — and its FIRST half changes shape: the rate that matters is the DRAIN rate, 4 096.0 blocks/s from two windows independently. **P1 → P3, and it stays OPEN for the repeat that would make it FACT**) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
 

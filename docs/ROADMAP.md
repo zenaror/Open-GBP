@@ -685,6 +685,12 @@ A real cartridge produces stable audio without breaking video/input.
 
 ## Phase 7 — Cartridge compatibility
 
+**Status: ENTERED 2026-09-29 (GitHub Issue #144), static reading.** E1 of
+`docs/research/PHASE7_ENTRY.md` (§3.5, narrowed to three questions) read how the
+Start-up Disc and GBI handle CONTROL bit `0x01` and L / R in GB/GBC mode
+(`GBP-CTL-002`, `GBP-CTL-003`, `GBP-KEY-011`; the entry's amendment). No build,
+no image, no hardware, no guard change: the guard is E2's own checkpoint.
+
 Validate both execution families:
 
 ```text
