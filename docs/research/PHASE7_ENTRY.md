@@ -797,8 +797,9 @@ THE SESSION   one boot per title: Yoshi's Island (NOR, the known control), Kingd
 E4 (§6, the L / R stretch) was run once, on the Operator's original Pokémon Crystal (JP), with the UNCHANGED `gbmode-0001` image (`HARDWARE_TESTS.md` §V30.11, `GBP-HW-380`). The committed text and the earlier amendments are unchanged.
 
 ```text
-THE READING   the frozen reader says CHANGED: after a KEYPAD word carrying L (bit 8) the delivered window holds the GB picture 240 pixels wide instead of 160 (the height unchanged, 144 rows at y 8..151), after R it
-              holds 160 x 144 again, after L again 240 wide; the change outlasts the release of L and follows each write within two frame periods; the border ROWS never changed. The Operator's C ("L estica a tela e
+THE READING   the frozen reader says CHANGED: after a KEYPAD word carrying L (bit 8) the delivered window's left border columns fill in every L state and the one legible full frame of that state is 240 pixels wide (the height unchanged,
+              144 rows at y 8..151; the width was measured in that one frame), after R the baseline returns, after L it fills again; the change outlasts the release of L and follows each write within two
+              frame periods; the border ROWS never changed. The Operator's C ("L estica a tela e
               R volta a ser quadrado") is set beside it, reconciled toward neither.
 THE REACH     shown by the effect: the written word acted in GB mode (the reach and the effect are one observation; only a CHANGE was ever unambiguous).
 THE OPEN      toggle against set / clear (an unlisted reading predicts the same cells for L, R, L; L twice separates them); WHO changes the window (the AGB, or the device between it and the window: nothing in the

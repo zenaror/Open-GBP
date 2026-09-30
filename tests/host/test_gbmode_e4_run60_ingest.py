@@ -164,6 +164,40 @@ class TheArchivedDropReadsAsRecorded(unittest.TestCase):
                 near += all(abs(c[k] - q[k]) <= 1 for k in range(3))
         self.assertEqual((round(100.0 * exact / (144 * 240), 1), round(100.0 * near / (144 * 240), 1)), (85.0, 98.8))
 
+    def test_the_frames_that_differ_from_run_59_and_the_flip_offsets(self):
+        run59 = os.path.join(LOCAL, "GBP-VIDEO-004_gbmode-0001-run59-idxcap.bin")
+        if not os.path.isfile(run59):
+            self.skipTest("no local archive on this host (captures/local is ignored)")
+        import vidxcap
+        a = vidxcap.load(run59)["records"]
+        diff = [x["frame_index"] for x, y in zip(a, self.info["records"]) if [[w & 0x7FFF for w in r] for r in x["witness"]] != [[w & 0x7FFF for w in r] for r in y["witness"]]]
+        runs, cur = [], None
+        for f in diff:
+            if cur and f == cur[1] + 1:
+                cur[1] = f
+            else:
+                if cur:
+                    runs.append(tuple(cur))
+                cur = [f, f]
+        runs.append(tuple(cur))
+        self.assertEqual((len(diff), runs), (417, [(1214, 1321), (1454, 1515), (1622, 1769), (2277, 2375)]))
+        R = {r["frame_index"]: r for r in self.info["records"]}
+        hz = self.info["tb_hz"]
+        att = [(int(m.group(1)), int(m.group(2), 16)) for m in re.finditer(r"KEY n=(\d+) .*t_attempt=([0-9a-f]+) t_done", self.text)]
+        ta = dict(att)
+        off = lambda f, n: round((R[f]["t_first_block"] - ta[n]) / float(hz) * 1000, 2)  # noqa: E731
+        self.assertEqual((off(1214, 2), off(1770, 4), off(2276, 6), off(2277, 6)), (2.67, 2.29, -0.9, 15.84))
+        partial = [c for c in e.classify_frames([{"frame_index": r["frame_index"], "t0": r["t_first_block"], "t1": r["t_last_block"], "witness": r["witness"]} for r in self.info["records"]],
+                                               e.transitions(e.parse_keys(self.text)), e.presses(e.transitions(e.parse_keys(self.text))), hz) if c["partial"]]
+        self.assertEqual((partial[0]["frame_index"], partial[-1]["frame_index"], len(partial)), (1490, 1500, 11))
+
+    def test_the_gecko_capture_facts(self):
+        d = read(GECKO)
+        self.assertEqual(os.path.getsize(GECKO), 3178)
+        self.assertTrue(d.rstrip().endswith("OPENGBP-STREAM DONE"))
+        self.assertRegex(d, r"SAVESIDECAR .*records=2048")
+        self.assertIn("Arena Size", d.split("\n", 3)[0] + d.split("\n", 3)[1] + d.split("\n", 3)[2])
+
     def test_the_printed_blocks_are_the_tools_output(self):
         s = section(DOC, "### V30.11 RUN 60 EXECUTED AND INGESTED")
         blocks = re.findall(r"```text\n(GBMODE [^\n]*\n.*?)\n```", s, re.S)
@@ -177,6 +211,16 @@ class TheArchivedDropReadsAsRecorded(unittest.TestCase):
 
 
 class TheRecordCarriesTheOperatorsWordsAndTheLimits(unittest.TestCase):
+    def test_the_prose_figures_are_the_recomputed_ones(self):
+        s = " ".join(section(DOC, "### V30.11 RUN 60 EXECUTED AND INGESTED").replace("`", "").replace("**", "").split())
+        for tok in ("+8.4 ms", "+21.6 ms", "-8.7 ms", "+8.0 ms", "17 408 pixels", "92.9 %", "2 442 pixels", "98.8 %", "85.0 %", "0.37 s", "2.48 s", "0.52 s", "5.67 s", "exactly 417 of the 2 048 frames",
+                    "1214..1321, 1454..1515, 1622..1769 and 2277..2375", "1 631", "all 11 partial-leak frames (1490..1500)", "99 strong legible frames", "+2.67 ms and +2.29 ms", "+15.84 ms",
+                    "sim e sim", "SAVESIDECAR", "21 distinct words against 11", "4.7 s after the release", "2245..2275", "the ONE legible full frame of that state (sample 5, frame 1635)"):
+            self.assertIn(tok, s, tok)
+        self.assertNotIn("AVESIDECAR rc", s.replace("SAVESIDECAR", ""))
+        self.assertNotIn("nearly square", s)
+        self.assertNotIn("Start-up Disc / GBA-mode use", s)
+
     def test_his_words_are_verbatim_and_not_reconciled(self):
         s = " ".join(section(DOC, "### V30.11 RUN 60 EXECUTED AND INGESTED").split())
         for w in ("mesma coisa da run anterior", "o mesmo comportamento do GBA, L estica a tela e R volta a ser quadrado", "nada a declarar... apenas que esta sem som mesmo", "sim e sim",
@@ -185,8 +229,8 @@ class TheRecordCarriesTheOperatorsWordsAndTheLimits(unittest.TestCase):
 
     def test_the_limits_and_the_unlisted_reading_are_stated(self):
         s = " ".join(section(DOC, "### V30.11 RUN 60 EXECUTED AND INGESTED").replace("`", "").replace("**", "").split())
-        for tok in ("Toggle against set / clear", "an UNLISTED reading", "L twice in a row", "Who does it", "HYPOTHESIS", "The reach of the word is shown by the effect", "INFERENCE: an interpolating horizontal scale, its kernel not identified",
-                    "a recorded difference, not a void", "which text was relayed to the Operator is the Orchestrator's record, not read here"):
+        for tok in ("Toggle against set / clear", "two UNLISTED readings predict the same cells", "L twice in a row", "Who does it", "HYPOTHESIS", "The reach of the word is shown by the effect", "INFERENCE: an interpolating horizontal scale, its kernel not identified",
+                    "Which text was relayed to the Operator is the Orchestrator's record, not read here"):
             self.assertIn(tok, s, tok)
         e = " ".join(section(EVID, "### GBP-HW-380 ").replace("`", "").replace("**", "").split())
         for tok in ("promotes nothing into docs/hardware/ or docs/protocol/", "FACT (the readings, one boot", "INFERENCE", "UNKNOWN (toggle against set / clear"):
