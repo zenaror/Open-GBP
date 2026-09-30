@@ -19820,3 +19820,18 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Result (a design).** 300 s of play per boot, inside the largest wall a V28 chassis has run and saved; start-up delimited by a record and underruns after it reported apart (the fallback rule's input); the first-fill underrun NOT claimed avoidable (the code refutes "the DMA starts before the fill"; the remaining candidate is a hypothesis and any avoidance is a second variable); the cartridge declaration is a pad selection before the session, written as one CARTDECL line; three titles in an order with reasons; nothing built, nothing staged, no hash.
 
 **Next.** The build half: the POC and plan, the record formats with host tests through underruns before and after the delimiter, the two identical rebuilds, the audits, the frozen Operator text, one adversarial review of the code.
+
+
+## 2026-09-30 — Issue #152: RUN 60 (E4, the L / R stretch in GB mode) ingested; a KEYPAD word with L or R changes the delivered window
+
+**Goal.** Ingest RUN 60 (the unchanged `gbmode-0001`, the same original Pokémon Crystal) as §V30 fixes it, the Operator's words first, his C set beside the reading only after it existed.
+
+**Changes.** The raw drop and its four sidecars, and the Orchestrator's Gecko capture, archived by run number. `HARDWARE_TESTS.md` §V30.11; `EVIDENCE.md` `GBP-HW-380` (the run) and `GBP-HW-381` (the recount: 71 logs, 13 at `0x90`, 58 at `0x92`); a `PHASE7_ENTRY.md` amendment and the ROADMAP status line; `tests/host/test_gbmode_e4_run60_ingest.py` recomputes the readings from the hash-pinned archive; the recount and replay tests carry the new log.
+
+**Result.** The reader says CHANGED: L widens the delivered picture to 240 pixels (height unchanged), R returns 160 x 144, L widens it again, the change outlasts the release of L and follows each write within two frame periods; the border rows never leak. The intro's four legible windows recurred frame for frame. The Operator's C ("L estica a tela e R volta a ser quadrado") is set beside it, reconciled toward neither; E ("sem som") is on its own axis. The schedule was performed at the scenes' onsets (holds started after the windows began) and the last L was never released: recorded as a difference, not a void.
+
+**Newly confirmed.** The reach of the word is shown by its effect; nothing in the stream POC reacts to L or R, so the change comes from the far side of the window.
+
+**Not established.** Toggle against set / clear; who changes the window; the interpolation kernel; a vertical change; the audio; DMG against CGB; a second title.
+
+**Next.** The Orchestrator orders it: an L, L (or R, R) sequence separates toggle from set / clear; E5's vehicle (Issue #153, design half committed, unpushed) waits.

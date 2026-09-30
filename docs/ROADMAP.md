@@ -694,6 +694,10 @@ no image, no hardware, no guard change: the guard is E2's own checkpoint.
 Pokémon Crystal the AV service ran to its witness target under the Issue #145 policy
 (`GBP-HW-378`, `HARDWARE_TESTS.md` §V29.12): closure and counts only; the picture, the
 audio content and GB-mode input are not established.
+**2026-09-30 (Issue #152): E4 EXECUTED (RUN 60)** — with L the delivered window
+holds the GB picture 240 pixels wide instead of 160 (height unchanged), with R 160 × 144
+again (`GBP-HW-380`, `HARDWARE_TESTS.md` §V30.11): a change in the window, one boot; who
+changes it, toggle against set / clear, and the audio are not established.
 
 Validate both execution families:
 

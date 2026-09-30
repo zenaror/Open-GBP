@@ -791,3 +791,17 @@ THE DECLARATION  a title selection on the FINAL screen, after the session and be
 THE SESSION   one boot per title: Yoshi's Island (NOR, the known control), Kingdom Hearts CoM (JP original; no in-game save, saves are E6), The Simpsons: Road Rage (unofficial, its caveat kept). WarioWare:
               Twisted (a gyroscope title: cartridge hardware is E7) and Drill Dozer (not owned as a cartridge) are NOT in it. The per-run gates that read records only the research phases keep are named VOID.
 ```
+
+## Amendment — 2026-09-30 (Issue #152): E4 EXECUTED (RUN 60); the L / R stretch is a CHANGE in the delivered window
+
+E4 (§6, the L / R stretch) was run once, on the Operator's original Pokémon Crystal (JP), with the UNCHANGED `gbmode-0001` image (`HARDWARE_TESTS.md` §V30.11, `GBP-HW-380`). The committed text and the earlier amendments are unchanged.
+
+```text
+THE READING   the frozen reader says CHANGED: after a KEYPAD word carrying L (bit 8) the delivered window holds the GB picture 240 pixels wide instead of 160 (the height unchanged, 144 rows at y 8..151), after R it
+              holds 160 x 144 again, after L again 240 wide; the change outlasts the release of L and follows each write within two frame periods; the border ROWS never changed. The Operator's C ("L estica a tela e
+              R volta a ser quadrado") is set beside it, reconciled toward neither.
+THE REACH     shown by the effect: the written word acted in GB mode (the reach and the effect are one observation; only a CHANGE was ever unambiguous).
+THE OPEN      toggle against set / clear (an unlisted reading predicts the same cells for L, R, L; L twice separates them); WHO changes the window (the AGB, or the device between it and the window: nothing in the
+              stream POC reacts to L or R); the interpolation kernel; a vertical change; the audio; DMG against CGB; a second title; the GBI / Disc divergence (GBP-KEY-011).
+THE TIMELINE  the intro's four legible windows recurred frame for frame at the second boot: one more observation that the schedule's premise holds.
+```
