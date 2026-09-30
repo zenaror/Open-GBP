@@ -213,9 +213,10 @@ The third of these says something precise and nothing more. It does **not** mean
 The supported way to pick this project up — with no chat history, by any agent
 or by a person — is the handoff:
 
-- **[`AGENTS.md`](AGENTS.md)** — the rules any agent must read before touching
-  anything: the authority hierarchy, the evidence vocabulary, and what must
-  never be claimed.
+- **[`AGENTS.md`](AGENTS.md)** — the single normative source of the project's
+  instructions (the former `CLAUDE.md` was merged into it): the rules any agent
+  must read before touching anything — the authority hierarchy, the evidence
+  vocabulary, and what must never be claimed.
 - **[`docs/HANDOFF.md`](docs/HANDOFF.md)** — the current scientific and
   operational state, the frozen contracts, the exact artifacts that were
   physically executed, the current blocker and the next safe action.

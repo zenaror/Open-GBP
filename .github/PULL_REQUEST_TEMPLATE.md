@@ -31,4 +31,4 @@ No scientific status changed / changed exactly as recorded in `EVIDENCE.md` §�
 
 ## Commits
 
-Logical, one technical purpose each (`CLAUDE.md` §24).
+Logical, one technical purpose each (`AGENTS.md` §36).
