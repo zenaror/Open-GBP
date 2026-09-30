@@ -19809,3 +19809,14 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Review (one heavy adversarial read) and what it changed before the push.** The first schedule started each L hold AT a 2.2 s window and fell below 40 legible frames from a 0.75 s reaction: the holds now start before their scenes (measured on RUN 59's real timing, 90-131 frames per cell, one PARTIAL corner stated); the scene cue is by shape, not colour; the reader gained the border-ROW part of the leak (a change of the height alone showed only in 60 words and read PARTIAL), BASELINE_NOT_CLEAN (a leak before any press was read CHANGED), the stray-leak block on NOT_CHANGED (a transient inside the margins read NOT_CHANGED), per-key evaluation (a joint L+R cell evaluated both), per-key rival lists and a report line for RUN 59's window frames that go dark; the time base is `t_control_transform` (the first draft used the end of the 003A stage, 0.11 s later); question C is open.
 
 **Not done.** No run, no build, no staging, no prediction. **Next.** The Orchestrator validates §V30 and opens the Hardware Issue; if the run is inconclusive or reach must be shown, the named fallback (one build, one staging) is the next checkpoint.
+
+
+## 2026-09-30 — Issue #153 (design half): PHASE 7's E5 vehicle designed; the build is its own checkpoint
+
+**Goal.** Design the GBA play image (a new POC, V28 audio at T256 A1, library default unchanged), size its stores for a stated bound, specify the instrument of the fallback rule and the cartridge declaration, and pre-register the first breadth session; stop at the design/build split the Issue allows.
+
+**Changes.** `HARDWARE_TESTS.md` §V31; a `PHASE7_ENTRY.md` amendment; `tests/host/test_e5_vehicle_design.py` (the store table recomputed with `tools/v28budget.py`'s rules, RUN 57's stores as the demonstrated envelope, every code claim read from the sources, and the pins that say nothing is built yet).
+
+**Result (a design).** 300 s of play per boot, inside the largest wall a V28 chassis has run and saved; start-up delimited by a record and underruns after it reported apart (the fallback rule's input); the first-fill underrun NOT claimed avoidable (the code refutes "the DMA starts before the fill"; the remaining candidate is a hypothesis and any avoidance is a second variable); the cartridge declaration is a pad selection before the session, written as one CARTDECL line; three titles in an order with reasons; nothing built, nothing staged, no hash.
+
+**Next.** The build half: the POC and plan, the record formats with host tests through underruns before and after the delimiter, the two identical rebuilds, the audits, the frozen Operator text, one adversarial review of the code.

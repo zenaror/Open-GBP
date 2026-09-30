@@ -40891,3 +40891,117 @@ Steps:                      §V30.9 (power cycle; verify no stale GBP-VIDEO-004_
 Expected result/log:        the five console files under the reserved run60 names; the KEY lines of the presses; NO prediction of the picture
 Question answered:          §V30.1: does the delivered window change from the RUN 59 baseline with L or R in GB mode, per key and key state; the reach of the word is NOT separable (§V30.4)
 ```
+
+
+## V31 — PHASE 7's E5 VEHICLE: the GBA play image — DESIGN, and the first breadth session's pre-registration as a DRAFT — **2026-09-30 (GitHub Issue #153, design half); NOTHING IS BUILT, NO HASH EXISTS, NO SLOT IS PINNED OR STAGED, NO RUN IS AUTHORISED**
+
+*Appended. This is the DESIGN half of Issue #153, stopped at the split the Issue allows (design, then build): the vehicle is the largest code checkpoint of the phase and every number below is decided before it is written, so the build is not a search. The second half (the POC, the plan and the tools, two identical Docker rebuilds, the hash, the frozen Operator text) is its own checkpoint. Nothing here is evidence and no evidence id is allocated. `PHASE7_ENTRY.md` §2 items (a)-(d) and §6 E5 are the basis; the audio decision and its fallback rule are the Orchestrator's comment on Issue #142.*
+
+### V31.1 What the vehicle is, and what it is not
+
+A **new POC** (`poc/gbp-play-gba`, proposed name), never an edit of `poc/gbp-audio-v28` (an EXECUTED image: its sources are frozen and it reproduces at its own commit). It links the same `src/` modules (video path, input path, session, the native audio chain, the SD log and teardown) and adds one **play plan**: `navigate` (the start-up, an allowance of 60 s), then `play` (free play until the Operator's Z, bounded by the store bound of V31.3). **No research phase, no GX label** (RUN 54 measured the label and the 128-push step as the loss's two couplings, `GBP-HW-364`; the play image renders neither), **no walker-driven audio changes** (the chain runs at one setting for the whole session). GBA only: GB/GBC mode, rumble, the serial path, presentation and scaling, and saves (E6) are out of scope.
+
+```text
+AUDIO           the chain is configured at T256 A1 (a target of 4 096 samples, AHEAD 1: L = 121.0 ms as tabulated, label M1) by the vehicle's own call to gbp_atrans2_begin(), the shipping setting decided on
+                Issue #142. THE LIBRARY DEFAULT IS NOT CHANGED: gbp_aplay2.h keeps GBP_APLAY2_TARGET (8 192, a 125 ms cushion) at GBP_APLAY2_AHEAD 1. Reasons (from the tree): the default is a shared constant that `poc/gbp-audio-native-probe` passes explicitly (its `main.c`) and that `gbp_aplay2_init()` hands to every chassis that does not override it, so moving it changes every rebuild of those images for a
+                decision the vehicle's own boots have not yet informed; the vehicle passes explicit values and `V28CFG`-style records name them. Whether the default should follow is a later checkpoint's
+                call, with its tests, after the vehicle's underrun record exists.
+                A COLD START at T256 A1 is NEW: RUN 55-58's start-up ran at the default and reached T256 by a transition; the first fill at 4 096 from an empty ring has never run, so the start-up record of
+                V31.4 is exactly what it needs.
+THE FALLBACK    (Issue #142, before any vehicle run) any underrun AFTER the session's start-up moves the NEXT vehicle build one rung deeper (T256 A2, 152.2 ms; then A3, 183.5 ms), one rung per evidence and never
+                back without new evidence; the Operator's report of picotes is recorded beside the count, never substituted for it.
+WHAT CHANGES     gbp_v28_plans.h and tools/v28budget.py (a third plan, "a change to both", pinned by tests/host/test_v28_plans.py); gbp_walker (a PLAY phase kind with no handler: a free-running phase that
+AT THE BUILD     the Operator's Z or the cap ends); the vehicle's own main.c (derived from the V28 chassis' by copy, with the research handlers and the label compiled out); a Makefile target, tools/poc_audit
+                profile and Swiss layout row for the new POC. Listed so the build's diff is checked against it.
+```
+
+### V31.2 The session bound and the stores (Issue item 1): the bound PROPOSED is 300 s of play per boot
+
+A store that fills ends the session cleanly with a record and never blocks: `GBP_VSTATE_STOP_EVENT_STORE_CAP` and `GBP_VSTATE_STOP_FRAME_STORE_CAP` already exist (`src/gbp/gbp_vstate_probe.h`), and the Operator's Z is `session_end`. What sizes the stores is the plan's wall (`tools/v28budget.py`): the wall of a plan is its session cap plus 65 s (§V27.10), and the stores are the wall at the guards' rates, 79 events a second (`GBP-HW-344`: 65.61 a second measured on RUN 43's changing picture, times 1.2), 60 frame records a second (one per frame), 39 chunk-correction records a second (Issue #127's native-path rate, 32.03 a second times 1.2, `tools/v28budget.py`). The events bound the session because the video state model writes about one event per frame of a changing picture: `play-0001` sized its event store for 720 s and filled it at about 274 s (`GBP-HW-282`).
+
+```text
+play bound P    session cap = 60 (navigate allowance) + P + 60 (slack)     wall = cap + 65      events (79/s)   frames (60/s)   chunk corrections (39/s)
+300 s           420 s                                                        485 s                 38 315          29 100          18 915          <- PROPOSED
+480 s           600 s                                                        665 s                 52 535          39 900          25 935
+600 s           720 s                                                        785 s                 62 015          47 100          30 615
+900 s           1 020 s                                                      1 085 s               85 715          65 100          42 315
+```
+
+**Why 300 s.** (1) It is inside the largest wall a V28-chassis image has RUN AND SAVED: RUN 57's `validation_run` ran with a wall of 533 s (`ENVSTORE frames=31980/16384 events=42107/4096 corr_cap=20787`, `ok=1`), so a wall of 485 s asks for smaller stores than a physical run has already held; nothing about memory is new. (2) It is "a few minutes of play" per title. (3) The bound beyond it is INFERENCE only: `tools/v28budget.py`'s descriptive ceiling on sync-0001's memory arithmetic is a wall of 804 s without the ride-along store (P up to 619 s) and 646 s with it, and the V28 chassis' free arena is NOT the same (its chain buffers differ; its log carries no `ENVMEM`), so 600 s (wall 785 s, the RUN 43 configuration) is possible on paper and unproven on the console. **A longer bound is a later, separate step** with an `ENVMEM` record and a refusal to start when the free arena is under the recorded floor (`GBP-HW-262`'s 1 650 688 B). **900 s is not reachable by the same store policy** (wall 1 085 s exceeds the 804 s ceiling): it would need a different policy for the frame and event stores (a change of variable), not a larger number.
+
+A title whose events run above 79 a second ends the boot cleanly at `EVENT_STORE_CAP` with its record, and is a ROW (§V31.6), not a failed run.
+
+### V31.3 The instrument of the fallback rule (Issue item 2): underruns AFTER the start-up, and the start-up apart
+
+**What exists.** The chain counts an underrun in one place: `gbp_aplay2_irq_handoff()` increments `underruns` when the ready queue is empty at a hand-off while `playing` is set (`src/audio/gbp_aplay2.c`); `playing` is set only by the POC, at the instant it starts the DMA (`main.c`: `ap2.playing = 1u` when `gbp_aplay2_start_ready()` holds). The log reports the count per PHASE (`V28PHC p=0 ... underruns=`) and once for the run (`V28C underruns=`), and it does not TIME an underrun: RUN 55-58 each show exactly one, in `navigate` (p0), and the Orchestrator's reading of that as a start-up event is an INFERENCE from the pattern (Issue #142).
+
+**How "start-up" is delimited (proposed, and the record that fixes it).** The start-up runs from the DMA start (`playing = 1`) to the FIRST instant the chain's fill reaches its target with a chunk ready (the first `gbp_aplay2_produce()` after which `ring >= target - BAND` and `READY >= 1`), plus a hold of 2 s. The vehicle writes the delimiter as a record of its own, `PLAYSTARTUP t_dma= t_fill_reached= t_end= ring= ready= underruns_before=`, and **every underrun after `t_end` is a `PLAYUND` record**: `PLAYUND n= t= since_end_ms= phase= ring= ready= handed=` (bounded: the first 64, then a counter; never an allocation or a filesystem write in the hand-off, the record is taken from the pump slot from a preallocated ring, `AGENTS.md` §21). The two totals are printed side by side at the end: `PLAYUNDER startup=<n> after_startup=<n> first_after_ms=<ms or -> total=<n>`. **The fallback rule reads `after_startup`, and only that.** The phase counters stay as they are so RUN 55-58 remain comparable.
+
+**Can the first-fill underrun be avoided without a second variable? NOT CLAIMED, and not attempted.** Where the start-up underrun falls is not in any record (the hand-off is timed only by aggregates), so a cause is UNKNOWN. What the code excludes: the DMA does NOT start on an unfilled ring: `gbp_aplay2_start_ready()` requires `adec_count >= target` and `READY >= min(AHEAD, 2)` (1 at AHEAD 1), so "the DMA starts before the fill" is refuted by the tree. The remaining candidate is a HYPOTHESIS: at AHEAD 1 the single ready chunk is consumed by the start's own first hand-off (`main.c` calls `gbp_aplay2_irq_handoff()` on it directly), leaving none, and the refill must land within one 31.2 ms period. A start rule that waits for a second ready chunk is not available at AHEAD 1: `gbp_aplay2.h` records that a literal 2 is UNREACHABLE there by construction (the deadlock RUN 48 / 49 hit), so any avoidance is a second variable with its own design. The vehicle leaves the rule as it is and TIMES the underrun (`PLAYSTARTUP`, and the first `PLAYUND` lines if one falls after `t_end`), so a later checkpoint can test it with its own pre-registration.
+
+### V31.4 The cartridge declaration in the log (Issue item 3): the lightest way that ends up beside the run's own bytes
+
+**Proposed: a title selection at the prompt the image already has.** The V28 chassis waits, before the session, for the Operator's A ("PRESS A within 45 s": `main.c`, the pre-session screen). The vehicle adds one step BEFORE that A: the D-pad LEFT / RIGHT steps through a compiled list of the declared inventory, the screen shows the entry, and A confirms it (an undeclared choice is the first entry, "OTHER / NOT DECLARED", and is admissible). The log gets one line, taken once, in the same file and header block as the run's bytes:
+
+```text
+CARTDECL idx=<k> title="<text>" form=<ORIGINAL|UNOFFICIAL|FLASHCART_DELIVERED|UNDECLARED> mode=GBA entered=pad_selection
+```
+
+The compiled list is the Operator's own inventory (`PHASE7_ENTRY.md` §5.1, his declarations of 2026-09-29, quoted there verbatim); the SELECTION is his act, made at the console, so the line is an OPERATOR DECLARATION (never a machine reading) and the run's attribution caveat stays what his form value gives it. What the line cannot do: prove that the cartridge in the slot is the one selected. **Heavier, and not chosen:** a menu of free text (impossible on this pad), a declaration after the session (it would sit beside the bytes only if the log were written after it; the selection before the run is one press and cannot be forgotten at the end). The mode is `GBA` because this vehicle is GBA-only.
+
+### V31.5 Identity and build (Issue item 4)
+
+```text
+image           poc/gbp-play-gba (proposed), log header test_id=GBP-PLAY-002 (the play family: GBP-PLAY-001 is Phase 5's image), build id vehicle-0001, the commit of the build (AGENTS.md §15)
+                the screen and the log carry the same identity; the clean commit, a rebuild at ANOTHER commit has ANOTHER hash and inherits no physical status (AGENTS.md §5)
+build           `make` target of its own, the whole output directory removed before EACH of TWO Docker builds; the two DOLs byte-identical (sha256 and cmp); `tools/dolinfo.py --require-aligned`;
+                `strings` shows the identity and NO V28MARK and NO V28DMA (no instrumentation of the research runs)
+slot            the name 28-vehicle is RESERVED here and nowhere else: no row in tools/swiss-layout.tsv, no pin, no export, no card write. (§V30.8's "slot 28" for a gbmode-0002 fallback was a
+                placeholder for a cost estimate, not a reservation; a variant of a canonical POC belongs in 80-89 by test_swiss_export's own rule.)
+audit           the poc_audit profile of the new POC and its Dolphin smoke, as for every image since Phase 4; PASS is never "survived until timeout"
+```
+
+### V31.6 The first breadth session (`GBP-BREADTH-001`), pre-registered as a DRAFT (PHASE7_ENTRY §6 E5)
+
+**One boot per declared title, up to 300 s of play each (or the Operator's Z), the existing per-run gates unchanged, a title that fails is a ROW and not a failed run.** The titles are the Operator's inventory (`PHASE7_ENTRY.md` §5.1); the order proposed, with the reason for each:
+
+```text
+1  Yoshi's Island (SMA3), on the EZ-Flash Omega DE NOR      the KNOWN CONTROL: every V28 run played it. Form: FLASHCART_DELIVERED. The attribution caveat that rides the audio citations since
+                                                            RUN 41 (an open question, PHASE7_ENTRY §7.2) rides this row too.
+2  Kingdom Hearts: Chain of Memories (JP, original)          the first ORIGINAL GBA cartridge of the matrix and a different content class (card battles, long music). It saves to its own memory:
+                                                            saves are E6 and OUT OF SCOPE: the Operator is told NOT to save in the game (the risk to an original's save is his decision, E6).
+3  The Simpsons: Road Rage (unofficial, "paralelo")          an UNOFFICIAL cartridge (form UNOFFICIAL); Phase 5 already noted its attribution caveat. Its result is a row of the matrix with that
+                                                            caveat, never an acceptance.
+NOT IN THIS SESSION
+   WarioWare: Twisted (JP and US)                            the gyroscope title: its interaction does not pass through the button path (§V7.5.2, which rejected it as an INPUT-test instrument;
+                                                            that reasoning is about the input verdict, and here it means the per-title input gate cannot be evaluated, not that video and audio are
+                                                            excluded). It carries cartridge hardware of its own: E7's category, deferred.
+   Drill Dozer                                               the Operator does not own the cartridge (a ROM from a flashcart would be a form of its own); its rumble is out of scope.
+```
+
+**The per-run gates applied unchanged** (`PHASE7_ENTRY.md` §6 E5; each names the existing record that carries it): the service and transport gates (`VSTATE end` status, `errors 0`, `transport_ok 1`, the balanced accounting), the startup profile, Policy A, the KEY record, the CONTROL record (`orig=92`, a GBA cartridge: the bit `0x01` guard is not exercised), the audio gates of the V28 runs (fill at the target, READY at AHEAD - 1 or AHEAD, no dropped sample; the loss band 0.10-0.40 % per phase, `taps == blocks_in`), with the ONE difference that underruns are read as V31.3 says: `startup` is recorded, `after_startup` is the fallback rule's input. A title whose EVENT or FRAME store fills, or whose loss leaves the band, is a row that says so.
+
+**What each title's Operator observation records** (his words, verbatim, before any figure is computed or shown): what he saw, what he heard, whether the controls did what he expected, and anything odd; the machine half is the log. Nothing is predicted to him.
+
+**DRAFT of the Operator's text (pt-BR; frozen at the build, with the real hash and the screen check).**
+
+```text
+ANTES
+ A. Antes de ligar, declare o cartucho que vai jogar (o console também vai perguntar): Yoshi's Island (NOR) / Kingdom Hearts CoM (JP) / Simpsons Road Rage.
+ 1. Console DESLIGADO POR COMPLETO (ciclo de energia). Cartucho no Game Boy Player. Nada no Link Port. Cartão SD2SP2 no console. Controle GENÉRICO na porta 1.
+ 2. AVISE ANTES DE LIGAR -- eu abro a captura do Gecko (ela fecha sozinha no fim).
+ 3. Ligue e abra pelo Swiss:  Open-GBP / 28-vehicle / boot.dol    Confira na tela:  build=vehicle-0001   commit=<hash>.   Se estiver diferente, PARE e avise.
+ 4. Na tela do teste: direcional  ESQUERDA / DIREITA  escolhe o título (o nome aparece na tela);  A ×1 confirma.
+DURANTE
+ 5. Jogue normalmente, por até 5 minutos. NÃO salve o jogo.
+ 6. Para terminar antes:  Z  (segure por 1/4 de segundo).
+DEPOIS
+ 7. Quando aparecer "X = save log", X ×1 grava. Espere confirmar. Depois START.
+ 8. DESLIGUE o console POR COMPLETO. Cartão no leitor do PC. Diga "<título> feito" e confirme: ciclo de energia ANTES e DEPOIS -- sim / não.
+O QUE VOCÊ VIU E OUVIU (com as suas palavras; eu registro literalmente ANTES de te mostrar qualquer número do log)
+ B. O que você viu na TV? C. O que você ouviu? D. Os controles responderam como você esperava? E. Aconteceu algo estranho (travou, cortou, estalou, ficou lento)? Quando? F. Qualquer outra coisa.
+```
+
+### V31.7 What this half does NOT decide, and what the build half owes
+
+It builds nothing, pins no slot, names no hash, changes no constant, authorises no run, and predicts nothing about what the Operator will see or hear. The build half owes: the POC and its plan (V31.1's list), the record formats of V31.3 with host tests that drive the hand-off through underruns before and after the delimiter, the store sizing of V31.2 pinned by `tools/v28budget.py` and its test, the selection screen of V31.4, the two identical rebuilds, the audits, the frozen Operator text, and one adversarial review of the code. **The library default is untouched unless the build argues otherwise with its tests.**
