@@ -40466,3 +40466,97 @@ option D  hold the decision until an instrument that discriminates exists (a sam
 The choice changes `TARGET` in the runtime, which `U-GBP-045` prices; it is not made here. No runtime constant was changed by this ingestion.
 
 **Newly recorded (the archive).** The archived log records `CONTROL semantic orig=92` (a GBA cartridge in the slot, as the split predicts); with RUN 59's it takes the population to 70 logs (`GBP-HW-377`).
+
+
+### V29.12 RUN 59 EXECUTED AND INGESTED — with a Game Boy Color cartridge in the slot and the Issue #145 policy, the session ran to its witness target: PREUNMASK passed, 254 649 deliveries each acknowledged and re-armed, the frames closed at the GBA cadence, the audio counts as in a GBA session, the restore left bit `0x01` set, the keypad stayed idle; P1–P5 all held — 2026-09-30 (Issue #147, Hardware Run)
+
+*Appended. §V29.1–§V29.11 (the question, the variable, the write inventory, the readings, the gates, the candidate and its staging) stand; nothing in them is amended. The Operator's words were posted verbatim on Issue #147 BEFORE any figure was computed or shown to him (§V29.6); they are repeated here on their own axis, apart from the machine readings.*
+
+**Files and integrity.**
+
+```text
+raw drop    logs/run59/GBP-VIDEO-004_gbmode-0001{.log, -disp.bin, -full.bin, -idxcap.bin, -vi.bin}, the console's names; archived by run number to captures/local/GBP-VIDEO-004_gbmode-0001-run59{...}
+            log     91 601 B     sha256 f41971ef5a58a63106741b656a010067dd1c91a97680d9c1bddf0f87f2102369
+            disp    402 164 B    sha256 2a16140f6759a16e02034e261ca0978564f6c02e93a05afe3cc8255ac8211ba3
+            full    1 844 492 B  sha256 db2c85e9ec60824d5985359b30aedd32fa5e71995688afc76cd82cb1a83d6ded
+            idxcap  8 946 060 B  sha256 5687d3b34bf0763cb05c2625105f982231459779587e1f821e34c1466b471f3c
+            vi      152 716 B    sha256 79a97eee5ebe98fc84644028bbcd5861c7ac312ee6aa4dd3252b3145f6ae9ee7      (each archive copy read back equal to its original)
+header      test_id=GBP-VIDEO-004 build_id=gbmode-0001 commit=4d6fe06 (no -dirty), lines=690, dropped=0 truncated=0, `# --- end --- dropped=0`
+image       slot 27-gbmode, boot.dol e33115e3...a497 (§V29.10, §V29.11)
+reader      python3 tools/gbmode_read.py <log> --build gbmode-0001 --commit 4d6fe06, unedited, on the archive (the tool as frozen at 4d6fe06)
+Gecko       none: the Operator forgot to tell the Orchestrator ("esqueci de avisar do Gecko"); the SD log is the record
+order       the Operator ran RUN 59 BEFORE RUN 58, with a power cycle between them: "sim, rodei a 59 antes por ser mais rapida... mas fiz o power cycle" (Issue #147; OPERATOR OBSERVATION); the card's file times agree (06:06 against 06:15)
+```
+
+**The Operator's declaration and observations (OPERATOR OBSERVATION, verbatim, posted on Issue #147 before any figure).**
+
+```text
+A   (the same physical cartridge as the 22/09 tests?)   SIM
+    (power cycle before and after)                       SIM
+B   Piscou uns textos do fundo no boot, mas depois exibiu normalmente a imagem do jogo. Ela aparentou estar um pouco acelerada.
+C   Sim, reconheci
+D   Parecia resolucao nativa do GBA, só que no formato quadrado que ela tem nativamente (acho que 3:2)
+```
+
+**The reader's printed reading, as printed.**
+
+```text
+GBMODE READ (GBP-GBMODE-001)
+  GATE identity           PASS
+  GATE log_complete       PASS
+  GATE control_record     PASS
+  GATE gb_media_attested  PASS first at A1-500US
+  Q1_SERVICE    SERVICE_RAN_TO_TARGET deliveries=254649 acks=254649 rearms=254649
+  Q2_VIDEO      GBA_STRUCTURE closed=2403 complete=2383 incomplete=10 blocks/frame=39.98 qualified=1 (closure only: says nothing about the picture)
+  Q3_AUDIO      AUDIO_COUNT_AS_GBA audio=164732 ratio=1.715
+  Q4_RESTORE    RESTORE_HOLDS_BIT read-back 93 against original 92 ok=1
+  TOLERANCE     CONTROLTOL n=14 first_site=PREUNMASK first_vote=8f exp=8e restore=1
+  KEYPAD        IDLE_ONLY first=1 refresh=7872
+  fact bit0_snapshots                 20
+  fact strict_bit_snapshots_before_teardown []
+  fact witness_records                2048/2048 target_reached=1
+  fact episodes                       59
+  fact vstate_end                     status=ok_structured_change_observed stop=witness_target_reached teardown=S5_witness_target power_cycle_required=1
+  fact counters                       unmasks=254649 deliveries=254649 video=96076 audio=164732 control_ok=1
+  NOT COMPUTED HERE: what the Operator saw on the TV; his words are recorded verbatim, before any figure is shown to him.
+```
+
+**Scored against §V29.7's predictions and §V29.8's gates (the registered tokens, not rescued, not harshened).**
+
+| | registered | measured | |
+|---|---|---|---|
+| gates | identity, log complete, `orig=92 exp=8e`, GB media attested; cartridge declared; power cycle before and after; topology | all four reader gates PASS (identity is attested from the LOG only: the Operator did not report the on-screen build line) (bit `0x01` first read at snapshot A1-500US, 20 snapshots carry it before the teardown, none carries any other differing bit); A "SIM" (same physical cartridge as the 22/09 tests); power cycle "SIM" before and after; no topology change announced on Issue #147 | ADMISSIBLE |
+| P1 | Q1 = SERVICE_RAN_TO_TARGET | SERVICE_RAN_TO_TARGET: `PREUNMASK ok=1`, 254 649 unmasks, deliveries, acks and re-arms, `VSTATE end status=ok_structured_change_observed stop=witness_target_reached errors=0 transport_ok=1`, `control_ok=1` | HOLDS |
+| P2 | Q2 = GBA_STRUCTURE | 39.98 blocks per closed frame, incomplete 10, quarantined 0, anomaly 10, closed 2 403, witness qualified (`WITQUAL qualified=1`, `STREAMWIT 2048/2048`) | HOLDS (closure only) |
+| P3 | Q3 = AUDIO_COUNT_AS_GBA | 164 732 audio / 96 076 video = 1.715 | HOLDS (counts only) |
+| P4 | Q4 = RESTORE_HOLDS_BIT, CONTROLTOL first_site PREUNMASK | read-back 0x93 against original 0x92, `control_restore_ok=1`; `CONTROLTOL n=14 first_site=PREUNMASK first_vote=8f exp=8e restore=1 policy=bit0x01_only` | HOLDS |
+| P5 | KEYPAD = IDLE_ONLY | `INPUT key_changes=0 attempts=7873 completed=7873 failed=0 first=1 change=0 refresh=7872 last_word=0000` | HOLDS |
+
+**FACT (the readings, one boot).** With GB/GBC media in the slot (bit `0x01` was read set from the snapshot `A1-500US` on, which is 632 µs after the CONTROL write by the log's own `since_control`; the last 8e read is at 182 µs, so the bracket is 182-632 µs as in `GBP-HW-275`; `sem_vote=8f` at PREUNMASK) and the tolerance of bit `0x01` in the guards, PREUNMASK passed (`irq=0500/0500`, the family's usual state) and the AV service cycle ran to the witness target: 254 649 handler unmasks, 254 649 deliveries, each acknowledged (`IRQ := read | 0x8000`) and re-armed (`IRQ := 0`), the ISR's INTSR write-one-to-clear once per delivery, the whole-block AUDIO and VIDEO reads, and 7 873 keypad writes of the idle word (the first one and 7 872 refreshes), with no transport error, no failed write and no strict-bit change in any CONTROL snapshot before the teardown (**a limit of the image, §V29.7: CONTROL is snapshotted in the first four cycles only, `verify=4`, plus the teardown read-back**). **Every one of those writes and reads had never been made with GB media before** (§V29.5's inventory). What the log supports is that **no write failed and the next delivery arrived**; the device-side effect of the acknowledge is read back in cycles 0-3 only (POSTACK reads back 0x8000 with no pending source in cycles 0-2, and 8100 in cycle 3, which RUN 16 and 17 also show), the other 254 645 cycles verify nothing beyond `rc=ok` and `failed=0`, and the keypad's only evidence is `rc=ok` with `last_word=0000`. The INTMR and INTSR writes are GameCube-side (PI), not device writes. The four earlier GB boots (RUN 24, 27, 28, 29; `GBP-HW-276` for RUN 24, §V7.10 for the others) each ended at `PREUNMASK ok=0 reason=control_changed` with `unmasks=0`, i.e. at the runtime's OWN guard before any unmask, not at a refusal by the device: with the guard's one change, this boot did not stop there.
+
+**Descriptive readings, printed apart from the verdict tokens (NOT verdicts; no prediction rests on them).**
+
+- The same image family's four GBA and no-cartridge runs (RUN 16, 17, 18, 23) ended at 2 404 closed frames and 96 109-96 111 video blocks, 164 791-164 793 audio blocks, 254 722-254 746 deliveries; RUN 59 ends at 2 403, 96 076, 164 732 and 254 649: **one closed frame short, 0.03-0.04 % under, on each count** (33 video blocks under the lowest baseline are 0.8 of a 40-block frame). The frozen bands (§V29.7) accept it; the reading `GBA_STRUCTURE` is not a claim of identity with the four baselines, and four same-binary baselines cannot say whether the difference is the medium, the four changed sources' code layout (§V29.3) or run-to-run spread. **The log holds the proximate mechanism, descriptively:** the run stops at 2 048 witness records, and the witness began one frame earlier here (`qualify_frame=354`, `first_record_frame=355`, `warmup_disqualified=20`; 2 403 - 355 = 2 048) than in the four baselines (`qualify_frame=355`, `first_record_frame=356`, `warmup_disqualified` 24-26; 2 404 - 356 = 2 048), which accounts for one closed frame. Why the witness qualified a frame earlier is not read.
+- `STREAMSRC closed=2403 complete=2383 incomplete=10` against the baselines' `complete 2378-2380 incomplete 12-13`: three above and two under the four runs' observed range, inside the registered bands. `INTERVALS 30:1,34:4,37:1,38:4,40:2393` (no 33-block interval; the baselines carry one).
+- **The frame-close cadence, from the console's own time base** (the episode records' `t_open` / `t_close` over `open_frame` / `close_frame`, a machine reading of when frames CLOSED, not of what they show): 59.729 frames a second over the 56 frame intervals of episode 2 (57 frames) and 59.722 over the 32 intervals of episode 3 (33 frames), against 59.727-59.728 in the same records of RUN 16 and 17 (RUN 18 was not computed). Episode 1 (a 4-frame span) reads 59.699, a four-frame interval's own quantisation; the baselines' short episodes read likewise (RUN 23's 4-frame one 59.686). So the frames CLOSED at the same rate in this session as in the GBA ones. That is the expected reading (§V29.7: the AGB's frame rate is fixed) and it says nothing about the game's own speed.
+- **Episodes:** 59 (48 stable, 11 unstable) against 78 (RUN 16), 31 (RUN 17), 31 (RUN 18) and 9 (RUN 23): inside the family's spread. The number depends on what the cartridge displays and is printed by the reader as a fact, never a verdict; the episode signatures (`sig0` 80000000 in episodes 1-3 here; 7f0fff10 or 00000000 in the first episodes of RUN 17 and RUN 23) are different values, and what they MEAN is not read here.
+- **STOP and restore:** `IRQW tag=STOP before=0400 write=8eaa` (read OR 0x8aaa, as in the GBA runs' form); `CTLW tag=RESTORE semantic=92`, read back 0x93 (the bit set survives the restore write, the same as RUN 24, 27, 28, 29); `RESTORE control_restore_ok=1 irq_stop_write_ok=1 irq_stop_readback_ok=1 pi_cleanup_ok=1 arinfo_restore_ok=1`.
+
+**The Operator's words, on their own axis (OPERATOR OBSERVATION; nothing here is computed on them and no threshold of §V29.7 used them).**
+
+- **C, D.** He recognised the picture as Pokémon Crystal and describes it as "native GBA resolution, only in the square format it natively has (I think 3:2)". Set against the machine reading: Q2's `GBA_STRUCTURE` is **closure only**, so it neither confirms nor contradicts his description of the picture's geometry; the log carries no record of the presented geometry, and the sidecars were archived but **not read** by this ingestion (a later reading, not a verdict). His "3:2" is his own hedge ("acho") and is quoted, not measured.
+- **B, the flashing text.** "Piscou uns textos do fundo no boot" (some background text flashed at boot) before the game's picture: recorded. The log records nothing of what the screen showed, and this ingestion offers no explanation; one boot, one observer.
+- **B, unprompted: "Ela aparentou estar um pouco acelerada" (the picture seemed slightly sped up).** No frozen question asked it, and it is **not** read into Q1-Q4. The Operator did the isolating comparison himself (Issue #147, verbatim): the same Crystal, timed by hand from boot to one scene, **GBI 37.48 s, the Start-up Disc 37.57 s, our DOL 37.53 s**, and his own conclusion, **"foi impressão minha"** (it was my impression). These are HAND STOPWATCH figures, OPERATOR OBSERVATION and never timing evidence; the spread across the three, 0.09 s, is inside any hand-timing error, so the comparison **does not support** a speed difference and does not measure one either. The machine's own frame-close cadence above is equal to the GBA family's; that is a different quantity (when frames close, not what the game does with them) and it does not decide the impression either way. **What that comparison is and is not:** it ran GBI, the Start-up Disc and this DOL on the same Game Boy Player and the same cartridge; a speed difference inherent to GB mode on the Game Boy Player would be common to all three and could not show in it, and the handheld arm of the isolating comparison proposed on Issue #147 was not done. The record does not say whether the 37.53 s DOL boot was RUN 59's own or a separate boot, nor how the start of "boot" was defined for each of the three: both are unasked. The isolating comparison is left open; his own reading stands as he gave it.
+
+**What this run does NOT establish (§V29.8's own list, restated with the result in hand).**
+
+1. **What the picture is.** Q2 is closure; the Operator's C and D are his words; no offline decoding of the sidecars was done. A 3:2 picture at native resolution is his description, not a measurement.
+2. **GB-mode audio content.** Q3 counts blocks; whether the sound the AUDIO window carried is Crystal's sound, and whether it is correct, is not read (no listening was asked in §V29.6).
+3. **GB-mode input.** The keypad was held at the idle word; nothing about a pressed button, L or R (`GBC_PATH` 4.2), or the type-dependent behaviour of either reference (`GBP-CTL-003`, `GBP-KEY-011`) was exercised.
+4. **DMG against CGB, a second cartridge, the MBC3000.** One CGB title, one console, one Game Boy Player, one boot.
+5. **The meaning of bit `0x01` (`U-GBP-036`).** It was read set at the same point as in RUN 24, 27 and 29 (RUN 28's Everdrive first read it at `A2-500US`, a disjoint window, §V7.10.4) and read back set after the restore in all five GB-media boots; the RUN 25 and 26 GBA logs are not part of that set; what causes it is untouched, and it does not distinguish DMG from CGB.
+6. **What GBI's forced CONTROL bit `0x80` and skipped serial queue are FOR (`GBP-CTL-003`, site 1) is NOT tested by this run, and §V29.5's phrasing of it as a leading candidate that this image "does not copy" is imprecise: bit `0x80` was ALREADY SET in this image's CONTROL byte for the whole session** (the original 0x92 and the transform's 0x8e both carry it; every CONTROL read from the transform to the restore read-back was 0x8e, 0x8f or 0x93; the image never clears it; the last read of all, after the IRQ STOP word, reads 0x00 in this log and in RUN 17's GBA one). What differs from GBI is only that this image has no per-pass CONTROL rewrite and no serial-queue path, in every GBA session of the family too. Deliveries arrived with bit `0x80` set from the start; whether its value matters was not varied here, and what the rewrite and the queue are FOR remains unread.
+7. **Duration and stability.** One session of about 40 s from the CONTROL transform to the restore (40.35 s by the log's own time base; RUN 17's is 40.36 s; the 60 s is the safety cap); `episodes` and `store_full=1` are the family's usual, not a stability claim.
+8. **That the runtime's behaviour with GB media is equivalent to a GBA session.** Equal COUNTS are the expected reading even for a wrong picture (§V29.7); the four counts one frame short are unexplained and not claimed to be noise.
+
+**What it changes.** The E2 policy (bit `0x01` tolerated, seven other bits strict) was SUFFICIENT for the AV service to run with this medium IN THIS BOOT (one boot, not repeated): the earlier boots' abort was the guard's, and no ACK, re-arm, INTSR clear, whole-block read or idle keypad write failed. `PHASE7_ENTRY.md`'s next experiments (§6) are the Orchestrator's to order; nothing here authorises a second cartridge, a pressed button or L / R.
