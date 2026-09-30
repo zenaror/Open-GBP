@@ -19714,3 +19714,15 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `test_gbp_control_policy.c` (202 801 checks), the matrix in five families' unit tests, `test_control_policy_replay.py` (8), `test_phase7_entry.py`; the full gate is in the closeout on Issue #145.
 
 **Next.** E3, the first GB-mode picture, on an image built on this; RUN 58's ingestion first when it arrives.
+
+## 2026-09-29 — Issue #146: E3 built and pre-registered, not run (`HARDWARE_TESTS.md` §V29, `GBP-GBMODE-001`, RUN 59; `tools/gbmode_read.py`)
+
+**Goal.** The first physical GB-mode session past PREUNMASK, with ONE new variable (Issue #145's policy) and every write it makes inventoried, before anyone stages anything: RUN 58's ingestion goes first and the card is untouched.
+
+**Done.** The image is the stream-0015 POC unchanged, built by a new root Makefile variant target under its own build id (no POC edited or copied). The one-variable claim is checked, not asserted: the four linked sources that differ from stream-0015's commit are enumerated, their hooks are shown inert (the POC never sets the config members that gate them), and a differential run of both trees through the mock gives the same 3 443 device operations, the same log and the same result in a GBA scenario; with bit 0x01 held the old tree aborts at PREUNMASK and the new one makes exactly the GBA scenario's operations. The write inventory is recomputed from the logs: no IRQ ACK, re-arm, KEYPAD write, INTSR W1C in the service, or AV DMA read was ever made with GB media (every GB boot ended at PREUNMASK with `unmasks=0 attempts=0`). The reader, `tools/gbmode_read.py`, implements the rival readings before any data and is tested against the archive's own controls: the four GBA / no-cartridge runs read "GBA structure", the four aborted GB boots read "refused at PREUNMASK, policy absent".
+
+**Worth its own line.** Equal counts are the EXPECTED reading even if the picture is wrong, because a Game Boy program has the same frame rate: the reader says so in its own header, calls Q2 a reading about closure, and leaves the picture to the Operator's words, which it never computes on. Without that sentence a "GBA structure" reading would have been mistaken for "the picture is right".
+
+**Tests.** `test_gbmode_read.py`, `test_gbmode_image.py` (with `gbmode_optrace.c`), `test_gbmode_prereg.py`; the full gate is in the closeout on Issue #146.
+
+**Next.** The Orchestrator validates the pre-registration and opens the Hardware Issue; staging waits for RUN 58 to be run and archived.
