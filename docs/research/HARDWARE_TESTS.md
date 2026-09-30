@@ -40338,7 +40338,7 @@ pin / stage      NONE. tools/swiss-layout.tsv is untouched, no slot 27 exists, n
 
 ### V29.11 The candidate PINNED as `27-gbmode` and STAGED — 2026-09-30 (Hardware Issue #147; the Operator's own words on #147)
 
-**The Operator's words, verbatim — OPERATOR OBSERVATION (Issue #147, comment 5908149262):** *O cartao SD está conectado já... Pode copiar o DOL.* They amend the gate item that read "not before RUN 58 has been run and archived"; what stays is that **no other slot moves and RUN 58's image is not touched**. The raw names do not collide (RUN 58 writes `GBP-AUDIO-V28_v28-perceptual-0001*`, RUN 59 writes `GBP-VIDEO-004_gbmode-0001*`).
+**The Operator's words, verbatim — OPERATOR OBSERVATION (Issue #147, comment 5908149262):** *O cartao SD está conectado já... Pode copiar o DOL.* They amend the gate item that read "not before RUN 58 has been run and archived"; what stays is that **no other slot moves and RUN 58's image is not touched**. The raw names do not collide (RUN 58's are the V28 family's; RUN 59 writes `GBP-VIDEO-004_gbmode-0001*`).
 
 ```text
 layout     tools/swiss-layout.tsv row 27: 27 gbmode gbp-video-stream-probe gbp-video-stream-probe.dol gbp-video-stream-probe-gbmode gbmode-session 1 e33115e3...a497 (frozen at the hash of V29.10)
@@ -40348,5 +40348,5 @@ exemption  27-gbmode is the stream POC's own program under its own build id, so 
 export     python3 tools/swiss_export.py --root . --only 27-gbmode  -> build/swiss/27-gbmode/boot.dol (sha256 e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497)
 card       /media/rafael/SD_GC/Open-GBP/27-gbmode/boot.dol written and read back: sha256 equal to the build's, cmp equal. A sha256 of EVERY file under Open-GBP/ was taken before the write and after it:
            the ONLY difference is the new line for 27-gbmode/boot.dol (26 files before, 27 after); INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f); the other directories (aout) untouched
-verified   all 16 pinned slots on the card read back equal to their pins (12-stream ... 26-v28p, 27-gbmode); 26-v28p (RUN 58's image) byte-identical
+verified   all 16 pinned slots on the card read back equal to their pins (12-stream ... 27-gbmode); the slot staged for RUN 58 is byte-identical
 ```

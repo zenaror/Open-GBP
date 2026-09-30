@@ -157,7 +157,7 @@ class TheStagingRecord(unittest.TestCase):
         d = plain(read(HW)[read(HW).index("### V29.11"):])
         for w in ("O cartao SD está conectado já... Pode copiar o DOL.", "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497",
                   "the ONLY difference is the new line for 27-gbmode/boot.dol", "INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f)",
-                  "all 16 pinned slots on the card read back equal to their pins", "26-v28p (RUN 58's image) byte-identical", "ONE declared, named exemption"):
+                  "all 16 pinned slots on the card read back equal to their pins", "the slot staged for RUN 58 is byte-identical", "ONE declared, named exemption"):
             self.assertIn(w, d)
 
 
