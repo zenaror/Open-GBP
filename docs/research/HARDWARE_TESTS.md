@@ -40648,3 +40648,42 @@ GBMODE PICTURE (GitHub Issue #148)  GBP-VIDEO-004 / gbmode-0001 / 4d6fe06   8 re
 3. **The L / R stretch (`GBC_PATH.md` §4.2, E4).** No key was pressed. This decode is the BASELINE for that experiment: the unstretched picture is 160 x 144 at (40, 8) in a black border, so a stretch inside the AGB would change the box towards the whole frame and would add a period-3 column duplication that the tool finds.
 4. **Colour fidelity, timing, audio, input, or any second cartridge.** Eight frames, four of them mostly black, of one title, one boot.
 5. **The border's real extent.** Only its lower bound (above).
+
+
+### V29.14 PROCEDURAL DEVIATION — RUN 59 was executed BEFORE RUN 58, against the clearance's recommended order; recorded as a deviation, with the four items apart — 2026-09-30 (Issue #149; amendment on top of §V29.12)
+
+*Appended; §V29.12 stands and nothing in it is rewritten. Its `order` line and §V28.33's record the order as a plain fact; this amendment says it is a DEVIATION from the clearance, and is not to be read as compliant. **No new run is proposed. Neither run's verdict is changed by this amendment.** The direction below is the Operator's, quoted from Issue #149; the structure follows his list.*
+
+The Operator's direction, opening paragraph (verbatim, 2026-09-30; the rest of his direction is items 2 to 4 below and Issue #149): *"Registrar na ingestão do RUN 59 o desvio procedimental confirmado pelo Operator: apesar da ordem recomendada pelo clearance ser RUN 58 → RUN 59, o RUN 59 foi executado primeiro (mtimes: 06:06 para RUN 59 e 06:15 para RUN 58). Não tratar isso como se a ordem tivesse sido cumprida. Registrar explicitamente como procedural deviation."*
+
+**1. The observable fact.** RUN 59 (`gbmode-0001`, Game Boy Color cartridge) ran before RUN 58 (`v28-perceptual-0001`, GBA cartridge). The clearance on Issue #147 ("Order: RUN 58, then RUN 59, with each drop archived before the next boot") and the staging-gate amendment recommended the opposite order. The Operator confirmed it on #147 (OPERATOR OBSERVATION, verbatim): *"sim, rodei a 59 antes por ser mais rapida... mas fiz o power cycle"*. The card's file times read 06:06 (RUN 59) and 06:15 (RUN 58) (metadata written by the console's clock). The logs' own time bases (epoch 2000-01-01, 40.5 MHz) put RUN 59's teardown at 09:06:17 and RUN 58's first phase at 09:10:52; RUN 58's teardown is at 09:15:24. The card's FAT stamps read 06:06 and 06:15, three hours earlier on the same console (the cause is not established, and no claim is made about which clock is right). The two console-side clocks are therefore NOT an independent check of each other; the host directories `logs/run59` and `logs/run58` were last written at 09:07:38 and 09:16:34 (-0300, the host's clock), which agree with the time-base values and with the order, and put RUN 59's drop on the host before RUN 58's first phase began. That is consistency, not proof, and the order conclusion does not depend on any of it.
+
+**2. The mitigation.** The power cycle was declared before and after RUN 59 (§V29.6 item A and the two confirmations, "SIM" / "SIM", Issue #147) and he wrote "mas fiz o power cycle" on the order of the runs; that there was a power cycle BETWEEN the two runs follows from that plus the order and is recorded as such in §V28.33, not as his words. The two drops are distinct: RUN 59 wrote `GBP-VIDEO-004_gbmode-0001{.log, -disp.bin, -full.bin, -idxcap.bin, -vi.bin}`, RUN 58 wrote `GBP-AUDIO-V28_v28-perceptual-0001.log`; the archived hashes equal the originals in both (§V28.33, §V29.12). The Operator's stated grounds for not invalidating either run are the same three: the power cycle, the distinct drops, and no indication of an artefact collision.
+
+**3. The consequence actually demonstrated: what was checked, and what was found.** The two archived logs were checked for a concrete sign of contamination. Found: **none.**
+
+```text
+CHECK                                   RESULT
+artefact collision                      none: the raw names and the sidecar names are distinct; the originals under logs/run58 and logs/run59 hold only their own files
+a stale file                            none seen: each archive copy equals its original by sha256 and cmp; each header reads lines= and dropped=0 truncated=0, and `# --- end --- dropped=0` is present in RUN 59's
+identity mismatch                       none: RUN 58's header and IDENT read build v28-perceptual-0001, commit 22d0328, app gbp-audio-v28-perceptual_no_phase1; RUN 59's read gbmode-0001, 4d6fe06, gbp-video-stream-probe
+device state carried into RUN 58        none seen: RUN 58 reads `CONTROL semantic orig=92 exp=8e` (RUN 59 left the read-back at 0x93 with bit 0x01 set, and a session that started with that bit
+                                        would be expected to read 0x93); no CONTROL read of RUN 58 carries bit 0x01 (25 reads: 92 x2, 8e x23; plus the final 00), the same distribution as RUN 57's
+                                        (the previous run of the same image family, GBA cartridge: 92 x2, 8e x23, 00); `PREUNMASK ok=1 control=8e irq=0500/0500`, `IRQW A1 before=8aaa`, `IRQW A2 write=0000`
+                                        and the PI state at PREUNMASK read as in RUN 57
+DSP control status                      no carry-over of RUN 59's value: every `dspcr=` of RUN 58 reads 0814 (86 of 86), as in RUN 57 (RUN 59 reads 0804 in all 86 of its own; the 0804 / 0814 split is the two image
+                                        families, not carried state); `ARINFO orig value=0043` is identical in RUN 57, 58 and 59; the header's `gecko=0` in RUN 58 is the missing Gecko capture already recorded in §V28.33
+RUN 58's first 140 records against RUN 57's   compared after normalising the time-derived fields and the raw data bytes: the differences are the identity, configuration and session-length lines, poll counts,
+                                        timing durations (read, wait and handler latencies), and ONE state-like record: the PI status at `UNMASKPOST-1` reads bit 13 set (intsr=00012000) in RUN 58 and clear (00010000) in RUN 57,
+                                        with the unmask call returning in 15 ticks against 225. That does not by itself indicate carried state: bit 13 is set in 3 of the 10 runs of the family that have the record
+                                        (RUN 55, 56 and 58; RUN 55 and RUN 56 ran before RUN 59 existed), clear in RUN 50-54, 57 and 59 (dt_post 20-241; the tick count does not separate the groups)
+```
+
+**What the checks can and cannot see.** They see the two logs and the archived files. They cannot see the console's physical state between the runs (thermal state, the cartridge swap between Pokémon Crystal and Yoshi's Island, how the Game Boy Player's state settles after a power cycle beyond what the CONTROL and IRQ reads show), and the RUN 58 audio behaviour has no counterpart in RUN 59 to compare.
+
+**4. What is NOT concluded.** That no consequence was demonstrated is **not** written as "the order is irrelevant": the checks above are limited to what two logs can show, and the checks do not test whether the recommended order (the clearance: "each drop archived before the next boot") mattered. It is **not** written as "the run is invalidated" either: RUN 59 and RUN 58 stand as ingested, and this amendment does not re-decide admissibility. Neither run's verdict, token or score changes; no repetition is proposed. If a later reading finds concrete evidence of contamination between the runs, it is reported on its own Issue before any repetition is considered.
+
+
+### V28.34 Cross-reference (Issue #149): §V28.33's `order` line records a PROCEDURAL DEVIATION, not a compliant order — 2026-09-30
+
+§V28.33's `order` line (RUN 59 before RUN 58, with a power cycle between) is a deviation from the clearance's recommended order and is NOT to be read as compliant; it is classified in §V29.14 (amendment on top of §V29.12), which found no demonstrated contamination and concludes neither "order irrelevant" nor "run invalidated". RUN 58 is not reclassified here.

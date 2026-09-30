@@ -19781,3 +19781,8 @@ The Operator amended the staging gate himself ("O cartao SD está conectado já.
 **Tests executed.** `tests/host/test_gbmode_picture.py`.
 
 **Next highest-value experiment.** E4 (`GBC_PATH.md` §4.2): a pressed L or R changes the box towards the whole window if the AGB stretches; the tool reads it. It is a new variable and the Orchestrator's to order.
+
+
+## 2026-09-30 — Issue #149: the RUN 59 → RUN 58 run order recorded as a procedural deviation (`HARDWARE_TESTS.md` §V29.14, cross-reference §V28.34)
+
+The Operator's direction quoted verbatim; the four items kept apart (the observable fact; the mitigation: power cycle before and after, distinct drops; the consequence demonstrated: the two logs checked, no contamination found, the limits of the check stated; what is NOT concluded: neither "order irrelevant" nor "run invalidated"). No verdict changed, no run proposed. `tests/host/test_run_order_deviation.py` recomputes the log checks from the archive.
