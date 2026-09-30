@@ -45,6 +45,7 @@ GB_RUNS = ["GBP-VIDEO-004_stream-0015-run24.log", "GBP-VIDEO-004_stream-0015-run
 # Issue #147: RUN 59 (gbmode-0001) is the first GB-mode session run under the E2 policy: its CONTROL snapshots carry bit 0x01, so the pre-policy verdict differs by design.
 # It is named apart, not swept into GB_RUNS (those four aborted at PREUNMASK; this one did not).
 GB_SESSION_RUN = "GBP-VIDEO-004_gbmode-0001-run59.log"
+GB_SESSION_RUNS = (GB_SESSION_RUN, "GBP-VIDEO-004_gbmode-0001-run60.log")     # Issue #152: RUN 60 is the same image, a second boot
 
 
 def read(p):
@@ -142,7 +143,7 @@ class TheGbaArchiveIsUnchanged(unittest.TestCase):
         findings = []
         for p in logs:
             name = os.path.basename(p)
-            if name in GB_RUNS or name == GB_SESSION_RUN:
+            if name in GB_RUNS or name in GB_SESSION_RUNS:
                 continue
             rec = parse_log(p)
             if rec["exp"] is None or not rec["snaps"]:

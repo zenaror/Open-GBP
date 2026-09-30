@@ -235,7 +235,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #142 (2026-09-30): RUN 58, the perceptual image, a GBA cartridge
                  "GBP-AUDIO-V28_v28-perceptual-0001-run58.log": "92",
                  # Issue #147 (2026-09-30): RUN 59, gbmode-0001, a Game Boy Color cartridge (Pokemon Crystal)
-                 "GBP-VIDEO-004_gbmode-0001-run59.log": "92"}
+                 "GBP-VIDEO-004_gbmode-0001-run59.log": "92",
+                 # Issue #152 (2026-09-30): RUN 60, gbmode-0001 again (E4, the L / R stretch), the same Game Boy Color cartridge
+                 "GBP-VIDEO-004_gbmode-0001-run60.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -289,7 +291,7 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         self.assertEqual(len(v28), 9, sorted(v28))
         # Issue #147: RUN 59 (gbmode-0001) is the stream POC under its own build id; named apart
         gbmode = {f for f in cart if "gbmode-0001" in f}
-        self.assertEqual(len(gbmode), 1, sorted(gbmode))
+        self.assertEqual(len(gbmode), 2, sorted(gbmode))     # RUN 59 and RUN 60 (Issue #152): the same image, two boots
         self.assertTrue(all(re.search(r"(color|stream)", f)
                             for f in cart - play - drain - live - trace - split - game - game2 - sync - v28 - gbmode))
 

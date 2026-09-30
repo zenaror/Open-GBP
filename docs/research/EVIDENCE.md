@@ -12243,3 +12243,47 @@ the family's tools         vfull analyse exit 2 INCONCLUSIVE (STRIP-L inconsiste
 **OPERATOR OBSERVATION (D, verbatim, set beside the decode after it existed).** "Parecia resolucao nativa do GBA, só que no formato quadrado que ela tem nativamente (acho que 3:2)". It is consistent with the decode's unscaled 160 x 144 picture in black bars (his observation is of the screen after the host's scaling: consistency, not a check); "quadrado" fits the picture (10:9) and "3:2" fits the window (3:2), so the sentence is not decided by the decode.
 
 **Status.** FACT for the decode; no retail picture is in the repository (renders only under `build/analysis/`, ignored). This entry promotes nothing into `docs/hardware/` or `docs/protocol/`.
+
+
+### GBP-HW-380 — RUN 60 (`GBP-GBMODE-002`, E4, the L / R stretch in GB mode): after a KEYPAD word carrying L the delivered window holds the GB picture 240 pixels wide instead of 160 (the height unchanged, 144 rows at y 8..151), after R it holds 160 x 144 again, after L again 240 wide, and the change outlasts the release of L; the reader says CHANGED — FACT (the readings, one boot, one console, one Game Boy Player, one cartridge); INFERENCE (an interpolating horizontal scale; that the AGB, and not another part of the device, does it); UNKNOWN (toggle against set / clear, a vertical change, the audio, DMG against CGB, another title)
+
+GitHub Issue #152 (Hardware Run; ingestion under the same Issue). **Input:** `logs/run60/GBP-VIDEO-004_gbmode-0001.log`, 92 364 B, sha256 `ecb1f6b4d66d923fd9f2b4555f880e0fd4bea1e88a98ea9840e96bcd9328de3e`, archived by run number with its four sidecars and the Orchestrator's Gecko capture (`GECKO-GBP-VIDEO-004-run60.txt`, 3 178 B, ending on `OPENGBP-STREAM DONE`) to `captures/local/` (hashes in `HARDWARE_TESTS.md` §V30.11); the UNCHANGED image `gbmode-0001` at `4d6fe06` (slot 27, `e33115e3…a497`); the Operator's original Pokémon Crystal (JP), declared the same physical cartridge as RUN 59; Link Port empty (procedure); power cycle before and after declared. Read with `tools/gbmode_e4_read.py` (the reader frozen at `58776e2`) and `tools/gbmode_read.py`, unedited. Pre-registration: §V30; full record and scoring: §V30.11.
+
+```text
+KEY records         6, none failed: the idle first record; L down (word 0x0100) at +20.44 s after the CONTROL transform, up +22.57; R down (0x0200) +29.75, up +32.55; L down +38.22, no release
+                    recorded (the run ended at +40.35; last_word=0100). Every write rc=ok. No other KEYPAD bit.
+gates               identity, log_complete, control_record (orig=92 exp=8e), gb_media_attested: PASS. The run's health (gbmode_read): SERVICE_RAN_TO_TARGET 254 646 deliveries, GBA_STRUCTURE, AUDIO_COUNT_AS_GBA,
+                    RESTORE_HOLDS_BIT; KEYPAD reads DEVIATION only because the word was not idle (the presses).
+legible windows     identical to RUN 59's frame for frame: 355..373, 1192..1321, 1622..1918, 2245..2375 (the intro's timeline reproduced at the second boot)
+cells               L|after:    (L held, window B)            68 legible frames, 68 leak   STRETCHED
+                    -|after:L   (nothing held, window C)      118 legible frames, 118 leak STRETCHED     the change OUTLASTS the release of L
+                    R|after:L   (R held, window C)            107 legible frames, 0 leak   NOT_STRETCHED
+                    L|after:LR  (L held again, window D)      70 legible frames, 70 leak   STRETCHED
+verdict             CHANGED. Consistent registered readings: BOTH_TOGGLE only.
+the aligned series  strong-leak frames 1214..1321, 1622..1769, 2277..2375: each starts at the first delivered frame after the KEY write of an L (frames at +8.4 ms and +21.6 ms after t_done; the frame at +4.8 ms
+                    before the second L was not yet changed) and ends at the frame before the KEY write of an R (the last strong frame at -8.7 ms, the first clean one at +8.0 ms). Leak in the border COLUMNS only
+                    (1 393 to 1 404 of 1 560 words in every strong frame), 0 in the border ROWS in EVERY frame of the run.
+the samples         on the 15 colour bits samples 0-4, 6 and 7 are PIXEL-IDENTICAL to RUN 59's (the game's picture is deterministic between the boots, and a dark frame shows no stretch); sample 5 (frame 1635, after L)
+                    differs in 17 408 pixels: its non-border region is x 0..239, y 8..151 = 240 x 144; 21 distinct words against RUN 59's 11 for the same source frame; no forced-equal pixel phase.
+                    sample 6 (frame 1891, R held) is 160 x 144 at (40, 8), identical to RUN 59's sample 6.
+```
+
+**What it establishes, for the code and the boot.** Each of the three presses was followed, within two frame periods of the write returning, by a change in the delivered window that RUN 59's window never showed (RUN 59: not one word outside the baseline rectangle in 2 048 frames; this run's own pre-press frames: 41 legible, 0 leak): L widens the picture to the whole 240-pixel width, R returns it to the baseline, and the state outlasts a release. **The reach is shown by the effect** (§V30.4: only a CHANGE is unambiguous): the written word acted in GB mode. The widened frame is RUN 59's frame of the same scene scaled horizontally by 1.5 (160 to 240) with the height unchanged: 92.9 % of its pixels equal the nearest source pixel, and the other 7.1 % (2 442 pixels) carry ten colour words that RUN 59's frame does not, each within one step per 5-bit channel of a weighted mix of two of RUN 59's colours, with no duplicated-pixel phase; a pixel-centre linear model matches 98.8 % of the pixels within one step (85.0 % exactly): consistent with an INTERPOLATING scale whose kernel is not identified. Nothing in the stream POC reacts to L or R (§V30.3), so the change comes from the far side of the window; that the AGB itself does it is one of two readings (the AGB, or the device between it and the window) and is NOT separated here.
+
+**What it does not establish.** (1) Toggle against set / clear: the registered `BOTH_TOGGLE` is the only listed reading consistent, and an UNLISTED reading (L sets the widened picture, R clears it) predicts the same four cells for the sequence L, R, L; a sequence with L twice in a row separates them and was not run. (2) A vertical change: none was seen (the border rows stayed black); the strip cannot see a change that keeps the non-black pixels inside the rectangle. (3) What the television showed; the interpolation kernel; the audio (the image drains it); DMG against CGB; another title; a pad other than the Operator's. (4) Any explanation of the GBI / Disc divergence (`GBP-KEY-011`): the Disc forwards L and R, GBI clears them in GB type; that GBI implements its own scaling instead is a HYPOTHESIS this run neither supports nor refutes.
+
+**OPERATOR OBSERVATION (verbatim, recorded before any figure, set beside the reading after it existed; nothing here reconciles either toward the other).** B "mesma coisa da run anterior"; C "o mesmo comportamento do GBA, L estica a tela e R volta a ser quadrado"; D "nao"; E "nada a declarar... apenas que esta sem som mesmo" (on its own axis: the stream image drains the audio window and does not play it).
+
+**Status.** FACT for the readings (one boot); this entry promotes nothing into `docs/hardware/` or `docs/protocol/`.
+
+### GBP-HW-381 — GBP-HW-272's CLAIM 1 recomputed over 71 logs (RUN 60 adds one cartridge-present log, `0x92`): 13 at `0x90`, 58 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-377`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 60 (`gbmode-0001-run60`, Issue #152, a Game Boy Color cartridge, the same image as RUN 59) records `orig=92`, as the split predicts. Before it the population was 70 logs, 13 at `0x90` and 57 at `0x92`; after it, it is **71: 13 at `0x90` and 58 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched. The log also reads bit `0x01` set in its CONTROL snapshots, as RUN 59's did; that is `GBP-HW-378`'s and `GBP-HW-380`'s business and does not enter this count.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     58 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.

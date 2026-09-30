@@ -41027,3 +41027,113 @@ O QUE VOCÊ VIU E OUVIU (com as suas palavras; eu registro literalmente ANTES de
 ### V31.7 What this half does NOT decide, and what the build half owes
 
 It builds nothing, pins no slot, names no hash, changes no constant, authorises no run, and predicts nothing about what the Operator will see or hear. The build half owes: the POC and its plan (V31.1's list, including the readers), the record formats of V31.3 with the host tests it names, the store sizing of V31.2 pinned by `tools/v28budget.py` and its test, an `ENVMEM` record so the store bound is finally measured on this chassis, the selection screen of V31.4, the two identical rebuilds, the audits, the frozen Operator text, and one adversarial review of the code. **The library default is untouched unless the build argues otherwise with its tests.**
+
+### V30.11 RUN 60 EXECUTED AND INGESTED — after a KEYPAD word carrying L the delivered window holds the GB picture 240 pixels wide (height unchanged), after R 160 x 144 again, after L 240 wide again, and the change outlasts the release of L; the reader's verdict is CHANGED; the Operator's C is set beside it, reconciled toward neither — 2026-09-30 (Issue #152, Hardware Run)
+
+*Appended. §V30.1-§V30.10 (the pre-registration, the reader, the frozen Operator text) stand; nothing in them is amended. The Operator's words were posted verbatim on Issue #152 BEFORE any figure was computed or shown to him; they are repeated below and set beside the reading only after it existed.*
+
+**Files and integrity.**
+
+```text
+raw drop    logs/run60/GBP-VIDEO-004_gbmode-0001{.log, -disp.bin, -full.bin, -idxcap.bin, -vi.bin} (the console's names, the same as RUN 59's), archived by run number to captures/local/GBP-VIDEO-004_gbmode-0001-run60{...}
+            log     92 364 B      sha256 ecb1f6b4d66d923fd9f2b4555f880e0fd4bea1e88a98ea9840e96bcd9328de3e
+            disp    401 644 B     sha256 688be42f2d775cb1fa2057d036a718b776be616882ab55e06a212447352fc2e7
+            full    1 844 492 B   sha256 0bc39cc4e9c57e639ad13b3dcc55f60eee0527b33407ca7fdb15dea224539ed8
+            idxcap  8 946 060 B   sha256 7f6bd50be574b5c657dcb322f5b667288c00e6689d3514ea8813ac5eb12ea1c9
+            vi      152 716 B     sha256 757627aa056e5023e264a6fdcb705822e35c6fcc50b6cb55ef0bd44bc5e307a6      (each archive copy read back equal to its original)
+gecko       captures/local/GECKO-GBP-VIDEO-004-run60.txt   3 178 B   sha256 f8b11c51ecb4c7715db891938bf9e8eb45c785d4493cecb81df1511e12c37da0, the Orchestrator's capture: it begins with Swiss's boot text,
+            ends on `OPENGBP-STREAM DONE` and carries `AVESIDECAR rc=8946060 ... records=2048`; the by-id node was /dev/ttyACM0 before and after (Issue #152)
+image       gbmode-0001, commit 4d6fe06, slot 27-gbmode, boot.dol e33115e3...a497: UNCHANGED from RUN 59 (§V29.10); the log's IDENT agrees; header lines=695 dropped=0 truncated=0, `# --- end --- dropped=0`
+readers     python3 tools/gbmode_e4_read.py <log> <idxcap> --full <full> --build gbmode-0001 --commit 4d6fe06 (frozen at 58776e2) and tools/gbmode_read.py, both unedited, on the archive (the output equals the one on the originals)
+```
+
+**The Operator's declaration and observations (OPERATOR OBSERVATION, verbatim, posted on Issue #152 before any figure).**
+
+```text
+A   (the same physical Crystal as RUN 59?)             sim         (power cycle before and after: sim e sim)
+B   (what appeared on the TV, in order)                mesma coisa da run anterior
+C   (before, during and after each of the three presses L, R, L)      o mesmo comportamento do GBA, L estica a tela e R volta a ser quadrado
+D   (anything different from what the steps asked)     nao
+E   (anything else)                                    nada a declarar... apenas que esta sem som mesmo
+```
+
+*E is on its own axis: the stream image drains the AUDIO window and does not play it; whether his remark says anything beyond that is not inferred here.*
+
+**The reader's printed reading (`tools/gbmode_e4_read.py`), as printed.**
+
+```text
+GBMODE E4 READ (GitHub Issue #151)
+  GATE identity             PASS
+  GATE log_complete         PASS
+  GATE control_record       PASS
+  GATE gb_media_attested    PASS first at A1-500US
+  KEY records 6 (failed writes 0); L / R presses: L down 7973a12f08b5fa up 7973a1343071af, R down 7973a14581b9f9 up 7973a14c45d2c6, L down 7973a159f7242b up never
+  other KEYPAD bits written: none
+  frames 2048, legible 577, leak frames 355, partial-leak frames 11, legible transition frames excluded 194
+  own baseline before the first press: 41 legible frames, 0 leak frames; stray leak frames after it (in no evaluated cell): 110
+  RUN 59's legible windows after the first press: 536 frames, 0 of them dark here (a shifted timeline and a change that darkens the strip words inside the rectangle are NOT separable)
+  CELL -|after:         legible frames   19  leak    0  partial   0   INSUFFICIENT
+  CELL -|after:L        legible frames  118  leak  118  partial   0   STRETCHED
+  CELL -|after:LR       legible frames    1  leak    0  partial   0   INSUFFICIENT
+  CELL L|after:         legible frames   68  leak   68  partial   0   STRETCHED
+  CELL L|after:LR       legible frames   70  leak   70  partial   0   STRETCHED
+  CELL R|after:L        legible frames  107  leak    0  partial   0   NOT_STRETCHED
+  CONSISTENT rival readings: BOTH_TOGGLE
+  SAMPLE 0 frame 355 cell -|after:       box (40, 8, 199, 151) size (160, 144) outside-is-border True
+  SAMPLE 1 frame 611 cell -|after:       box (110, 70, 129, 82) size (20, 13) outside-is-border True
+  SAMPLE 2 frame 867 cell -|after:       box (80, 44, 159, 102) size (80, 59) outside-is-border True
+  SAMPLE 3 frame 1123 cell -|after:       box (83, 43, 156, 116) size (74, 74) outside-is-border True
+  SAMPLE 4 frame 1379 cell -|after:L      box None size None outside-is-border True
+  SAMPLE 5 frame 1635 cell -|after:L      box (0, 8, 239, 151) size (240, 144) outside-is-border True
+  SAMPLE 6 frame 1891 cell R|after:L      box (40, 8, 199, 151) size (160, 144) outside-is-border True
+  SAMPLE 7 frame 2147 cell -|after:LR     box (131, 92, 139, 103) size (9, 12) outside-is-border True
+  VERDICT CHANGED
+  NOT COMPUTED HERE: what the Operator saw; whether a NOT_STRETCHED cell means 'no stretch' or 'the word never reached the AGB in GB mode' (the two are not separable by this image).
+```
+
+**The run's health (`tools/gbmode_read.py`), as printed.**
+
+```text
+GBMODE READ (GBP-GBMODE-001)
+  GATE identity           PASS
+  GATE log_complete       PASS
+  GATE control_record     PASS
+  GATE gb_media_attested  PASS first at A1-500US
+  Q1_SERVICE    SERVICE_RAN_TO_TARGET deliveries=254646 acks=254646 rearms=254646
+  Q2_VIDEO      GBA_STRUCTURE closed=2403 complete=2383 incomplete=10 blocks/frame=39.98 qualified=1 (closure only: says nothing about the picture)
+  Q3_AUDIO      AUDIO_COUNT_AS_GBA audio=164732 ratio=1.715
+  Q4_RESTORE    RESTORE_HOLDS_BIT read-back 93 against original 92 ok=1
+  TOLERANCE     CONTROLTOL n=14 first_site=PREUNMASK first_vote=8f exp=8e restore=1
+  KEYPAD        DEVIATION non-idle word(s): key_changes=5 change=5 last_word=0100 failed=0
+  fact bit0_snapshots                 20
+  fact strict_bit_snapshots_before_teardown []
+  fact witness_records                2048/2048 target_reached=1
+  fact episodes                       58
+  fact vstate_end                     status=ok_structured_change_observed stop=witness_target_reached teardown=S5_witness_target power_cycle_required=1
+  fact counters                       unmasks=254646 deliveries=254646 video=96076 audio=164732 control_ok=1
+  NOT COMPUTED HERE: what the Operator saw on the TV; his words are recorded verbatim, before any figure is shown to him.
+```
+
+**Scored against §V30's tokens and gates (the registered rules, not rescued, not harshened).**
+
+| | registered | measured | |
+|---|---|---|---|
+| gates | identity, complete log, `orig=92 exp=8e`, GB media attested; the same cartridge declared; power cycle before and after; no stale file | all four reader gates PASS; A "sim"; power cycle "sim e sim"; the card held no `GBP-VIDEO-004_gbmode-0001*` file before the boot (the Orchestrator verified it, Issue #152) | ADMISSIBLE |
+| health | the run reads as RUN 59 was read | SERVICE_RAN_TO_TARGET (254 646 deliveries), GBA_STRUCTURE, AUDIO_COUNT_AS_GBA, RESTORE_HOLDS_BIT; KEYPAD `DEVIATION` because the word was not idle (the three holds, the last one never released) | HOLDS |
+| word sent | a KEY write with bit 8 or 9 and `rc=ok` | L 0x0100 twice, R 0x0200 once, six KEY records, none failed, no other bit | SENT |
+| baseline | no leak before the first press | the run's own pre-press legible frames: 41, leak 0 (RUN 59's window: 0 in all 2 048 frames) | CLEAN |
+| verdict | CHANGED when a press-state cell is STRETCHED | `L|after:` 68 of 68, `-|after:L` 118 of 118, `L|after:LR` 70 of 70 STRETCHED; `R|after:L` 0 of 107 | **CHANGED** |
+
+**FACT (the readings, one boot).** The four legible windows of RUN 59's timeline recur at the second boot frame for frame (355..373, 1192..1321, 1622..1918, 2245..2375), so the schedule's premise held. In each of them the strip carries the change as follows: with L down the border COLUMNS of the strip fill (1 393 to 1 404 of the 1 560 words in every strong frame; the strip sees only x 1..54, so it shows the LEFT border, and sample 5 shows the full 240-pixel width) and the border ROWS never do (0 in every frame of the run); the change begins at the first delivered frame after the KEY write returned (+8.4 ms and +21.6 ms after `t_done` for the two L presses, the frame at +4.8 ms before the second not yet changed), persists through the release of L (the cell `-|after:L`, 118 legible frames, all strong, including window C's first frames 1622..1769, 4.7 s after the release), ends at the frame before the KEY write of the R (the last strong frame at -8.7 ms, the first clean at +8.0 ms) and stays gone through the R's release; the second L brings it back (first strong frame +21.6 ms). The samples: on the 15 colour bits samples 0, 1, 2, 3, 4, 6 and 7 are pixel-identical to RUN 59's, and sample 5 (frame 1635, in the persisted-after-L state) differs in 17 408 pixels: its non-border region is x 0..239, y 8..151 = **240 x 144**, RUN 59's is 160 x 144 at (40, 8). Sample 6 (frame 1891, R held) is 160 x 144 at (40, 8), identical to RUN 59's.
+
+**Descriptive (not a verdict).** The widened sample 5 is RUN 59's sample 5 scaled horizontally by 1.5 with the height unchanged: 92.9 % of its pixels equal the nearest source pixel, and the other 7.1 % (2 442 pixels) carry ten colour words that RUN 59's frame does not, each within one step per 5-bit channel of a weighted mix of two of RUN 59's colours (21 distinct words against 11), with no duplicated-pixel phase; a pixel-centre linear model matches 98.8 % of the pixels within one step and 85.0 % exactly. **INFERENCE:** an interpolating horizontal scale, its kernel not identified.
+
+**How the schedule was performed against the pre-registered text (a recorded difference, not a void).** The KEY record puts the presses at +20.44 s (0.37 s after window B began), +29.75 s (2.48 s after window C began) and +38.22 s (0.52 s after window D began): holds started AT the scenes' onsets and the last L pressed at window D, held to the end of the run (no release recorded; `last_word=0100`; the run ended at about +40.35 s). The frozen text of §V30.9 (commit 58776e2) has the first L start when the logo text leaves the screen and the last L start straight after the R's release; which text was relayed to the Operator is the Orchestrator's record, not read here. The cells reached 68, 118, 107 and 70 legible frames, above the 40-frame floor, so the reading was not affected: §V30.3's robustness replay covered first-L presses at 15.0-19.9 s (90 to 110 frames); a press 0.37 s AFTER the window began, as here, leaves 68.
+
+**The Operator's C, set beside the reading AFTER it existed; neither is reconciled toward the other.** His "L estica a tela": with L the window carries the picture 240 pixels wide instead of 160 (the reading says nothing of "a tela", the screen, which is downstream of the host's scaling). His "R volta a ser quadrado": with R the window carries 160 x 144 again (10:9, nearly square; the reading says nothing of his word "quadrado"). His "o mesmo comportamento do GBA" is his comparison with what he remembers of the Start-up Disc / GBA-mode use, a recollection this record does not evaluate. B ("mesma coisa da run anterior") and D ("nao") add nothing to the reading; E is on its own axis (above).
+
+**What this run establishes, and what it does not.**
+
+1. **Established (FACT, one boot):** a KEYPAD word carrying L, written by Open-GBP's own input path with GB media in the slot, is followed within two frame periods by a delivered window that carries the GB picture 240 pixels wide instead of 160 (height unchanged), and R by the baseline again; the change outlasts the release of L. **The reach of the word is shown by the effect** (§V30.4: only a CHANGE is unambiguous): the write acted in GB mode.
+2. **Not established.** (a) **Toggle against set / clear.** `BOTH_TOGGLE` is the only registered reading consistent with the four cells; an UNLISTED reading, "L sets the widened picture, R clears it", predicts the same cells for the sequence L, R, L; L twice in a row (or R twice) separates them and was not run. (b) **Who does it:** nothing in the stream POC reacts to L or R (§V30.3), so the change comes from the far side of the window; that the AGB itself does it is one of two readings (the AGB, or the device between the AGB and the window) and the strip cannot separate them. (c) A vertical change: none was seen in the strip; a change that keeps every non-black pixel inside the rectangle is invisible to it (§V30.3 limit 3), and only sample 5 was a legible full frame in the changed state. (d) What the television showed; the interpolation kernel; the audio; DMG against CGB; a second title; another pad; whether holding matters (every press was a hold of 2 s or more). (e) The GBI / Disc divergence (`GBP-KEY-011`): the Disc forwards L and R, GBI clears them in GB type; that GBI implements its own scaling instead is a HYPOTHESIS this run neither supports nor refutes.
+3. **The AGB-does-the-stretch reading** stays a HYPOTHESIS: this run shows the window changes with the key, not which part of the device changes it.
