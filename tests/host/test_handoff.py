@@ -210,8 +210,7 @@ class Baseline(unittest.TestCase):
 class AgentsFile(unittest.TestCase):
     """AGENTS.md is the SINGLE normative source of project instructions.
 
-    Issue #150 (2026-09-30): the Operator merged CLAUDE.md into AGENTS.md and removed CLAUDE.md, with no stub ("o arquivo claude.md nao existe mais... agora esta unificado
-    tudo no AGENTS.md"). That decision SUPERSEDED the earlier two-file design these tests used to pin: AGENTS.md as a short "door" of fewer than 200 lines that pointed at a
+    Issue #150 (2026-09-30): the Operator merged CLAUDE.md into AGENTS.md and removed CLAUDE.md, with no stub ("o arquivo claude.md nao existe mais... agora esta unificado tudo no AGENTS.md"). That decision SUPERSEDED the earlier two-file design these tests used to pin: AGENTS.md as a short "door" of fewer than 200 lines that pointed at a
     CLAUDE.md holding the policy. The door rule is gone on purpose; the pins below are the single-source design's.
     """
 
@@ -234,7 +233,10 @@ class AgentsFile(unittest.TestCase):
         """The 47 sections carry the permanent policies the old CLAUDE.md held (the map is in docs/HANDOFF.md)."""
         text = read(AGENTS)
         heads = re.findall(r"^# (\d+)\. (.+)$", text, re.M)
-        self.assertEqual([int(n) for n, _ in heads], list(range(1, 48)), "the sections are numbered 1..47 without a gap")
+        n = len(heads)
+        self.assertEqual([int(k) for k, _ in heads], list(range(1, n + 1)), "the sections are numbered 1..N without a gap")
+        # the section map in docs/HANDOFF.md was built against exactly N sections: an edit that adds or removes one means the map needs revisiting
+        self.assertIn("%d sections" % n, read(HANDOFF), "AGENTS.md now has %d sections; docs/HANDOFF.md's section map was built for a different count" % n)
         for title in ("Normal physical Link Port behavior is a permanent requirement", "Mobile Adapter is late-stage work", "Hardware research safety", "Dolphin",
                       "Commit discipline", "GitHub operational coordination", "Shared checkout rules", "Local RAG", "Core decision rule"):
             self.assertTrue(any(title in t for _, t in heads), "no section titled like %r" % title)
@@ -254,13 +256,19 @@ class AgentsFile(unittest.TestCase):
             return
         text = read(path)
         self.assertIn("AGENTS.md", text)
-        self.assertLess(len(text.splitlines()), 20, "a CLAUDE.md that is not a pointer")
+        self.assertLess(len(text.splitlines()), 10, "a CLAUDE.md that is not a pointer")
         self.assertIsNone(re.search(r"^#+ \d+\.", text, re.M), "a numbered policy section in CLAUDE.md")
 
     def test_the_live_entry_points_name_the_single_source_not_a_second_file(self):
         handoff, readme = read(HANDOFF), read(README)
-        self.assertIn("single normative source", handoff)
+        order = handoff[handoff.index("## Mandatory read order"):handoff.index("## Source-of-truth hierarchy")]
+        self.assertIn("single normative source of project policy", order, "the read-order note itself, not only the map")
+        self.assertIn("so there is no ninth file", order)
+        self.assertNotIn("CLAUDE.md](", order)
         self.assertNotIn("](../CLAUDE.md)", handoff, "HANDOFF links a file that no longer exists")
+        prompt = read(os.path.join(ROOT, "INITIAL_PROMPT.md"))
+        self.assertIn("Read `AGENTS.md` completely", prompt)
+        self.assertNotIn("Read `CLAUDE.md`", prompt)
         self.assertNotIn("](CLAUDE.md)", readme)
         self.assertIn("single normative source", readme)
         for p in (".github/PULL_REQUEST_TEMPLATE.md", ".github/ISSUE_TEMPLATE/checkpoint.md"):
@@ -270,33 +278,70 @@ class AgentsFile(unittest.TestCase):
 
 
 class SectionMap(unittest.TestCase):
-    """The old CLAUDE.md §N -> AGENTS.md § map (docs/HANDOFF.md) keeps the append-only records' citations resolvable."""
+    """The old CLAUDE.md §N -> AGENTS.md § map (docs/HANDOFF.md) keeps the append-only records' citations resolvable.
 
-    def _map(self):
+    Existence is not correctness: every row is checked against an EXPECTED target set AND against a title keyword of each target section in AGENTS.md itself, so a wrong-but-valid
+    target, a malformed row, a deleted row and a wrong parenthesised extra all fail.
+    """
+    # old key -> {new section number: a substring its heading must contain}
+    EXPECTED = {
+        "preamble": {},
+        "1": {1: "Mandatory read order"}, "2": {2: "Project mission"}, "3": {10: "Link Port"}, "4": {11: "Mobile Adapter", 35: "Phase gates", 46: "will not do"},
+        "5": {33: "Documentation"}, "6.1": {3: "Authority", 4: "Evidence vocabulary", 13: "Minimize physical"}, "6.2": {27: "Start-up Disc"}, "6.3": {28: "Game Boy Interface"},
+        "6.4": {25: "Dolphin"}, "6.5": {26: "Ghidra"}, "6.6": {29: "mGBA"}, "6.7": {30: "Other reference"}, "6": dict([(3, "Authority")] + [(k, "") for k in range(25, 31)]),
+        "7": {31: "Private inputs"}, "8": {16: "Development environment"}, "9": {13: "Minimize physical", 46: "will not do"}, "10": {18: "Autonomous testing"},
+        "11": {19: "Synthetic tests"}, "12": {20: "Trace"}, "13": {21: "SD2SP2"}, "14": {22: "USB Gecko"}, "15": {14: "Hardware test request"}, "16": {15: "Build identification"},
+        "17": {17: "smoke-test"}, "18": {12: "Hardware research safety"}, "19": {23: "Internal SIO"}, "20": {24: "Network"}, "21": {43: "GBI-class"}, "22": {32: "Source organization"},
+        "23": {32: "Source organization"}, "24": {36: "Commit discipline"}, "25": {34: "Development log"}, "26": {35: "Phase gates"}, "27": {44: "First-session"},
+        "28": {47: "Core decision rule"}, "29": {45: "Current-state files"}, "30": {37: "GitHub operational coordination"},
+        "31": {39: "Local RAG", 40: "RAG and dirty", 41: "RAG retrieval", 42: "excluded from the RAG", 38: "Shared checkout"},
+    }
+
+    def _rows(self):
         h = read(HANDOFF)
         i = h.index("## AGENTS.md section map")
-        return h[i:h.index("## Canonical resume prompt")]
+        m = h[i:h.index("## Canonical resume prompt")]
+        block = m[m.index("OLD CLAUDE.md"):m.index("```", m.index("OLD CLAUDE.md"))]
+        rows = {}
+        for line in block.splitlines()[1:]:
+            label, target = line[:52], line[52:75]
+            if not label.strip():
+                continue                                    # a continuation line of the note column
+            key = "preamble" if label.startswith("preamble") else re.match(r"^§(\d+(?:\.\d)?)", label)
+            self.assertTrue(key, "a row-shaped line that does not parse: %r" % line[:60])
+            key = key if isinstance(key, str) else key.group(1)
+            self.assertNotIn(key, rows, "row %s appears twice" % key)
+            rows[key] = target
+        return m, rows
 
-    def test_every_old_section_1_to_31_is_mapped_and_every_target_exists(self):
-        m = self._map()
-        block = m[m.index("```text"):m.index("```", m.index("```text") + 7)]
-        text = read(AGENTS)
-        n_new = len(re.findall(r"^# \d+\. ", text, re.M))
-        seen = set()
-        for line in block.splitlines():
-            row = re.match(r"^§(\d+)(?:\.\d)?\s+.*?\s{2,}(§\d+(?:, §\d+)*)(?: \(\+ [^)]*\))?(?: \([^)]*\))?\s", line + " ")
-            if not row:
+    def _targets(self, col):
+        out = set()
+        for a, b in re.findall(r"§(\d+)(?:-§(\d+))?", col):
+            out.update(range(int(a), int(b or a) + 1))
+        return out
+
+    def test_every_row_has_the_expected_targets_and_each_target_heading_names_its_topic(self):
+        m, rows = self._rows()
+        self.assertEqual(sorted(rows, key=lambda k: (k != "preamble", [int(x) for x in k.split(".")] if k != "preamble" else [0])),
+                         sorted(self.EXPECTED, key=lambda k: (k != "preamble", [int(x) for x in k.split(".")] if k != "preamble" else [0])), "the map's rows are not the expected 39")
+        self.assertEqual(len(rows), 39)
+        heads = dict((int(k), t) for k, t in re.findall(r"^# (\d+)\. (.+)$", read(AGENTS), re.M))
+        for key, want in self.EXPECTED.items():
+            if key == "preamble":
+                self.assertIn("preamble", rows)
                 continue
-            seen.add(int(row.group(1)))
-            for tgt in re.findall(r"§(\d+)", row.group(2)):
-                self.assertTrue(1 <= int(tgt) <= n_new, "%s targets a missing section" % line[:60])
-        self.assertEqual(sorted(seen), list(range(1, 32)), "an old section has no row")
+            got = self._targets(rows[key])
+            self.assertEqual(got, set(want), "row §%s targets %s, expected %s" % (key, sorted(got), sorted(want)))
+            for num, word in want.items():
+                self.assertIn(word, heads[num], "§%s -> AGENTS.md §%d is titled %r, which does not name %r" % (key, num, heads[num], word))
 
     def test_the_map_says_what_was_dropped_and_leaves_the_records_alone(self):
-        m = " ".join(self._map().split())
+        m = " ".join(self._rows()[0].split())
         for tok in ("keep their \"`CLAUDE.md` §N\" citations exactly as written", "no stub was created", "git show 5739f6b:CLAUDE.md",
-                    "was dropped", "no single home", "carried only in part", "softened"):
+                    "was dropped", "no single home", "carried only in part", "softened", "SOFTENED", "unless explicitly authorized for a safe, coordinated operation",
+                    "has no explicit home", "Which pointers were edited in this checkpoint"):
             self.assertIn(tok, m, tok)
+        self.assertIn("47 sections", m)
 
 
 if __name__ == "__main__":

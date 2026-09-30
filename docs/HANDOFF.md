@@ -288,13 +288,12 @@ silently before doing so.
 
 1. [`AGENTS.md`](../AGENTS.md)
 2. this file
-3. [`docs/README.md`](README.md)
-4. [`docs/RESEARCH_METHOD.md`](RESEARCH_METHOD.md)
-5. [`docs/research/EVIDENCE.md`](research/EVIDENCE.md)
-6. [`docs/research/HARDWARE_TESTS.md`](research/HARDWARE_TESTS.md)
-7. [`docs/research/UNKNOWNS.md`](research/UNKNOWNS.md)
-8. [`docs/research/DEVLOG.md`](research/DEVLOG.md) — chronological decisions
+3. [`README.md`](../README.md)
+4. [`docs/ROADMAP.md`](ROADMAP.md)
+5. [`docs/RESEARCH_METHOD.md`](RESEARCH_METHOD.md)
+6. the relevant sections of [`docs/research/EVIDENCE.md`](research/EVIDENCE.md), [`docs/research/HARDWARE_TESTS.md`](research/HARDWARE_TESTS.md), [`docs/research/UNKNOWNS.md`](research/UNKNOWNS.md) and [`docs/research/DEVLOG.md`](research/DEVLOG.md) — chronological decisions
 
+This is `AGENTS.md` §1's order (Issue #150 aligned it: the list used to name `docs/README.md` and read the four research documents whole; `docs/README.md` is still the index of the documentation).
 `AGENTS.md` is the single normative source of project policy: `CLAUDE.md` was merged into it and removed on 2026-09-30 (the Operator's decision, Issue #150), so there is no ninth file. Old citations of "`CLAUDE.md` §N" in the records resolve through the section map below.
 
 ## Source-of-truth hierarchy
@@ -2468,9 +2467,10 @@ On 2026-09-30 the Operator merged everything into `AGENTS.md` (2 054 lines, 47 s
 OLD CLAUDE.md                                        NEW AGENTS.md          NOTE
 preamble ("Read AGENTS.md and HANDOFF first ...")   preamble               inverted: AGENTS.md is the single normative source; "CLAUDE.md, when present, is only a compatibility entry
                                                                             point". The old rule "where the two overlap, AGENTS.md rules evidence handling and CLAUDE.md project policy" is superseded.
-§1  Read this first                                  §1                     the list now starts with AGENTS.md and HANDOFF; EVIDENCE / HARDWARE_TESTS / UNKNOWNS / DEVLOG are read in "relevant sections"
-                                                                            (the old text said "read completely"); the bounded Issue is item 8.
-§2  Project mission                                  §2                     condensed (the compatibility goal, the not-merely-boot statement, the feature list and "do not assume how rumble works" are kept).
+§1  Read this first                                  §1                     the list now starts with AGENTS.md and HANDOFF and adds the bounded Issue (item 8); EVIDENCE / HARDWARE_TESTS / UNKNOWNS / DEVLOG are read
+                                                                            in "relevant sections" and the old "read completely" is gone for every item; docs/README.md is no longer in the read order.
+§2  Project mission                                  §2                     condensed: the compatibility goal, the not-merely-boot statement, the feature list and "do not assume how rumble works" are kept;
+                                                                            dropped: "the final runtime must aim to reproduce every relevant behavior the existing implementations already support".
 §3  Preserve normal Link Port behavior               §10                    kept; PicoAdapterGB as a regression fixture, the two Mobile Adapters kept apart.
 §4  Mobile Adapter / libmobile late-stage            §11 (+ §35, §46)       kept; the libmobile gate is repeated in §35. The old statement of the rule's PURPOSE (to keep Mobile Adapter assumptions from
                                                                             contaminating the Game Boy Player research) survives only as the last line of §46.
@@ -2485,12 +2485,14 @@ preamble ("Read AGENTS.md and HANDOFF first ...")   preamble               inver
 §6.5 Ghidra and GameCubeLoader                       §26                    kept (rewritten).
 §6.6 Enhanced mGBA                                   §29                    kept.
 §6.7 Other reference projects                        §30                    kept.
+§6  (cited bare in some records)                    §3, §25-§30            the whole of old §6 ("primary research sources") is spread over §3 (the authority order) and §25-§30 (one section per source).
 §7  Private inputs and proprietary material          §31                    kept; the RAG exclusions are also §42.
 §8  Development environment                          §16                    kept.
 §9  Autonomous testing policy                        §13 (+ §46)            §13 is the list; §46 adds the ladder from static analysis up to the physical Game Boy Player.
 §10 Testable architecture                            §18                    kept.
 §11 Synthetic tests                                  §19                    kept.
-§12 Trace / replay infrastructure                    §20                    kept, including the logs/ -> captures/local -> captures/fixtures workflow.
+§12 Trace / replay infrastructure                    §20                    kept, including the logs/ -> captures/local -> captures/fixtures workflow; dropped: that a replay fixture is identified by the
+                                                                            hash and size of the raw log it comes from.
 §13 SD2SP2 logging                                   §21                    kept.
 §14 No USB Gecko or logic analyzer dependency        §22                    kept.
 §15 Hardware test requests                           §14                    kept.
@@ -2507,17 +2509,22 @@ preamble ("Read AGENTS.md and HANDOFF first ...")   preamble               inver
 §26 Phase gates                                      §35                    kept.
 §27 First-session behavior                           §44                    kept.
 §28 Core decision rule                               §47                    kept.
-§29 Where the current state lives                    §45                    kept.
+§29 Where the current state lives                    §45                    kept; dropped: "read them before proposing the next experiment" and that Issues are the operational trail, never the scientific state.
 §30 Operational coordination — GitHub                §37                    Issues, milestones, labels, the Project board, the templates; "no Issue / label / milestone / Project field promotes evidence" is
-                                                                            also in §4.
-§31 Local retrieval — open-gbp-rag                   §39, §40, §41, §42     §39 use, never-authority and stale indexes; §40 dirty trees ("the Orchestrator does not edit Open-GBP files" is its last line);
-                                                                            §41 procedure; §42 what is excluded. The two sub-rules that were in §31: the shared-checkout rule is §38; "the current bounded
+                                                                            also in §4. "Operator declarations quoted in an Issue remain OPERATOR OBSERVATION" is carried only generically (§4, §7.1).
+§31 Local retrieval — open-gbp-rag                  §38, §39-§42            §39 use, never-authority and stale indexes; §40 dirty trees ("the Orchestrator does not edit Open-GBP files" is its last line);
+                                                                            §41 procedure; §42 what is excluded. Softened in §39: "editing code" became "editing code based on historical project state", and
+                                                                            "cite the file, the lines and the evidence id" became "cite the canonical file / evidence record". The two sub-rules that were in §31: the
+                                                                            shared-checkout rule is §38 -- SOFTENED: the old "never run git reset, clean, restore, checkout -- <file>, rebase or merge in this tree" was
+                                                                            unconditional, §38 adds "unless explicitly authorized for a safe, coordinated operation"; "the current bounded
                                                                             Issue is read IN FULL, never retrieved or summarised from snippets" is carried only in part (§1 item 8 and closing paragraph,
                                                                             §37 "read the entire Issue"), and "do not load EVIDENCE / HARDWARE_TESTS / DEVLOG wholesale by default" is softened to
                                                                             "unless necessary" (§41 item 7).
 ```
 
-The records also cite `AGENTS.md` (the previous, shorter file) by section NAME, in quotes. Those names now map as follows: "Mandatory read order" -> §1; "Authority" -> §3; "Evidence vocabulary" -> §4; "Mandatory rules" -> §5, §6, §12 and §46; "Roles and responsibilities" (Operator, Orchestrator, Executor, role independence) -> §7 and §8; "Checkpoint discipline" -> §9; "Operational coordination — GitHub" -> §37; "What this repository will not do" -> §46.
+The records also cite `AGENTS.md` (the previous, shorter file) by section NAME, in quotes. Those names now map as follows: "Mandatory read order" -> §1; "Authority" -> §3; "Evidence vocabulary" -> §4; "Roles and responsibilities" -> §7 (the "ORCHESTRATOR" subsection cited by some records is §7.2; the Operator's is §7.1; the Executor's §7.3), "Role independence" -> §8; "Checkpoint discipline" -> §9; "Operational coordination — GitHub" -> §37; "What this repository will not do" -> §46. The old "Mandatory rules" section has no single home; its bullets went to: emulator behaviour is not a physical FACT -> §4 (+ §25); frozen contracts -> §6; never reinterpret a historical fixture, exact-identity and variant-versus-exact-binary -> §5; the proprietary-donor rule and "do not manufacture evidence IDs" -> §46 (+ §31); "read `docs/HANDOFF.md` before implementing" and "if the handoff looks stale, stop and reconcile" -> §1; **"after a scientific checkpoint, update the handoff" has no explicit home** (§9 and §45 imply it). Also dropped or weakened from the old `AGENTS.md`: the Operator "performs hardware procedures only after the experiment is ready and pre-registered" became "after experiments are prepared" (§7.1); "seat swapping must not change the scientific process" and "the seat assignment in HANDOFF is ephemeral" have no equivalent (§7 keeps only "the same person or tool may occupy different roles"); the ambiguity-rule pointer in the Orchestrator bullet was cut to one sentence (§7.2), without the rule's title or the "two copies drift" sentence.
+
+**Which pointers were edited in this checkpoint.** Live prose was updated (this file's read order and two citations, `README.md`, the two `.github` templates, `INITIAL_PROMPT.md`, two name citations in `docs/RESEARCH_METHOD.md`); text that quotes or records history was left as written (for example the quotation of a record's "`CLAUDE.md` §14 restated twice" further up this file, and every citation in the append-only records).
 
 ## Canonical resume prompt
 

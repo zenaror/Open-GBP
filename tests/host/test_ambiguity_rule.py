@@ -74,11 +74,13 @@ class TheRuleIsPointedAtAndNotCopied(unittest.TestCase):
     """The one failure that would undo the point of moving it."""
 
     def test_agents_carries_the_pointer(self):
+        """Issue #150 (amended on top): the Operator's unified AGENTS.md rewrote the pointer as one sentence in section 7.2 ("ask about the underlying fact rather than trying
+        to reinterpret the wording. The detailed rule is in `docs/RESEARCH_METHOD.md`") and DROPPED the rule's title and the "two copies of a rule drift apart" sentence the earlier
+        pins required. It is still a pointer, never a copy: the no-copy pins in the tests below are unchanged."""
         a = plain(read(AGENTS))
-        self.assertIn("asks about the thing rather than re-reading the sentence more carefully", a)
-        self.assertIn("docs/RESEARCH_METHOD.md", a)
-        self.assertIn(TITLE, a)
-        self.assertIn("two copies of a rule drift apart", a)
+        self.assertIn("When an Operator statement is ambiguous, ask about the underlying fact rather than trying to reinterpret the wording.", a)
+        i = a.index("When an Operator statement is ambiguous")
+        self.assertIn("The detailed rule is in docs/RESEARCH_METHOD.md", a[i:i + 250])
 
     def test_agents_does_NOT_carry_a_second_copy(self):
         a = read(AGENTS)
