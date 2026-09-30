@@ -239,7 +239,9 @@ static void cycle_tags(struct gbp_initirq4_cycle *c, unsigned n)
 
 static void note_control(struct gbp_initirq4_result *res, const struct gbp_initirqa_snapshot *s)
 {
-    if (s->control_rc == GBP_OK && (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f)) res->control_ok = 0;
+    if (s->control_rc != GBP_OK) return;
+    if (!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) res->control_ok = 0;   /* Issue #145: bit 0x01 tolerated */
+    else gbp_initirqa_note_control_tolerance(&res->a, s->id ? s->id : "SNAPSHOT", s->control_vote, res->a.control_exp);
 }
 
 static void read_multi(struct run_ctx *x, struct gbp_irq_multi_status *m)
@@ -503,7 +505,7 @@ int gbp_initirq4_probe_run(const struct gbp_transport *t, struct ringlog *log,
         if (c->k.postack.irq_disc != c->k.postack.irq_gbi) {
             finish(x, GBP_INITIRQ4_ABORT_READ_INCONSISTENT, cycle_reason(res, "postack_semantic_disagree", n), "S3_cycle_aborted"); return 0;
         }
-        if (c->k.postack.control_vote != res->a.control_exp || c->k.postack.control_vote != c->k.postack.control_b1f) {
+        if (!gbp_initirqa_snapshot_control_agrees(&c->k.postack, res->a.control_exp)) {
             finish(x, GBP_INITIRQ4_ANOMALY_CONTROL_CHANGED, cycle_reason(res, "control_changed_postack", n), "S3_cycle_aborted"); return 0;
         }
         if (bit13(c->k.postack.intmr) || (c->k.postack.pi2_ok && bit13(c->k.postack.intmr2))) {
@@ -567,7 +569,7 @@ int gbp_initirq4_probe_run(const struct gbp_transport *t, struct ringlog *log,
             unsigned latched_first = bit13(s->intsr);
             int shape_ok = ((s->irq_gbi & cfg->odd_mask) == 0 && (s->irq_gbi & cfg->bit15_mask) == 0 && (s->irq_gbi & cfg->high_mask) == 0) ? 1 : 0;
             int reads_ok = (s->pi_ok && s->control_rc == GBP_OK && s->irq_rc == GBP_OK) ? 1 : 0;
-            int control_ok = (s->control_rc == GBP_OK && s->control_vote == res->a.control_exp && s->control_vote == s->control_b1f) ? 1 : 0;
+            int control_ok = (s->control_rc == GBP_OK && gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) ? 1 : 0;
             int masked = (!bit13(s->intmr) && !(s->pi2_ok && bit13(s->intmr2))) ? 1 : 0;
             int agree = (s->irq_disc == s->irq_gbi) ? 1 : 0;
             c->rearmpost_ok = (reads_ok && control_ok && masked && agree && shape_ok) ? 1 : 0;

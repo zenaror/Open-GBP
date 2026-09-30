@@ -101,6 +101,18 @@ static uint32_t ticks_to_us(const struct gbp_initirqa_config *cfg, uint32_t tick
     return (uint32_t)(((uint64_t)ticks * 1000000u) / cfg->tb_hz);
 }
 
+void gbp_initirqa_note_control_tolerance(struct gbp_initirqa_result *a, const char *site, uint8_t vote, uint8_t expected)
+{
+    if (!gbp_control_tolerance_exercised(vote, expected)) return;
+    if (a->control_tol_n == 0u) {
+        a->control_tol_first_vote = vote;
+        a->control_tol_first_exp = expected;
+        strncpy(a->control_tol_first_site, site ? site : "-", sizeof a->control_tol_first_site - 1u);
+        a->control_tol_first_site[sizeof a->control_tol_first_site - 1u] = '\0';
+    }
+    if (a->control_tol_n != 0xFFFFFFFFu) a->control_tol_n++;
+}
+
 static void restore_fail(struct gbp_initirqa_result *res, const char *why)
 {
     if (res->restore_ok) res->restore_reason = why;
@@ -383,12 +395,25 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
         res->control_restore_read_rc = gbp_rawlog_read_block(t, log, "TDCTL", res->base, GBP_IDX_CONTROL, res->control_restore_raw, &res->errors);
         res->control_restore_vote = gbp_majority_vote_byte(res->control_restore_raw);
         res->control_restore_b1f = res->control_restore_raw[GBP_BLOCK_SIZE - 1u];
+        /* Issue #145: the read-back may differ from the ORIGINAL byte in the tolerated bit only (a GB/GBC session leaves the
+         * device holding bit 0x01, GBP-HW-276); the write above is unchanged -- still the original byte, no new write. */
         res->control_restore_ok = (res->w_ctl_restore.completed && res->control_restore_read_rc == GBP_OK &&
-                                   res->control_restore_vote == res->control_orig) ? 1 : 0;
+                                   gbp_control_agrees(res->control_restore_vote, res->control_orig)) ? 1 : 0;
+        if (res->control_restore_ok && gbp_control_tolerance_exercised(res->control_restore_vote, res->control_orig)) {
+            gbp_initirqa_note_control_tolerance(res, "RESTORE", res->control_restore_vote, res->control_orig);
+            res->control_tol_restore = 1;
+        }
         ringlog_printf(log, "CONTROL restore semantic=%02x rc=%s readback_rc=%s readback_vote=%02x readback_b1f=%02x ok=%d",
                        (unsigned)res->control_orig, gbp_status_name(res->w_ctl_restore.rc), gbp_status_name(res->control_restore_read_rc),
                        (unsigned)res->control_restore_vote, (unsigned)res->control_restore_b1f, res->control_restore_ok);
         if (!res->control_restore_ok) restore_fail(res, "control_restore_failed");
+    }
+    /* Issue #145: say so when the tolerance was exercised anywhere in the run (no line at all in a run that never
+     * exercised it, so every GBA log is byte-for-byte what it was). */
+    if (res->control_tol_n) {
+        ringlog_printf(log, "CONTROLTOL n=%lu first_site=%s first_vote=%02x exp=%02x restore=%d policy=bit0x01_only",
+                       (unsigned long)res->control_tol_n, res->control_tol_first_site[0] ? res->control_tol_first_site : "-",
+                       (unsigned)res->control_tol_first_vote, (unsigned)res->control_tol_first_exp, res->control_tol_restore);
     }
 
     /* 2.–5. IRQ register: read, Start-up Disc stop word, re-read — only if an experimental IRQ write was attempted */

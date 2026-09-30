@@ -60,6 +60,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "gbp_transport.h"
+#include "gbp_control_policy.h"
 #include "gbp_detect.h"
 #include "gbp_regwrite.h"
 #include "../log/ringlog.h"
@@ -192,6 +193,12 @@ struct gbp_initirqa_result {
     uint8_t control_restore_raw[GBP_BLOCK_SIZE];
     uint8_t control_restore_vote, control_restore_b1f;
     int control_restore_ok;       /* -1 not attempted, 1 write ok + readback vote == orig, 0 otherwise */
+    /* Issue #145 (E2): CONTROL bit 0x01 tolerated. Counted where a guard or the restore read-back compared the byte and
+     * found it differing ONLY in that bit (gbp_control_policy.h); zero in every GBA run. */
+    uint32_t control_tol_n;         /* COMPARISONS that found it (a snapshot examined by two sites counts twice), saturating */
+    uint8_t control_tol_first_vote, control_tol_first_exp;
+    char control_tol_first_site[24]; /* the snapshot's own tag where it was first found, copied (tags are not always static) */
+    int control_tol_restore;      /* 1 if the restore read-back was one of them */
     /* IRQ shape */
     int irq_shape_base_ok, irq_shape_a1pre_ok;   /* -1 not evaluated */
     const char *irq_shape_reason;
@@ -250,6 +257,17 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
                            const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res);
 
 int gbp_initirqa_summary(const struct gbp_initirqa_result *res, char *dst, size_t cap);
+
+/* The two readings of a snapshot agree with the byte expected, under the policy of gbp_control_policy.h: the vote may
+ * differ from `expected` in the tolerated bit only, and the vote must equal byte 0x1F on EVERY bit. */
+static inline int gbp_initirqa_snapshot_control_agrees(const struct gbp_initirqa_snapshot *s, uint8_t expected)
+{
+    return gbp_control_agrees(s->control_vote, expected) && s->control_vote == s->control_b1f;
+}
+
+/* Record that a comparison at `site` found CONTROL differing from `expected` in the tolerated bit only. A no-op for
+ * every other pair, so it may be called after any comparison that passed. */
+void gbp_initirqa_note_control_tolerance(struct gbp_initirqa_result *a, const char *site, uint8_t vote, uint8_t expected);
 const char *gbp_initirqa_status_name(gbp_initirqa_status s);
 
 /* ---- stage API, for experiments built on this sequence (GBP-INIT-003B) ----

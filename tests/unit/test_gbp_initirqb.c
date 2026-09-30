@@ -823,11 +823,32 @@ static int replay_fixture(const char *path)
     return (r.exhausted || r.mismatches) ? 1 : 0;
 }
 
+/* ---- Issue #145: the shared matrix, this family's adapter (SYNTHETIC device); only the PREUNMASK kind exists here ---- */
+#include "control_policy_matrix.h"
+static void cp_setup(struct gbp_mock *m) { mock_003b(m); }
+static void cp_run(struct gbp_mock *m, struct ringlog *rl, struct cp_result *o)
+{
+    static struct gbp_initirqb_result res;
+    run(m, rl, &res);
+    o->reason = res.reason;
+    o->changed = (res.reason && strstr(res.reason, "control_changed")) ? 1 : 0;
+    o->status = (int)res.status;
+    o->control_ok = o->changed ? 0 : 1;      /* this family keeps no control_ok flag: its guard is the abort itself */
+    o->ack_skipped_control = 0;
+    o->a = &res.a;
+}
+static void test_control_policy(void)
+{
+    static const struct cp_family f = { "initirqb", cp_setup, cp_run, 0u, 0u, 0u, "control_changed", NULL, NULL };
+    cp_run_matrix(&f);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 3 && strcmp(argv[1], "--dump-log") == 0) return dump_log(argv[2]);
     if (argc == 3 && strcmp(argv[1], "--replay") == 0) return replay_fixture(argv[2]);
     test_normal_delivery();
+    test_control_policy();
     test_level_immediate_reassert();
     test_delayed_relatch();
     test_cleanup_budget();

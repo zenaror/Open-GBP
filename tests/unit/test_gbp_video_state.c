@@ -4304,6 +4304,36 @@ static int parse_file(const char *path)
     return 0;
 }
 
+/* ---- Issue #145: the shared matrix, this family's adapter (SYNTHETIC device). THE FAMILY THE GB/GBC IMAGE WILL RUN ---- */
+#include "control_policy_matrix.h"
+static void cp_setup(struct gbp_mock *m)
+{
+    static const uint16_t bits[1] = { 0x0500u };
+    sched_reset(0xFFu);
+    mock_vstate(m, bits, 1u, 50u);
+}
+static void cp_run(struct gbp_mock *m, struct ringlog *rl, struct cp_result *o)
+{
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    cfg_default(&cfg);
+    cfg.min_valid_observation_s = 0u;
+    cfg.min_valid_observation_ticks = (uint64_t)BLOCK_TICKS * 39u * 6u;
+    run_cfg(m, rl, &res, &cfg);
+    o->reason = res.reason;
+    o->changed = (res.reason && strstr(res.reason, "control_changed")) ? 1 : 0;
+    o->status = (int)res.status;
+    o->control_ok = res.control_ok;
+    o->ack_skipped_control = 0;
+    o->a = &res.a;
+}
+static void test_control_policy(void)
+{
+    /* this family has no REARMPOST guard: a change after the re-arm is first seen at the next cycle's PRESVC */
+    static const struct cp_family f = { "vstate", cp_setup, cp_run, 3u, 4u, 0u, "PREUNMASK", "POSTACK", "PRESVC" };
+    cp_run_matrix(&f);
+}
+
 int main(int argc, char **argv)
 {
     int do_long = (argc > 1 && strcmp(argv[1], "--long") == 0);
@@ -4335,6 +4365,7 @@ int main(int argc, char **argv)
         CHECK(defaults.min_valid_observation_ticks == 4860000000ull);
     }
     test_nominal_negative();
+    test_control_policy();
     test_time_target_disabled_never_fires();
     test_safety_budget_before_target();
     test_safety_wins_over_open_episode();

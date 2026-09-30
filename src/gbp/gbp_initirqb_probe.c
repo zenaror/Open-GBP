@@ -201,6 +201,8 @@ int gbp_initirqb_probe_run(const struct gbp_transport *t, struct ringlog *log,
     gbp_initirqa_snapshot_log(log, &res->a, &res->preunmask);
     res->preunmask_ok = gbp_irq_service_preunmask_check(&res->preunmask, res->a.control_exp, cfg->src_mask, cfg->odd_mask,
                                                         cfg->bit15_mask, cfg->high_mask, res->h.install_count, res->h.install_fired, &why);
+    /* Issue #145: this family keeps no note_control; the tolerance is recorded here (the check passed only if CONTROL agreed) */
+    if (res->preunmask_ok) gbp_initirqa_note_control_tolerance(&res->a, "PREUNMASK", res->preunmask.control_vote, res->a.control_exp);
     res->preunmask_reason = why;
     gbp_irq_service_log_preunmask(log, "", &res->preunmask, res->preunmask_ok, why, cfg->src_mask, cfg->odd_mask, cfg->bit15_mask);
     if (!res->preunmask_ok) {
