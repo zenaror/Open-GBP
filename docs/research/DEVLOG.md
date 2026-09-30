@@ -19848,3 +19848,10 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Review (one heavy adversarial read of the code) and what it changed before the push.** The DMA kept handing out silence after the feed stopped on every end that is not the walker's own (a store cap, the wall, Z inside the alive window), and those silences were counted in the fallback rule's only input: the end is now tested before the production branch and the underrun record carries `post_feed`, apart from `after_startup`; the final screen took the game's own last presses (START pauses) as commands and could lose the RAM-only log: it now waits for every button to be released, ignores edges for a second and guards START; the screen showed the stepped-to title while the log said UNDECLARED; a direct write to the chain's AHEAD was removed; the reader gained its cross-checks (phase sum, `k`, `first_after_handed`, ordinal 1, rising ordinals); the structural tests gained the lines whose deletion no host run shows; `-dirty` now also covers an untracked source.
 
 **Not done.** No staging, no pin, no run; the pump slot, the callback and the session flow have run only on the host. **Next.** The Orchestrator validates §V31.8 and opens the Hardware Issue if it orders the first breadth session; its fallback rule reads `after_startup` and nothing else.
+
+
+## 2026-09-30 — Hardware Issue #154: `28-vehicle` pinned and staged for GBP-BREADTH-001
+
+**Goal.** Stage the vehicle-0001 image on the card for the first breadth session, as the Orchestrator delegated on #154, touching nothing else.
+
+**Changes.** `tools/swiss-layout.tsv` row 28 (frozen at `a02bcfa3…5d2`); the slot tests amended on top; `HARDWARE_TESTS.md` §V31.9. **Result.** `build/swiss/28-vehicle/boot.dol` exported; the card's `Open-GBP/28-vehicle/boot.dol` written and read back equal; a before/after sha256 of every file on the card differs only by that line; all 17 pinned slots on the card equal their pins; no stale `GBP-PLAY-002*` file. **Not done.** No run; the Orchestrator re-checks the card and clears the run.

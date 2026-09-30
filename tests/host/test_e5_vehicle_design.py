@@ -137,14 +137,15 @@ class TheDesignsFixesAfterItsReview(unittest.TestCase):
 
 class NothingIsBuiltYet(unittest.TestCase):
     """Amended on top at the build half (Issue #153): the DESIGN record says nothing was built when it was written (its tokens stay asserted: an append-only record is not edited), and the tree now
-    holds exactly what the build half owes -- the POC and the records in it -- and STILL holds no slot, no pin, no export and no card write: the name 28-vehicle stays reserved and nothing more."""
+    holds exactly what the build half owes -- the POC and the records in it. At the time it held no slot, no pin, no export and no card write (the name 28-vehicle was reserved and nothing more); Hardware Issue #154 then pinned the slot, amended on top below."""
 
     def test_the_poc_and_the_records_exist_and_no_slot_is_pinned(self):
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "poc", "gbp-play-gba", "source", "main.c")))
         tsv = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
-        self.assertNotIn("vehicle", tsv)
-        self.assertNotIn("gbp-play-gba", tsv)
-        self.assertNotIn("\n28\t", "\n" + tsv)
+        # amended on top (Hardware Issue #154, 2026-09-30): the Orchestrator ordered the staging; the slot is now pinned to the hash V31.8 records (tests/host/test_swiss_export.py
+        # pins the row); the V31.8 record itself, appended before that, still says "not staged" and is not edited
+        rows = [l.split("\t") for l in tsv.split("\n") if l and not l.startswith("#")]
+        self.assertEqual([r for r in rows if r[0] == "28"], [["28", "vehicle", "gbp-play-gba", "gbp-play-gba.dol", "gbp-play-gba", "vehicle", "1", VEHICLE_SHA]])
         allowed = {"src/audio/gbp_play_under.c", "src/audio/gbp_play_under.h", "src/gbp/gbp_cartdecl.c", "src/gbp/gbp_cartdecl.h", "tools/playread.py"}
         for rec in ("PLAYSTARTUP", "PLAYUND", "PLAYUNDER", "CARTDECL"):
             hits = subprocess.run(["grep", "-rln", "--include=*.c", "--include=*.h", "--include=*.py", rec, os.path.join(ROOT, "src"), os.path.join(ROOT, "poc"), os.path.join(ROOT, "tools")],
@@ -243,6 +244,15 @@ class TheBuildRecordV318(unittest.TestCase):
         req = d[d.index("Test ID:                    GBP-BREADTH-001"):]
         for tok in ("Build ID:                   vehicle-0001, commit 6396851", VEHICLE_SHA, "NO save created or overwritten", "Physical Link Port state:   nothing connected", "Question answered:"):
             self.assertIn(tok, req, tok)
+
+
+class TheStagingRecordV319(unittest.TestCase):
+    def test_v31_9_records_the_pin_and_the_card_verification(self):
+        t = read(DOC)
+        d = plain(t[t.index("### V31.9 The candidate PINNED as"):])
+        for w in (VEHICLE_SHA, "Hardware Issue #154", "the ONLY difference is the new line for 28-vehicle/boot.dol", "29 files before, 30 after", "INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f)",
+                  "all 17 pinned slots on the card read back equal to their pins", "26-v28p and 27-gbmode byte-identical to before", "no file named GBP-PLAY-002* or *vehicle-0001* anywhere on the card", "none: 28-vehicle is the play POC's own program"):
+            self.assertIn(w, d, w)
 
 
 if __name__ == "__main__":

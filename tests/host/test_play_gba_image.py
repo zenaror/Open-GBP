@@ -260,11 +260,14 @@ class TheIdentityAndTheBuild(unittest.TestCase):
         self.assertIn("@rm -rf $(ROOT)/build/poc/$(APP_NAME)", mk)
         self.assertIn("OUTDIR  ?= $(ROOT)/build/poc/$(APP_NAME)", mk)
 
-    def test_the_slot_name_is_reserved_nowhere_staged(self):
+    def test_the_slot_is_pinned_to_the_recorded_hash_and_nothing_else_moved(self):
+        """AMENDED ON TOP (Hardware Issue #154, 2026-09-30): at the build half the slot name was reserved and absent from the manifest; the Orchestrator then ordered the staging and the
+        row carries exactly the hash HARDWARE_TESTS V31.8 records. Nothing else in the manifest moved (tests/host/test_swiss_export.py pins the frozen set)."""
         tsv = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
-        self.assertNotIn("gbp-play-gba", tsv)
-        self.assertNotIn("vehicle", tsv)
-        self.assertNotIn("\n28\t", "\n" + tsv)
+        rows = [l.split("\t") for l in tsv.split("\n") if l and not l.startswith("#")]
+        mine = [r for r in rows if "gbp-play-gba" in "\t".join(r)]
+        self.assertEqual(mine, [["28", "vehicle", "gbp-play-gba", "gbp-play-gba.dol", "gbp-play-gba", "vehicle", "1", "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2"]])
+        self.assertIn("a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2", read(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")))
 
 
 class TheSessionFlowSurvivesTheCopy(unittest.TestCase):

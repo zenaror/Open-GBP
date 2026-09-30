@@ -451,7 +451,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["26"][1], rows["26"][2]), ("v28p", "gbp-audio-v28"))
         # Issue #146 / Hardware Issue #147 (2026-09-30): the GB-mode session image took the next number, frozen before its export (§V29.10); nothing renumbered
         self.assertEqual((rows["27"][1], rows["27"][2]), ("gbmode", "gbp-video-stream-probe"))
-        self.assertNotIn("28", rows)
+        # Issue #153 / Hardware Issue #154 (2026-09-30): the GBA play image (vehicle-0001) took the next number, frozen before its export (§V31.8 / V31.9); nothing renumbered
+        self.assertEqual((rows["28"][1], rows["28"][2]), ("vehicle", "gbp-play-gba"))
+        self.assertNotIn("29", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own
