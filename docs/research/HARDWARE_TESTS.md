@@ -40560,3 +40560,91 @@ GBMODE READ (GBP-GBMODE-001)
 8. **That the runtime's behaviour with GB media is equivalent to a GBA session.** Equal COUNTS are the expected reading even for a wrong picture (§V29.7); the four counts one frame short are unexplained and not claimed to be noise.
 
 **What it changes.** The E2 policy (bit `0x01` tolerated, seven other bits strict) was SUFFICIENT for the AV service to run with this medium IN THIS BOOT (one boot, not repeated): the earlier boots' abort was the guard's, and no ACK, re-arm, INTSR clear, whole-block read or idle keypad write failed. `PHASE7_ENTRY.md`'s next experiments (§6) are the Orchestrator's to order; nothing here authorises a second cartridge, a pressed button or L / R.
+
+
+### V29.13 RUN 59's picture, decoded offline from the archived sidecar — the window holds a 160 x 144 region at (40, 8) inside a black border of 40 / 8 / 40 / 8 pixels, no forced-equal pixel phase at any period where the test can speak, at most 13 colours; the family's own verdicts on it are INCONCLUSIVE BY CONSTRUCTION — 2026-09-30 (Issue #148, no hardware)
+
+*Appended. §V29.12 and everything before it stand; nothing is amended. An analysis checkpoint on preserved bytes: no image, no hardware, no Operator minutes. **No retail picture enters the repository:** the frames were rendered only to `build/analysis/run59/` (ignored by Git) for the Executor's own viewing, and are described below in words and numbers.*
+
+**Inputs.** `captures/local/GBP-VIDEO-004_gbmode-0001-run59-full.bin` (OGBPFULL1, 1 844 492 B, sha256 `db2c85e9…6ded`, 8 records of K = 8, all COMPLETE with 40 blocks, `frame_index` 355 + 256 i, about 4.3 s apart at 59.73 frames a second; header/total CRC-32 `22b632c7` / `2d9390d4`), read through the FROZEN parser `tools/vfull.py` (`load()`, `consumed_words()`: word16 = (byte 1 << 8) | byte 3 in raster order, GBP-VID-003); the same directory's `-idxcap.bin`, `-vi.bin`, `-disp.bin` (hashes in §V29.12). The preserved texture equals the Python conversion of the preserved raw in all 8 samples (`vfull.convert_py`), so the raw words below ARE what the texture holds.
+
+**What the family's own tools say about it, unedited, and why (INCONCLUSIVE BY CONSTRUCTION, recorded, not rescued: the §V7.2 / `GBP-HW-264` precedent).**
+
+```text
+python3 tools/vfull.py analyse <full.bin>            exit 2   sample 0..7 -> INCONCLUSIVE: STRIP-L inconsistent {'blocks_ok': 0 ...}   VERDICT INCONCLUSIVE -- 8 sample(s) inconclusive
+python3 tools/vindex.py sidecar <idxcap.bin>         records 2048 of 2048, all-40-block frames 2048, decisive-claim ready True, INVALID_CANONICAL_STRIP 2048, intact 0,
+                                                     VERDICT INCONCLUSIVE_TOO_FEW_INTACT_FRAMES
+python3 tools/vvi.py analyse <vi> --idxcap --disp    2382 handed, 2374 latched, register read-back 2374/2374 name the handed XFB as TFBL; the coordinate-glyph table's retained, |H_k| and |L_k| columns 0 (k = 1..4; |R_k| 40)
+python3 tools/vdisp.py <disp> <idxcap>               2048 source records, 2048 with a lifecycle, SELECTED_NEW 2047, TERMINAL_PENDING 1, no lifecycle 0, no open residual
+```
+
+Their oracle is the OGBPCOORD1 coordinate stimulus (a canonical strip in every block's local row 0): a retail picture carries no such strip, so the strip decoder, the witness verdict, the glyph table and the frame-id continuity are INVALID on every frame **by construction**. What they DO say is intact: the file is a complete, CRC-clean record (`decisive-claim ready True`), every frame has all 40 blocks, and the presentation chain ran (the vdisp and vvi lines say what happened to the frames downstream and nothing about their content). Nothing below uses their verdicts.
+
+**The decode (`tools/gbmode_picture.py`, new in this checkpoint, tested in `tests/host/test_gbmode_picture.py` on synthetic frames that include a nearest-neighbour stretch it must find), as printed.**
+
+```text
+GBMODE PICTURE (GitHub Issue #148)  GBP-VIDEO-004 / gbmode-0001 / 4d6fe06   8 records
+  sample 0 frame_index 355: box x 40..199 y 8..151 = 160 x 144, border L40 T8 R40 B8, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 0; distinct words 3 (colours 2); scaling: columns NOT_EVALUABLE, rows NOT_EVALUABLE
+      col periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      row periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x7fff x23040 (R31 G31 B31), 0x0000 x15359 (R0 G0 B0), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 1 frame_index 611: box x 110..129 y 70..82 = 20 x 13, border L110 T70 R110 B77, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 55; distinct words 4 (colours 3); scaling: columns NOT_EVALUABLE, rows NOT_EVALUABLE
+      col periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      row periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x38194 (R0 G0 B0), 0x5d9c x189 (R23 G12 B28), 0x3560 x16 (R13 G11 B0), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 2 frame_index 867: box x 80..159 y 44..102 = 80 x 59, border L80 T44 R80 B57, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 3846; distinct words 5 (colours 4); scaling: columns NO_PERIODIC_DUPLICATION, rows NO_PERIODIC_DUPLICATION
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x37525 (R0 G0 B0), 0x7fff x400 (R31 G31 B31), 0x6a60 x383 (R26 G19 B0), 0x3560 x91 (R13 G11 B0), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 3 frame_index 1123: box x 83..156 y 43..116 = 74 x 74, border L83 T43 R83 B43, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 4276; distinct words 6 (colours 5); scaling: columns NO_PERIODIC_DUPLICATION, rows NO_PERIODIC_DUPLICATION
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x37199 (R0 G0 B0), 0x280a x528 (R10 G0 B10), 0x0015 x413 (R0 G0 B21), 0x56b5 x173 (R21 G21 B21), 0x0155 x86 (R0 G10 B21), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 4 frame_index 1379: no pixel differs from the border word 0x0000 (an entirely uniform frame); distinct words 2 (colours 1)
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x38399 (R0 G0 B0), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 5 frame_index 1635: box x 40..199 y 8..151 = 160 x 144, border L40 T8 R40 B8, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 0; distinct words 11 (colours 10); scaling: columns NO_PERIODIC_DUPLICATION, rows NO_PERIODIC_DUPLICATION
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x15359 (R0 G0 B0), 0x6189 x6948 (R24 G12 B9), 0x0505 x4433 (R1 G8 B5), 0x0085 x3540 (R0 G4 B5), 0x3509 x2335 (R13 G8 B9), 0x1544 x1980 (R5 G10 B4)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 6 frame_index 1891: box x 40..199 y 8..151 = 160 x 144, border L40 T8 R40 B8, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 518; distinct words 14 (colours 13); scaling: columns NO_PERIODIC_DUPLICATION, rows NO_PERIODIC_DUPLICATION
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x15877 (R0 G0 B0), 0x6189 x7240 (R24 G12 B9), 0x0505 x4205 (R1 G8 B5), 0x0085 x3532 (R0 G4 B5), 0x3509 x1745 (R13 G8 B9), 0x1544 x1725 (R5 G10 B4)
+      bit-15 pixels: 1 at [(0, 0)]
+  sample 7 frame_index 2147: box x 131..139 y 92..103 = 9 x 12, border L131 T92 R100 B56, border word 0x0000, outside the box everything is the border word: True
+      border-word pixels inside the box 37; distinct words 5 (colours 4); scaling: columns NOT_EVALUABLE, rows NOT_EVALUABLE
+      col periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      row periods skipped (cannot discriminate): [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      colours (most frequent first; R,G,B = bits 14-10, 9-5, 4-0): 0x0000 x38328 (R0 G0 B0), 0x000c x47 (R0 G0 B12), 0x318c x20 (R12 G12 B12), 0x00cc x4 (R0 G6 B12), 0x8000 x1 (R0 G0 B0)
+      bit-15 pixels: 1 at [(0, 0)]
+  UNION of the boxes: (40, 8, 199, 151); border words seen: 0x0000; every pixel outside every box is its frame's border word: True
+```
+
+**FACT (what the sidecar bytes decode to under the stated decoder; the meaning of it is below, apart).**
+
+- **Geometry.** In samples 0, 5 and 6 the pixels that differ from the border word occupy EXACTLY the rectangle x 40..199, y 8..151: **160 x 144 pixels** at (40, 8). In the other five samples every non-border pixel lies inside the same rectangle (the union of all eight boxes is (40, 8, 199, 151)); sample 4 has none. So the picture's placement inside the 240 x 160 window is **centred, with a border of 40 pixels left and right and 8 pixels above and below**.
+- **The border.** Every pixel outside the rectangle is the word 0x0000 (black) in all eight samples, except pixel (0, 0) (below). **The border is black and the black border cannot be told from the picture's own black:** the decode fixes only that the picture occupies **at least 160 x 144** at that location (a lower bound, from the samples whose content reaches all four edges of the rectangle); black content at the rectangle's edge would be invisible to it.
+- **No forced-equal phase.** In the four samples where the test can speak (2, 3, 5 and 6) every period from 2 to 12 was evaluated on both axes and none shows a forced-equal phase (each period is judged on its own: a period whose phases are all at or above 0.95 is SKIPPED and named in the report, so a clean no is printed only when all eleven were evaluated); on the two full-picture samples (5, 6) the column adjacent-equal rate is flat by phase (0.79-0.80 at every phase of periods 2 and 3) and the row rate does not reach 1.0 at any phase of periods 9 or 10 (0.71-0.86). The samples 0, 1, 4 and 7 are NOT_EVALUABLE (a uniform frame, or too little structure to discriminate) and say nothing. **The test can say yes:** the tests show it finds a nearest-neighbour 1.5 x 10/9 stretch (columns at period 3, rows at period 10) and a doubling on synthetic run-length content, and the same stretch applied IN MEMORY to the real samples 5 and 6 (columns at periods 3, 6, 9, 12, rows at period 10; nothing is stored). It is NOT specific: on genuine content it can report a false positive (the GBA family's checker screen, RUN 17, reads `DUPLICATION_AT_PERIOD_4_8_12` on the columns of two samples and `8_12` on the other six: that screen's own structure, INFERENCE; synthetic 8 x 8 tile art gives false positives at periods 4, 8, 10 and 12), so a yes is a CANDIDATE for scaling, never proof, and the run's no is the finding here. It says nothing about a smoothing scaler; that would show as many distinct colours, and there are at most 13 (below).
+- **Colour words.** Samples 0..7 hold 3, 4, 5, 6, 2, 11, 14 and 5 distinct words, of which one in each is the word 0x8000 at pixel (0, 0) (the flag bit alone): **2, 3, 4, 5, 1, 10, 13 and 4 distinct 15-bit colours** (1 to 13). Decoded under GBP-HW-131's reading (bit 15 flag, bits 14-10 R, 9-5 G, 4-0 B; for example sample 5's largest non-border words 0x6189 x 6 948 = R24 G12 B9, 0x0505 x 4 433 = R1 G8 B5, 0x0085 x 3 540 = R0 G4 B5; sample 0 is 23 040 pixels of 0x7fff, R31 G31 B31, exactly 160 x 144, and 15 360 of the border word). **Bit 15 is set at pixel (0, 0) and nowhere else, in every sample** (reported, not interpreted, U-GBP-034), exactly as in the GBA-family sidecars (RUN 16, 17 and 23: one bit-15 pixel at (0, 0) in each of the 8 samples).
+
+**Meaning: the window holds the Game Boy picture unscaled, one window pixel per Game Boy pixel — INFERENCE, with its argument stated, not FACT.** Premises: (1) the Game Boy LCD is 160 x 144 pixels (Pan Docs, "Specifications", https://gbdev.io/pandocs/Specifications.html, "Resolution: 160 x 144"; that page was read by the adversarial reviewer on 2026-09-30, the Executor did not fetch it); (2) sample 0's uniform white fill is exactly 160 x 144 (a scaled fill would be larger); (3) in sample 5 the box holds no border-word pixel, so its content is non-black at all four box edges (sample 6 likewise but for 518 pixels inside), i.e. the picture reaches the edges of the box; (4) no forced-equal phase at any period where the test can speak; (5) at most 13 colours (no trace of a smoothing scaler). **Not excluded:** a smoothing scaler the bytes cannot see beyond (5); a larger picture whose outermost rows or columns are black in all three full-box samples (the box is a lower bound); a placement that differs in samples the test cannot read. Only samples 0, 5 and 6 fill the box.
+
+**What the frames show, in words (an offline viewer's reading of the rendered frames; no image is in the repository).** Sample 0: a plain white 160 x 144 picture area; sample 4: entirely black. Samples 1, 2, 3 and 7: small objects on black: a purple blob-shaped figure near the centre (sample 1), a golden emblem above the words "GAME FREAK" and "PRESENTS" in white (sample 2), a blue one-eyed figure inside a broken purple ring (sample 3), a tiny dark-blue ring with a grey centre, 9 x 12 pixels, below and right of the centre (sample 7). Samples 5 and 6: a full-picture outdoor scene, an orange-pink sky, dark-green tree masses, a strip of grass and a brown ground, and, in sample 6, two animal-like figures (one blue, one yellow with black ears) at the bottom of the picture, on the ground, and 518 black pixels inside the picture. The text reads left to right without mirroring; the colours read as natural (a gold emblem, an orange sky, green foliage), while under the other order of the outer groups they would read as azure and blue (**INFERENCE**: an offline viewer's judgment, and GBP-HW-131 is FACT for AGB Mode 3 video "on the path this run exercised and about nothing else" with a within-group permutation left open, so that the same reading holds on the GB-mode path is itself an INFERENCE; **no oracle** for a retail picture's true colours exists in this project, and the colour fidelity of retail content stays a Phase 7 acceptance item, `PHASE4_ASSESSMENT.md` R1). No title text appears in the eight frames; the identification of the game is the Operator's (C), not read from them.
+
+**The Operator's D, set beside the decode AFTER it exists (OPERATOR OBSERVATION, verbatim, never used to tune the decode: his answer D is set beside the decode AFTER it was made).** *"Parecia resolucao nativa do GBA, só que no formato quadrado que ela tem nativamente (acho que 3:2)"*.
+
+- **Consistent with the decode (no more than that):** he says "native" (not enlarged), and the window holds a 160 x 144 region at (40, 8) inside a black border (FACT), unscaled by the inference above. His observation is of the screen AFTER the host's scaling and the display chain, so this is consistency, not a check of the decode.
+- **Not decided by the decode:** "quadrado" and "3:2". The decode's picture is 160:144 (10:9, nearly square: consistent with "quadrado") inside a 240:160 (3:2) window (consistent with "3:2" if he meant the whole frame including the black bars); which of the two he meant by "3:2" cannot be read from the decode, both halves of his sentence fit it under different readings, and his own "acho" is a hedge. What the television showed also depends on the host's scaling and the display chain, which this decode does not see: **the decode is of the source window, not of the XFB or the screen.**
+- **His "GBA native resolution" and the decode:** the window is the AGB's 240 x 160 frame; the picture in it is the Game Boy's own 160 x 144 (Pan Docs, "Specifications": the Game Boy LCD is 160 x 144 pixels) (Pan Docs, as cited above) at one window pixel per Game Boy pixel by the inference above. The word "GBA" in his sentence is not something the bytes can confirm, and he did not say "bars" or "not stretched".
+
+**What this does NOT establish.**
+
+1. **What the television showed.** The decode stops at the source window. The presentation (`vdisp`, `vvi`) ran and is not evidence of the picture; no XFB and no screen was read.
+2. **Who scaled or placed it.** That the window carries the picture at 1:1 inside a border is a FACT about the window; that the placement is the AGB's own and not the device's is an INFERENCE from the path (the window is upstream of the host's scaling, `VIDEO_PATH.md`), and how the AGB decides it (`GBC_PATH.md` §2, "the stretch's owner") is unread.
+3. **The L / R stretch (`GBC_PATH.md` §4.2, E4).** No key was pressed. This decode is the BASELINE for that experiment: the unstretched picture is 160 x 144 at (40, 8) in a black border, so a stretch inside the AGB would change the box towards the whole frame and would add a period-3 column duplication that the tool finds.
+4. **Colour fidelity, timing, audio, input, or any second cartridge.** Eight frames, four of them mostly black, of one title, one boot.
+5. **The border's real extent.** Only its lower bound (above).

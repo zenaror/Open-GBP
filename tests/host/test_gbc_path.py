@@ -122,7 +122,8 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
             citing.add(head.strip().split(" ")[1] if " " in head.strip() else head.strip())
         # Issue #144 (amended on top): GBP-KEY-011 cites section 1.2 and 4.2 because its reading is set against the
         # Operator's recollection and the prediction recorded there -- it is ABOUT those two paragraphs.
-        self.assertEqual(sorted(citing), ["GBP-HW-272", "GBP-HW-274", "GBP-KEY-011"],
+        # Issue #148 (amended on top): GBP-HW-379 cites section 4.2 because RUN 59's decoded picture is the BASELINE that experiment reads against.
+        self.assertEqual(sorted(citing), ["GBP-HW-272", "GBP-HW-274", "GBP-HW-379", "GBP-KEY-011"],
                          "EVIDENCE cites the design document from an entry that is not about it")
         self.assertIn("which offered it and promoted nothing", plain(ev))
 
