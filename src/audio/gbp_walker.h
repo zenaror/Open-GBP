@@ -61,7 +61,8 @@ enum gbp_walker_kind {
     GBP_WALKER_HOLD_3B,
     GBP_WALKER_SWEEP,
     GBP_WALKER_NULLING,
-    GBP_WALKER_LOSS              /* Issue #137's diagnostic: steady holds, measured against two manipulated factors */
+    GBP_WALKER_LOSS,             /* Issue #137's diagnostic: steady holds, measured against two manipulated factors */
+    GBP_WALKER_PLAY              /* Issue #153's play phase: free-running, NO handler -- only the Operator's Z or the cap ends it */
 };
 
 enum gbp_walker_end_reason {

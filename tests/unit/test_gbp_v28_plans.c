@@ -56,6 +56,40 @@ static void test_perceptual_no_phase1(void)
     check(gbp_walker_finished(&w) == 1, "nulling's own 240 s cap finishes the run (300 s < the 360 s session cap)");
 }
 
+/* Issue #153 (HARDWARE_TESTS.md V31.1): navigate -> play, a free-running phase with no handler. The play cap ends it; so does the Operator's Z (the walker's stop),
+ * and a cut play phase is never counted complete. */
+static void test_play_gba(void)
+{
+    struct gbp_walker w;
+    const struct gbp_walker_phase_rec *r;
+    gbp_walker_start(&w, &GBP_V28_PLAY_GBA, 1u, 0u);
+    check(w.cfg_faults == 0u, "play_gba raises no cfg_faults");
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_NAVIGATE, "starts at navigate/p0");
+    check(GBP_V28_PLAY_GBA.session_cap_s == 420u, "the session cap is 60 + 300 + 60");
+    (void)gbp_walker_tick(&w, 59u, 0);
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_NAVIGATE, "navigate holds until its own 60 s cap");
+    (void)gbp_walker_tick(&w, 60u, 0);
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_PLAY, "navigate's cap starts play BY ITSELF: nothing the Operator presses is needed");
+    (void)gbp_walker_tick(&w, 60u + 299u, 0);
+    check(gbp_walker_finished(&w) == 0, "play is still running one second before its cap");
+    (void)gbp_walker_tick(&w, 60u + 300u, 0);
+    check(gbp_walker_finished(&w) == 1, "play's own 300 s cap finishes the run (360 s < the 420 s session cap)");
+    r = gbp_walker_phase_record(&w, 1u);
+    check(r && r->ended && r->cut && r->reason == GBP_WALKER_END_PHASE_CAP, "the play phase ended by its cap, and a cap is a cut (never complete)");
+
+    gbp_walker_start(&w, &GBP_V28_PLAY_GBA, 1u, 0u);
+    (void)gbp_walker_tick(&w, 100u, 0);
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_PLAY, "test setup: in play at t=100");
+    check((gbp_walker_stop(&w, 100u, 0) & GBP_WALKER_TICK_FINISHED) != 0, "Z ends the whole walk from play");
+    r = gbp_walker_phase_record(&w, 1u);
+    check(r && r->reason == GBP_WALKER_END_STOP, "and the record says STOP");
+
+    /* a late origin does not shorten the play bound: the caps run from the walker's own origin */
+    gbp_walker_start(&w, &GBP_V28_PLAY_GBA, 1u, 1000u);
+    (void)gbp_walker_tick(&w, 1000u + 60u, 0);
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_PLAY, "the caps are relative to the origin");
+}
+
 static void test_the_busy_gate_holds_for_the_real_plans_too(void)
 {
     struct gbp_walker w;
@@ -68,6 +102,7 @@ int main(void)
 {
     test_validation_run();
     test_perceptual_no_phase1();
+    test_play_gba();
     test_the_busy_gate_holds_for_the_real_plans_too();
     printf("test_gbp_v28_plans: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

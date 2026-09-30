@@ -76,6 +76,7 @@ extern "C" {
                                             * does not enter L(T, A): the latency is set by the chunk-start level c, not by the room around it. */
 #define GBP_APLAY2_TARGET_MIN   GBP_APLAY2_PUSHES        /* a chunk must be able to start */
 #define GBP_APLAY2_TARGET_MAX   (GBP_APLAY2_RING - GBP_APLAY2_BAND - 1u)
+#define GBP_APLAY2_UNDER_CAP    64u   /* the first underruns whose hand-off ordinal and instant are kept (Issue #153, V31.3) */
 
 #define GBP_APLAY2_EV_DUP     1u
 #define GBP_APLAY2_EV_DROP    2u
@@ -193,6 +194,12 @@ struct gbp_aplay2 {
                                                   * on this path (the pool is fixed-size, never overflows a chunk:
                                                   * cur_frames caps at GBP_APLAY2_FRAMES by construction) */
     volatile uint32_t handed, underruns, silences;
+    /* Issue #153 (HARDWARE_TESTS V31.3): WHEN the first underruns happened, stored by the callback at the increment itself -- two plain
+     * stores into caller-visible arrays, no allocation, no log write (AGENTS.md section 21). `under_handed[n]` is the 1-BASED ORDINAL of the
+     * hand-off that found the READY queue empty (hand-off 1 is the first one after the DMA start), `under_t[n]` the `t` that call was given.
+     * Only the first GBP_APLAY2_UNDER_CAP underruns are kept (`underruns` keeps counting past it); the pump side reads them after the session. */
+    volatile uint32_t under_handed[GBP_APLAY2_UNDER_CAP];
+    volatile uint64_t under_t[GBP_APLAY2_UNDER_CAP];
     /* M: the callback's instants */
     volatile uint8_t  measuring;
     volatile uint32_t cb_count;

@@ -303,6 +303,42 @@ static void test_underrun_when_ready_is_empty(void)
 /* AHEAD == 1 forces one chunk produced, handed and processed at a time; "two hand-offs later" is
  * checked across three such cycles: A's buffer is freed only once a THIRD chunk (C) has been
  * handed, not after B's hand-off alone. */
+/* Issue #153 (V31.3): the callback stores the 1-based hand-off ordinal and the instant of each of the first GBP_APLAY2_UNDER_CAP underruns, at the increment. */
+static void test_underrun_ordinals_are_stored_at_the_increment(void)
+{
+    struct gbp_aplay2 p;
+    struct gbp_adec2 d;
+    uint32_t i;
+    reset(&p, &d);
+    p.playing = 1;
+    (void)gbp_aplay2_irq_handoff(&p, 1000u);                       /* hand-off 1: empty -> an underrun */
+    eqi((long long)p.under_handed[0], 1, "the first hand-off's underrun is ordinal 1");
+    eqi((long long)p.under_t[0], 1000, "and keeps its instant");
+    give(&d, p.target + 2u * GBP_APLAY2_PUSHES, 100);
+    check(drive(&p, &d, 0u), "test setup: one chunk queued");
+    (void)gbp_aplay2_irq_handoff(&p, 2000u);                       /* hand-off 2: a chunk, no underrun */
+    (void)gbp_aplay2_irq_handoff(&p, 3000u);                       /* hand-off 3: empty again */
+    eqi((long long)p.underruns, 2, "two underruns");
+    eqi((long long)p.under_handed[1], 3, "the second is hand-off 3 (a served hand-off in between still counts in the ordinal)");
+    eqi((long long)p.under_t[1], 3000, "with its own instant");
+    /* two underruns in ONE pump interval (two callbacks, no pump call between) are TWO records */
+    (void)gbp_aplay2_irq_handoff(&p, 4000u);
+    (void)gbp_aplay2_irq_handoff(&p, 5000u);
+    eqi((long long)p.underruns, 4, "four underruns");
+    eqi((long long)p.under_handed[2], 4, "hand-off 4");
+    eqi((long long)p.under_handed[3], 5, "hand-off 5: two callbacks between pump calls are two records");
+    /* the array is bounded: the count keeps going, the records stop at the cap and never write past it */
+    for (i = 0u; i < 2u * GBP_APLAY2_UNDER_CAP; i++) (void)gbp_aplay2_irq_handoff(&p, 6000u + i);
+    eqi((long long)p.underruns, 4 + 2 * (long long)GBP_APLAY2_UNDER_CAP, "underruns keeps counting past the cap");
+    eqi((long long)p.under_handed[GBP_APLAY2_UNDER_CAP - 1u], (long long)GBP_APLAY2_UNDER_CAP + 1, "the last kept ordinal is the cap-th underrun's hand-off");
+    /* no underrun is stored or counted while playing is clear */
+    reset(&p, &d);
+    p.playing = 0;
+    (void)gbp_aplay2_irq_handoff(&p, 10u);
+    eqi((long long)p.underruns, 0, "a hand-off before `playing` is no underrun");
+    eqi((long long)p.under_handed[0], 0, "and stores no ordinal");
+}
+
 static void test_process_frees_two_handoffs_later(void)
 {
     struct gbp_aplay2 p;
@@ -511,6 +547,7 @@ int main(void)
     test_conservation();
     test_queue_and_handoff_fifo();
     test_underrun_when_ready_is_empty();
+    test_underrun_ordinals_are_stored_at_the_increment();
     test_process_frees_two_handoffs_later();
     test_mute_hands_silence_and_leaves_ready_untouched();
     test_discard_chunk_frees_without_queueing();

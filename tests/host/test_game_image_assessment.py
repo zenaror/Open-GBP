@@ -208,10 +208,11 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
         # perceptual_no_phase1): the frozen design (Issue #128) implemented -- the native audio chain
         # (gbp_adec2/gbp_aresamp2/gbp_aplay2/gbp_atrans2) and gbp_walker + the §V28 handlers replacing
         # gbp_async, on poc/gbp-audio-sync's own chassis (untouched). Not part of THIS assessment either.
+        # Issue #153 (2026-09-30) BUILT poc/gbp-play-gba, Phase 7's E5 vehicle (HARDWARE_TESTS.md V31): the V28 chassis copied with the research machinery left out. Amended on top.
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
                          ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-game", "gbp-audio-game2", "gbp-audio-live", "gbp-audio-native-probe", "gbp-audio-split", "gbp-audio-sync", "gbp-audio-trace", "gbp-audio-v28", "gbp-audio-window-probe",
                           "gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
-                          "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
+                          "gbp-init-probe", "gbp-play-gba", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
                           "gbp-video-stream-probe", "smoke-test"])
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
