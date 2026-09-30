@@ -126,6 +126,32 @@ class TheWriteInventoryIsRecomputed(unittest.TestCase):
         self.assertIn("254 746", plain(section()))
 
 
+class TheCandidateOfRecord(unittest.TestCase):
+    """V29.10: the record names the commit the image was built at, and that commit is what the record says it is."""
+
+    def test_the_marker_names_an_ancestor_that_carries_the_variant_target_and_the_frozen_poc(self):
+        import subprocess
+        d = read(HW)
+        m = re.search(r"^CANDIDATE_COMMIT=([0-9a-f]{7,40})\s*$", d, re.M)
+        self.assertIsNotNone(m, "V29.10 records no candidate commit")
+        c = m.group(1)
+        if subprocess.run(["git", "-C", ROOT, "cat-file", "-e", c + "^{commit}"], capture_output=True).returncode != 0:
+            self.skipTest("the base commit is not in this checkout")
+        self.assertEqual(subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", c, "HEAD"]).returncode, 0)
+        mk = subprocess.run(["git", "-C", ROOT, "show", c + ":Makefile"], capture_output=True, text=True).stdout
+        self.assertIn("gbmode-session:", mk)
+        self.assertIn("GBMODE_BUILD_ID ?= gbmode-0001", mk)
+        a = subprocess.run(["git", "-C", ROOT, "show", c + ":poc/gbp-video-stream-probe/source/main.c"], capture_output=True, text=True).stdout
+        b = subprocess.run(["git", "-C", ROOT, "show", "da06500:poc/gbp-video-stream-probe/source/main.c"], capture_output=True, text=True).stdout
+        self.assertEqual(a, b)
+
+    def test_the_record_names_the_hash_the_identity_and_what_was_not_run(self):
+        d = plain(section())
+        for w in ("e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497", "516 544 B", "byte-identical", "Build : gbmode-0001 Commit: 4d6fe06",
+                  "OPENGBP-IDENT gbp-video-stream-probe gbmode-0001 4d6fe06", "NOT RUN HERE", "NONE. tools/swiss-layout.tsv is untouched"):
+            self.assertIn(w, d)
+
+
 class TheFenceHolds(unittest.TestCase):
     FORBIDDEN = [r"\brungs?\b", r"\bladder\b", r"\bnulling\b", r"\bperceptual\b", r"\bAHEAD\b", r"\bT\d{3,4}\b", r"\bL\(", r"v28p", r"26-v28",
                  r"\bnull point\b", r"latency table"]

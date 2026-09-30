@@ -40311,3 +40311,27 @@ topology        the standing declarations cited; a change announced and not in t
 ```
 
 **What this run does not decide.** What the picture is (Q5 is his words, and the offline sidecars are for a later reading); the L / R stretch (GBC_PATH 4.2, E4); whether DMG and CGB differ (this cartridge is one CGB title); GB-mode input, audio content or timing; a second cartridge or the MBC3000; the meaning of bit `0x01` (`U-GBP-036`); the serial path; and Phase 7's acceptance. **It is one boot of one title, one console, one Game Boy Player.**
+
+### V29.10 The candidate of record for RUN 59 — built twice at a clean commit; NOT pinned, NOT staged, NOT issued — 2026-09-30 (Issue #146)
+
+CANDIDATE_COMMIT=4d6fe06
+
+```text
+commit           4d6fe06 -- the commit that carries this checkpoint's code, reader, tests and pre-registration (V29.1-V29.9). The tree was clean before both builds
+                 (git status empty) and build-info.txt reads `commit=4d6fe06` with no -dirty suffix.
+build            `make gbmode-session` (BUILD_ID=gbmode-0001, OUTDIR=build/poc/gbp-video-stream-probe-gbmode), the whole output directory removed before EACH of two Docker builds
+DOL              build/poc/gbp-video-stream-probe-gbmode/gbp-video-stream-probe.dol
+DOL sha256       e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497   516 544 B   -- the two rebuilds are byte-identical (sha256 and cmp)
+compiler         powerpc-eabi-gcc (devkitPPC) 16.1.0; libogc2 r2442.094b250
+identity         strings: "OPENGBP-IDENT gbp-video-stream-probe gbmode-0001 4d6fe06"; tools/dolinfo.py --require-aligned: text 0x061140 B, data 0x01CF80 B, aligned
+size             stream-0015 as pinned (da06500) was 514 880 B; this is 516 544 B: +1 664 B, the four changed sources (V29.3). The EXECUTED bytes are not expected to equal stream-0015's.
+the Operator's   Build : gbmode-0001   Commit: 4d6fe06        (the on-screen line, poc/gbp-video-stream-probe/source/main.c:1148; V29.6 step 5 reads it)
+ check
+the reader       python3 tools/gbmode_read.py <log> --build gbmode-0001 --commit 4d6fe06
+NOT RUN HERE     `make stream-audit` on this directory (the Makefile's audit rules are keyed to build/poc/gbp-video-stream-probe; the interrupt-path sources -- hsp_backend_irq.c, gbp_irq_oneshot.h,
+                 src/platform, src/common, src/log -- are UNCHANGED since da06500, which V29.3's inventory pins); a Dolphin smoke; an object-level comparison with a rebuild of da06500.
+                 Stated so nobody assumes them.
+pin / stage      NONE. tools/swiss-layout.tsv is untouched, no slot 27 exists, nothing is exported, the card is untouched. The pin, the export and the card write are the Hardware Issue's,
+                 after the Orchestrator's validation and after RUN 58 has been run and archived. The tests use this commit for every comparison from now on
+                 (tests/host/test_gbmode_image.py reads the marker above).
+```
