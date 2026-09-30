@@ -91,6 +91,9 @@
 #   make prehandler-wait build the pre-handler masked-wait DIAGNOSTIC (default 5000 ms;
 #                       PREWAIT_MS=N to change). Separate build id and directory: it is
 #                       NOT GBP-VIDEO-003 and NOT the vstate-0004 reference DOL
+#   make gbmode-session build the GB-mode session image (Issue #146, Phase 7's E3): the stream-0015 POC, UNCHANGED, built at HEAD
+#                       (so with the Issue #145 CONTROL policy) under its own build id (GBMODE_BUILD_ID, default gbmode-0001)
+#                       into its own directory. It edits no POC source; it is the family's variant mechanism, as prehandler-wait is
 #   make vstate-audit   audit gbp-video-state-probe: both 002/003B handlers and every object (profile vstate:
 #                       one __UnmaskIrq site, no INTMR store, 3 + 1 + 3 IRQ-register write sites, the 64-bit
 #                       time base through gettime() only, and NO filesystem reference in the capture path)
@@ -310,7 +313,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep stimulus-route swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep stimulus-route swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin gbmode-session
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -595,6 +598,23 @@ prehandler-wait:
 	@echo "  DIAGNOSTIC BUILD - not GBP-VIDEO-003, not vstate-0004"
 	@echo "  wait: $(PREWAIT_MS) ms between stage A and the handler install"
 	@sha256sum $(PREWAIT_DOL) $(PREWAIT_OUT)/gbp-video-state-probe.unpadded.dol
+
+# Issue #146 (Phase 7, E3): the GB-mode session image. THE POC IS NOT EDITED AND NOT COPIED: the stream probe's own Makefile is
+# driven with another BUILD_ID and another OUTDIR, exactly as prehandler-wait drives the vstate probe's. What differs from the
+# physically executed stream-0015 is therefore what the SHARED sources under src/ gained since its commit: the Issue #145 CONTROL
+# policy (the variable) and the additive hooks of Issues #39, #59, #84 and #101, every one of them behind a config member the
+# stream POC never sets (tests/host/test_gbmode_image.py pins that, and compares the device operation stream of both trees).
+GBMODE_BUILD_ID ?= gbmode-0001
+GBMODE_OUT := build/poc/gbp-video-stream-probe-gbmode
+GBMODE_DOL := $(GBMODE_OUT)/gbp-video-stream-probe.dol
+
+gbmode-session:
+	$(IN_CONTAINER) sh -c 'set -e; make --no-print-directory -C poc/gbp-video-stream-probe \
+	  BUILD_ID=$(GBMODE_BUILD_ID) \
+	  OUTDIR="$$PWD/$(GBMODE_OUT)"'
+	@echo
+	@echo "  GB-MODE SESSION IMAGE - build id $(GBMODE_BUILD_ID); not stream-0015, not staged"
+	@sha256sum $(GBMODE_DOL)
 
 # The controlled AGB stimulus of GBP-VIDEO-003 (devkitARM, inside the same container).
 # The ROM is a DEVELOPMENT ARTIFACT: it has never run on hardware, and this repository

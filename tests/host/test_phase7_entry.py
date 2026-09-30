@@ -131,6 +131,12 @@ class TheCodeClaimsAreReadFromTheTree(unittest.TestCase):
         self.assertIn("nothing branches on bit 0x01", d)
         self.assertGreater(read(DOC).index("(Issue #145)"), read(DOC).index("(Issue #144)"))
 
+    def test_the_amendment_of_issue_146_is_appended_and_stages_nothing(self):
+        d = plain(read(DOC))
+        self.assertIn("Amendment \u2014 2026-09-29 (Issue #146): E3 built and pre-registered, NOT run", d)
+        self.assertIn("RUN 58's ingestion goes first, and the card is not touched before it", d)
+        self.assertGreater(read(DOC).index("(Issue #146)"), read(DOC).index("(Issue #145)"))
+
     def test_the_v28_chassis_header_says_what_section_2_quotes(self):
         m = plain(read(os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")))
         self.assertIn("video, vstate, vqueue, vpresent, GX, input, session, keylog, SD save/teardown, startup profile "

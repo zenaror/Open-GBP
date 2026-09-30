@@ -40106,3 +40106,208 @@ card       /media/rafael/SD_GC/Open-GBP/26-v28p/boot.dol, sha256 read back from 
 **What the Operator sees.** The screen shows only the phase name and a clock (`PHASE 0 <s>s`, then `NULL SET <k> <s>s`, then `DONE <s>s`); the post-run screen shows `V28 nulling` and `setting <k>`. Nothing of the chain, the rung or the presses (the leak rules restated in §V28.29a). The DMA reads and the marked block are not in this image (`strings`: V28MARK 0, V28DMA 0).
 
 **What it logs.** `V28CFG ... rungs=8`, `V28_NULL` and `V28_NULLM` per setting, `V28PHC`/`V28PHD`, `SYNCPE`, `SYNCCS`, `V28TAPS`; raw name reserved by the Hardware Issue. Read with `python3 tools/v28null.py <log> --label M1` and `tools/v28verdict.py`, unedited, after the Operator's declaration is recorded.
+
+## V29 — PHASE 7's E3: THE FIRST GB-MODE SESSION PAST PREUNMASK — `GBP-GBMODE-001`, RUN 59 — **PRE-REGISTERED 2026-09-29 (GitHub Issue #146); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and NOT staged; the card is untouched until RUN 58 has been run and archived**
+
+Written before the hardware is touched and before the image is built. **No hardware run is authorised by this section.** The Orchestrator validates it and opens the Hardware Issue; staging is its own step, after RUN 58. RUN 58's ingestion goes first, whenever it arrives. Nothing here is evidence and no evidence id is allocated. `PHASE7_ENTRY.md` §3.3, §6 E3 and the amendments of Issues #144 and #145 are the design; this is the pre-registration of their first physical step.
+
+### V29.1 The question
+
+With GB/GBC media in the slot and the Issue #145 CONTROL policy in the image, **what happens past PREUNMASK?** Four machine questions and one human one, each with its rival readings written below before any run:
+
+```text
+Q1  does the session get past PREUNMASK, and does the AV service cycle run (unmask, deliveries, acks, re-arms, and how it ends)?
+Q2  do VIDEO deliveries arrive, and with what STRUCTURE, against the GBA structure this image family has produced every time (GBP-HW-081's frame, the 40-block closure)?
+Q3  do AUDIO blocks arrive, and in what proportion to the VIDEO blocks?
+Q4  what does the restore read back, and is a CONTROLTOL line written?
+Q5  what does the Operator see on the TV?   (his words; never computed on)
+```
+
+Every boot of a GB/GBC cartridge this project holds (RUN 24, 27, 28, 29) ended at PREUNMASK with `unmasks=0 deliveries=0 video=0/0 audio=0 acks=0 key attempts=0` (`GBP-HW-276`). **No AV service cycle, no ACK, no re-arm, no KEYPAD write and no VIDEO or AUDIO read has ever been made with GB media in the slot.** That is why this run is a pre-registration and not a routine boot.
+
+### V29.2 Identity, names, and what is reserved
+
+```text
+Test ID          GBP-GBMODE-001 (the EXPERIMENT's id). The image's embedded TEST_ID stays GBP-VIDEO-004, the stream family's, exactly as
+                 play-0001's stayed GBP-PLAY-001 beside GBP-INPUT-004: the log header will read test_id=GBP-VIDEO-004 build_id=gbmode-0001
+Run              RUN 59 -- the next free number after RUN 58 (Issue #142). The Operator's earlier unregistered GB/GBC boots keep 24, 27, 28, 29.
+Build ID         gbmode-0001            commit: the short hash of the CLEAN commit the image is built at (recorded in V29.10 once built)
+Image            the stream-0015 POC, UNCHANGED (poc/gbp-video-stream-probe: main.c byte-identical to da06500's, the Makefile as Issue #87
+                 left it), built by `make gbmode-session` (BUILD_ID=gbmode-0001, OUTDIR=build/poc/gbp-video-stream-probe-gbmode)
+DOL              build/poc/gbp-video-stream-probe-gbmode/gbp-video-stream-probe.dol   (sha256 recorded in V29.10; two identical Docker rebuilds)
+Slot             27-gbmode  -- RESERVED NAME ONLY. No row in tools/swiss-layout.tsv, no pin, no export, no card write. (tests/host/test_gbmode_image.py pins the absence.)
+Raw names        captures/local/GBP-VIDEO-004_gbmode-0001-run59.log
+                 captures/local/GBP-VIDEO-004_gbmode-0001-run59-idxcap.bin  -full.bin  -vi.bin  -disp.bin      (the sidecars the family writes)
+Card names       sd:/open-gbp/GBP-VIDEO-004_gbmode-0001.log and the same suffixes (the console names them; the Operator's drop is archived first,
+                 by run number, before anything is read)
+Reader           tools/gbmode_read.py, frozen with this pre-registration; tests/host/test_gbmode_read.py
+```
+
+### V29.3 THE ONE NEW VARIABLE, and everything else that differs from the physically executed image
+
+**The variable is Issue #145's CONTROL policy**: bit `0x01` tolerated, the seven others strict, in the guards and the restore read-back (`src/gbp/gbp_control_policy.h`). The image is the stream-0015 program with the shared sources of a later commit. **What differs from stream-0015 (da06500), enumerated, not asserted** (`tests/host/test_gbmode_image.py`):
+
+```text
+THE POC                 main.c byte-identical to da06500's; the Makefile unchanged since Issue #87 (which added the gbp_awin.c link); nothing copied,
+                        no new POC directory. The identity is the ONLY thing the variant target changes: BUILD_ID and OUTDIR.
+LINKED SOURCES THAT    exactly four, and no more:
+ DIFFER                  gbp_initirqa_probe.c    Issue #145 only: the policy, the tolerance record, the restore read-back
+                         gbp_irq_service.c       Issue #145 only: the PREUNMASK and PREACK comparisons (the one moved "frozen" file; its lines are pinned by test_awin_image.py)
+                         gbp_vstate_probe.c      Issue #145 (two comparisons) + the hooks of Issues #39 (session end), #59 (audio window), #84 (audio length, audio tap)
+                                                 and #101 (video tap)
+                         gbp_awin.c              linked since Issue #87 and never entered
+THE HEADERS           the include closure of the linked sources is inventoried too: four headers are new or differ (gbp_vstate_probe.h: appended enum values and appended config
+                        members; gbp_initirqa_probe.h: the tolerance fields; gbp_control_policy.h and gbp_awin.h: new); `gbp_vstate_config_default` is unchanged and starts with a memset. The
+                        size of each change is pinned (lines added / removed), and the ONLY six lines gbp_vstate_probe.c lost are listed in the test.
+THE HOOKS ARE INERT    every one sits behind a config member the stream POC never sets (cfg.awin, audio_tap, video_tap, session_end, audio_len_live: a grep of
+                        main.c finds none) and the config's default is a memset; with them NULL, the code is one predictable branch and nothing else
+THE DIFFERENTIAL RUN   the vstate probe of da06500's own tree and of the candidate's, through the mock's synthetic device, the same GBA-mode scenario:
+                         the SAME 3 443 device operations, the SAME log, the SAME result. With the device holding CONTROL bit 0x01 the old tree aborts at
+                         PREUNMASK after 52 operations, and the new one makes exactly the operations the GBA scenario makes (every read's kind, address,
+                         length and result, and the bytes of every write). SYNTHETIC: the mock's device, not the hardware's.
+```
+
+**What the checks cannot see, stated:** the differential run drives the vstate probe through the mock, not the stream POC's pump, witness, presentation or input path; those modules (and src/common, src/log, src/platform) are UNCHANGED since da06500, which the inventory pins, so nothing there can differ; and no object-level comparison of the built images was made (no build of da06500's tree was compared with this one's) -- the source-level inventory and the differential run stand in its place.
+
+**Nothing else is a variable.** The witness, the 5 s not-before gate, the 60 s safety cap, the 2048-record target, the stores, the presentation, the KEYPAD policy, the descriptor, the startup profile (NORMAL) and the SD flow are the image's own, byte for byte. **What the shared-source drift cannot exclude is stated, not hidden:** the new build's code layout differs from stream-0015's in the four files above, so a timing difference of a few instructions exists; the four GBA/no-cartridge archive runs (RUN 16, 17, 18, 23) are all the SAME stream-0015 binary, so they show the family's RUN-TO-RUN stability, which is what the reading bands are sized on (V29.7); they do not show insensitivity to the code-layout difference, and the differential run (above) is what stands in for that.
+
+### V29.4 The instrument, and the topology
+
+```text
+cartridge      the Operator's ORIGINAL Pokémon Crystal (JP) -- the title of RUN 24 and RUN 27. That it is the SAME PHYSICAL CARTRIDGE is ASKED (V29.6, item A),
+               not assumed; RUN 24/27's records name the title and not the copy. "I don't know" is admissible and is recorded as such.
+               FORM on the three-value axis: ORIGINAL (his declaration of 2026-09-29, Issue #143 comment 5901197211: "pokemon crystal original JP"; comment 5901239793: "originais").
+mode           the CONTROL bit 0x01 after the transform (GBP-HW-275) is the run's own attestation that the medium was seen as GB/GBC; the reader's gate
+               `gb_media_attested` fails, and the run says nothing about GB mode, if the bit is never read.
+ONE ARM        a second arm (the MBC3000 v4's straight-boot ROM, or an original Gen 1 cartridge) is OPTIONAL and would be its own run name, written only if
+               this arm leaves a question it cannot answer. Not registered here.
+console        the one GameCube and the one Game Boy Player of the Operator's declared inventory (cited, not asked again)
+BBA            present, no cable -- the STANDING DECLARATION of Issue #35 (V7.5.4), cited; a change he announces and the record does not reflect makes the run INCONCLUSIVE on that item
+display chain  unchanged -- the same standing declaration; the machine reading is from the FRAMES, not the screen
+controller     the GENERIC third-party pad in port 1 (the standing declaration of Issue #42); NO BUTTON IS TO BE PRESSED (V29.5, V29.6)
+Link Port      nothing connected;  recovery: POWER CYCLE
+```
+
+### V29.5 THE WRITE INVENTORY after PREUNMASK (`CLAUDE.md` §18)
+
+Every write the image makes, derived from the code (`gbp_vstate_probe.c`, `gbp_irq_service.c`, `gbp_initirqa_probe.c`, `gbp_input.c`, `gbp_regwrite.c`) and from the logs, **and whether it was ever made with GB media in the slot** (RUN 24/27/28/29 logs, recomputed: `tests/host/test_gbmode_prereg.py`). The counts of a GBA session are RUN 17's.
+
+```text
+WRITE                                     FORM AND CADENCE                                                       WITH GB MEDIA BEFORE?   GBA SESSION (RUN 17)
+GBS-DOL registers (through the HSP)
+ IRQ ACK                                   IRQ := read | 0x8000 (e.g. 0x0500 -> 0x8500), once per delivery      NEVER                   254 723, failed 0
+ IRQ RE-ARM                                IRQ := 0x0000, once per cycle, after the ACK                          NEVER                   254 723, failed 0
+ KEYPAD (index 0xC, one 32-byte block)     first + on change + every 5 ms refresh; THE IDLE WORD 0x0000 if       NEVER (key attempts=0)  7 898 (first 1, change 42, refresh 7 855),
+                                           no pad bit is set                                                                              failed 0
+ CONTROL restore                           CONTROL := the ORIGINAL byte (0x92), once, at the teardown            YES (RUN 24/27/28/29)   1
+ IRQ STOP word                             IRQ := read | 0x8aaa (the Disc's stop shadow), once, at the teardown  YES                     1
+ (before PREUNMASK, for completeness)      TEST detection patterns (4), CONTROL transform 0x92 -> 0x8e, IRQ A1 (:= read), IRQ A2 (:= 0)   YES     as in every run
+GameCube side (not the GBS-DOL)
+ PI INTMR unmask (main) / mask (handler)    the handler is installed and unmasked per cycle, and masks itself on entry      NEVER (unmasks=0 in every GB run)  254 723 unmasks
+ PI INTSR W1C (ISR, main, teardown)         isr_w1c per delivery; one at the teardown                             the teardown one YES    254 723 + 1
+ AR_INFO exp / restore                      once each, at the start / the teardown                                YES                     1 + 1
+GameCube-side hardware, not the GBS-DOL (listed for completeness; none is a hazard to the device)
+ DSP AR-DMA programming + DSP_CSR ARINT clear   per whole-block transfer (each read is a DMA: address, length 0x1000, start, wait, clear)   NEVER with GB media   as many as the reads
+ SI pad polling, VI / GX presentation           every frame, from the pad and the presented frames                                                    not with GB frames    every frame
+ SD writes                                      after the teardown only: the log and the sidecars, on the Operator's X                                YES (the log was saved) 1 + 4 sidecars
+READS (not writes): the AUDIO and VIDEO whole-block reads (0x1000 each) per delivery (NEVER with GB media), and the per-cycle CONTROL / IRQ / PI snapshots
+(the first four cycles only, see V29.7).
+```
+
+**Why each never-made-with-GB write is judged safe to make, from evidence already held, not from hope — and how much each piece supports:**
+
+- **ACK and RE-ARM.** What supports them: (1) **the same register, written with GB media, in the same layout**: every GB log shows `IRQW tag=A1` (the register rewritten as read), `IRQW tag=A2 write=0000` (**the very value RE-ARM writes**) and, at the teardown, `IRQW tag=STOP before=0500 write=8faa` (**a write that carries the 0x8000 bit with 0x0500 pending, the form of an ACK**); (2) 254 723 of each in a GBA session with `failed=0`, and RUN 23's 254 746 with **no Game Pak at all**: the write is not conditioned on a cartridge; (3) the references write the IRQ register in the service they run in both types (`INITIALIZATION.md` §4 for the Disc's and GBI's handler and block), and the two entries that read their CONTROL code, `GBP-CTL-002` and `GBP-CTL-003`, find **no branch on the type bit in the CONTROL consumers** they enumerate (static, for the code only: that is ABSENCE OF A BRANCH, not evidence about the IRQ write itself, and the entries say nothing of ACK). What is NOT shown: that the device accepts an ACK with the AGB in GB mode; that is exactly what the run measures.
+- **KEYPAD.** The one write class the GB question touches. **It is held at the idle word without a new variable**: the image's input path writes the pad's word, and with no pad bit set the word is `0x0000`; the Operator is told to press nothing, and the run's own KEY record (`INPUT ... key_changes=0 last_word=0000`, read by the reader as `IDLE_ONLY`) is the check. Nothing is added or removed. Support: the Disc forwards the KEYPAD word in every mode and GBI in GB type clears only bits 8 and 9 (`GBP-KEY-011`, static, for the code only), which an idle word does not carry; the routing of all ten bits is a physical FACT on a GBA cartridge (`GBP-HW-266..271`). A GB program reading a zero word is the null case, **an inference and not an observation**. **An accidental press is a recorded deviation, not a void**: L or R in GB mode would be forwarded to the AGB (GBC_PATH 4.2's own prediction, a different experiment), and every other button is a key the game reads.
+- **The GameCube-side writes** (INTMR, INTSR, and the AR DMA programming below) are not conditioned on the cartridge in any reference or run and were made in RUN 23 with none.
+- **What is NOT known, and is named:** whether the device accepts an ACK it has never been given with the AGB in GB mode; whether the AV service cycle is indifferent to the mode at all (neither reference was observed on hardware in GB mode by this project); whether the whole-block AUDIO/VIDEO reads have a device-side effect in GB mode (a read that clears a source is a model in the mock, `bulk_clears_source`, and a fact of the GBA runs' service, not a fact about GB mode); and what GBI's forced bit 0x80 and skipped serial queue are FOR (`GBP-CTL-003` site 1, unread here): a **leading candidate** for "nothing arrives", written down before the run and **not** tested by it, because copying it would be a second variable.
+
+**Recovery.** The teardown's restore and IRQ STOP are the ones already made with GB media; the power cycle **before and after** is unchanged (V7.7): `power_cycle_required=1` is set at the transform write and never cleared, and the Operator powers the console off completely at the end whatever the run did.
+
+### V29.6 The Operator's procedure and questions -- frozen here, in Portuguese, before the run
+
+```text
+ANTES
+ A. Antes de ligar: o cartucho Pokémon Crystal ORIGINAL (JP) que vai no Game Boy Player é o MESMO exemplar que você usou nos testes de 22/09
+    (os que pararam na tela de texto)? Responda "sim", "não" ou "não sei" -- isso é uma DECLARAÇÃO, não uma observação.
+ 1. Console DESLIGADO POR COMPLETO (ciclo de energia: desligue, espere alguns segundos e só então ligue).
+ 2. Cartucho Pokémon Crystal (JP) original no Game Boy Player. Nada no Link Port. Cartão SD2SP2 no console. Controle GENÉRICO na porta 1.
+ 3. AVISE ANTES DE LIGAR -- eu abro a captura do Gecko (ela fecha sozinha no fim).
+ 4. Ligue e abra pelo Swiss:  Open-GBP / 27-gbmode / boot.dol
+ 5. Confira na tela:  Build : gbmode-0001   Commit: <o hash da V29.10>.   Se estiver diferente, PARE e avise.
+DURANTE
+ 6. NÃO aperte NENHUM botão do controle durante a execução (a tela diz "DO NOT PRESS ANYTHING"). Só olhe a TV.
+ 7. Espere a execução terminar sozinha (cerca de 1 minuto).
+DEPOIS
+ 8. Quando aparecer a tela final com "X = save log", X × 1 grava. Espere confirmar. Depois START.
+ 9. DESLIGUE o console POR COMPLETO (ciclo de energia obrigatório). Cartão no leitor do PC. Diga "RUN 59 feito" e confirme: ciclo de energia ANTES e DEPOIS -- sim / não.
+
+O QUE VOCÊ VIU (responda com as suas palavras; eu registro literalmente ANTES de te mostrar qualquer número do log)
+ B. O que apareceu na TV durante a execução? Descreva na ordem em que apareceu.
+ C. Você reconheceu a imagem como sendo do Pokémon Crystal? Diga o que reconheceu, ou o que era, e o quanto tem de certeza.
+ D. Como a imagem ocupava a tela da TV? Descreva com as suas palavras (posição, tamanho, bordas, proporção).
+```
+
+His answers are OPERATOR OBSERVATION, recorded **verbatim before any figure is computed or shown to him**, and never read into a machine verdict (no threshold in V29.7 uses them). Item A is a declaration about the instrument; if he cannot answer it, the run's citations carry that as the attribution caveat.
+
+### V29.7 The rival readings -- what each would look like in the log (`tools/gbmode_read.py`, rules fixed here)
+
+The reader prints, per question, ONE token. The tokens and their meaning are frozen; **a reading that is not in the list is recorded as it fell and is not rescued.**
+
+```text
+Q1  SERVICE_RAN_TO_TARGET                PREUNMASK ok=1, COUNTERS deliveries>0, VSTATE end stop=witness_target_reached. THE PREDICTED READING (P1).
+    SERVICE_RAN_ENDED_BY_<cap>           the service ran and a cap ended it (safety_budget, delivery_cap, a store cap): the witness never reached its target -- read with Q2
+    REFUSED_AT_PREUNMASK_POLICY_ABSENT   PREUNMASK ok=0 control_changed with CONTROL differing from 0x8e in bit 0x01 ONLY: the image does not carry the policy. THE RUN IS VOID FOR E3:
+                                         an identity or build defect, exactly RUN 24's log
+    REFUSED_AT_PREUNMASK_STRICT_BIT      PREUNMASK ok=0 with a bit other than 0x01 differing: A FINDING (which bit, at what instant)
+    REFUSED_AT_PREUNMASK_OTHER_CLAUSE    another PREUNMASK clause refused (irq_state_unexpected, cause_lost, ...): a finding about the state, named
+    ABORT_AT_LATER_GUARD <site>          PREUNMASK ok=1 and the unmask happened, then a LATER snapshot tripped on a strict bit (VSTATE end status=anomaly_control_changed,
+                                         reason control_changed_<site>_cycle_<n>): A FINDING -- a bit that changes after unmask, which the policy does not cover
+    NO_DELIVERY                          PREUNMASK ok=1, unmasks>=1, deliveries=0 (first_delivery_timeout, no_initial_cause, ...): NOTHING ARRIVES. The leading candidate is named in V29.5 and is not this run's variable
+    SERVICE_RAN_TO_TARGET_WITH_ERRORS    the target was reached but with errors>0, acks or re-arms different from deliveries, control_ok=0, restore not ok or a non-ok status class: NOT the clean reading (P1 is refuted)
+    OTHER_ENDING                         any other status/stop (a transport error, a DMA error, a timeout, PREUNMASK passed and NO unmask happened, observation_no_next_cause), named with the numbers
+    NOT_REACHED / UNDETERMINED / UNKNOWN a record the reading needs is missing (a cut log: the gate `log_complete` fails too)
+Q2  GBA_STRUCTURE                        VIDEO blocks per closed frame within 39.9-40.1, incomplete<=20, quarantined=0, anomaly<=20, closed>=300, and the structural witness
+                                         qualified. THE PREDICTED READING (P2). It says the frames CLOSE at the GBA cadence; it says nothing about what they show.
+    DIFFERENT_STRUCTURE <why>            the service ran and any of those conditions fails; the failed condition is printed
+    NO_VIDEO                             deliveries but zero VIDEO blocks
+    NOT_EVALUABLE                        the service cycle did not run
+Q3  AUDIO_COUNT_AS_GBA                   AUDIO blocks / VIDEO blocks within 1.60-1.80 (the family's 1.715). THE PREDICTED READING (P3). Counts, not content.
+    AUDIO_COUNT_DIFFERENT / NO_AUDIO / AUDIO_WITHOUT_VIDEO / NOT_EVALUABLE
+Q4  RESTORE_HOLDS_BIT                    the read-back is the original 0x92 with bit 0x01 set (0x93), b1f equal: the bit outlives the restore write, as in RUN 24/27/28/29 (GBP-HW-276)
+                                         THE PREDICTED READING (P4).      RESTORE_CLEARS_BIT: the read-back is 0x92: the bit follows the AGB's state
+    RESTORE_OTHER                        any other byte: A FINDING (a strict bit on the restore path). `ok=0` beside RESTORE_HOLDS_BIT is printed and flagged: it is expected only in an image WITHOUT the policy
+    plus the tolerance record:           CONTROLTOL n>0 first_site=PREUNMASK, and `restore=1` when the read-back was tolerated. ABSENT while bit 0x01 was read and PREUNMASK passed = A FINDING
+                                         (the record failed)
+Q5  the Operator's words                 recorded verbatim; compared with the machine reading AFTER both exist, never before
+```
+
+**The baselines behind the numbers, from the archive** (`captures/local`, the same image family; the reader is tested against them, and against the four aborted GB boots, in `tests/host/test_gbmode_read.py`): RUN 16, 17, 18 (a GBA cartridge) and RUN 23 (no Game Pak) each ended at `stop=witness_target_reached` with `closed=2404 complete=2378-2380 incomplete=12-13 quarantined=0`, `video=96 109-96 111` blocks (40.0 per closed frame), `audio=164 791-164 793` (1.715 per video block), `WITQUAL qualified=1`, `STREAMWIT records=2048/2048`, `deliveries=254 722-254 746`. **Those counts are so tight because the run stops at the witness target and the AGB's frame rate is fixed: a GB program runs at the same 59.73 Hz, so EQUAL COUNTS ARE THE EXPECTED READING EVEN IF THE PICTURE IS WRONG.** That is why Q2 is a reading about closure and not about content, why the picture is Q5, and why `episodes` (a change in the picture, reported by the family) is a fact the reader prints and never a verdict.
+
+**Predictions, written before the data (each with its refutation):**
+
+```text
+P1  Q1 = SERVICE_RAN_TO_TARGET.  Refuted by any other Q1 token. (Grounds: GBP-CTL-002/003 -- neither reference branches on the type bit in the service path; the mock's differential run.)
+P2  Q2 = GBA_STRUCTURE.          Refuted by DIFFERENT_STRUCTURE or NO_VIDEO. (Grounds: the AGB drives the same video path; general Game Boy Advance knowledge, GBC_PATH 2 -- HYPOTHESIS.)
+P3  Q3 = AUDIO_COUNT_AS_GBA.     Refuted by any other Q3 token. (Grounds: the AUDIO window is the AGB's mix path; GB-mode audio is "not established", AUDIO.md.)
+P4  Q4 = RESTORE_HOLDS_BIT with a CONTROLTOL line, first_site PREUNMASK.  Refuted by RESTORE_CLEARS_BIT / RESTORE_OTHER / an absent line.
+P5  KEYPAD = IDLE_ONLY.          A deviation is recorded, not a refutation.
+```
+
+**What the later-guard rival can and cannot see (a limit of the image, stated here because it bounds the reading):** the per-cycle CONTROL snapshots (PRESVC, POSTDRAIN, POSTACK, REARMPOST) run in the **first four cycles only** (`verify=4`; every later cycle is a lean cycle that reads no CONTROL). `ABORT_AT_LATER_GUARD` can therefore fire only within cycles 0-3; a strict bit that changed after cycle 3 would surface only at the teardown read-back (Q4, `RESTORE_OTHER`). The reader's gate `gb_media_attested` reads only the snapshots before the teardown and uses bit 0x01 as the run's own attestation that the device reported GB/GBC media -- a measured fact (`GBP-HW-275`), whose MEANING is still an inference (`U-GBP-036` open) and which does not distinguish DMG from CGB.
+
+**A finding is not a failure.** Every rival token above is a result about this project's runtime and the device; an `ABORT_AT_LATER_GUARD` in particular would be the first measurement of a strict bit changing after unmask in GB mode, and would be recorded, not rescued.
+
+### V29.8 Gates (admissibility), decided before the run
+
+```text
+identity        the screen and the log read build=gbmode-0001 and the commit of V29.10; the log's IDENT app=gbp-video-stream-probe. Otherwise DO NOT RUN / INADMISSIBLE.
+log             `# --- end --- dropped=0` and the header dropped=0 truncated=0. Otherwise INADMISSIBLE.
+CONTROL record  `CONTROL semantic orig=92 exp=8e`: the same read point as RUN 24-29. Otherwise INCONCLUSIVE (a different cartridge state).
+GB media        the reader's gate gb_media_attested: bit 0x01 read after the transform. FAIL = the medium was not seen as GB/GBC: the run is INCONCLUSIVE for GB mode
+                whatever else it shows (it is then a GBA-like boot).
+cartridge       declared (V29.6 A and the title); an undeclared instrument is INCONCLUSIVE on that item (V7.6.10).
+power cycle     declared before AND after by the Operator; a run not preceded by one is INCONCLUSIVE on that item (V7.7).
+topology        the standing declarations cited; a change announced and not in the record: INCONCLUSIVE on that item.
+```
+
+**What this run does not decide.** What the picture is (Q5 is his words, and the offline sidecars are for a later reading); the L / R stretch (GBC_PATH 4.2, E4); whether DMG and CGB differ (this cartridge is one CGB title); GB-mode input, audio content or timing; a second cartridge or the MBC3000; the meaning of bit `0x01` (`U-GBP-036`); the serial path; and Phase 7's acceptance. **It is one boot of one title, one console, one Game Boy Player.**

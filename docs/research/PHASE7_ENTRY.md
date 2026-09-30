@@ -701,3 +701,28 @@ on the console is E3's question, and what happens after it (the frames, the serv
 unmeasured. The tolerance is a policy of this project, not a claim about the bit's meaning (`U-GBP-036` stays open; DMG versus CGB is not
 distinguished by it). The Orchestrator's note to keep for E4: the references' L / R handling is consistent with the stretch being done by
 the AGB itself, which would make GBC_PATH 4.2 a test of our KEYPAD path reaching the AGB in GB mode; a HYPOTHESIS, not tested here.
+
+---
+
+## Amendment — 2026-09-29 (Issue #146): E3 built and pre-registered, NOT run
+
+The committed text and the two earlier amendments are unchanged. E3 (§6, the first GB-mode session past PREUNMASK) now has its image, its
+reader and its pre-registration, all in `HARDWARE_TESTS.md` §V29 (`GBP-GBMODE-001`, RUN 59, slot name `27-gbmode` reserved, nothing staged).
+**RUN 58's ingestion goes first, and the card is not touched before it.** What was decided, and what stays open:
+
+```text
+THE IMAGE     the stream-0015 POC UNCHANGED (main.c byte-identical, nothing copied), built by `make gbmode-session` under its own build id. The one
+              variable is Issue #145's policy. The shared-source drift since stream-0015 is enumerated (four linked files) and its hooks are inert; a
+              differential run of da06500's tree and the candidate's through the mock makes the SAME operation stream in a GBA scenario, and with bit
+              0x01 held the old tree aborts at PREUNMASK while the new one makes the GBA scenario's operations.
+THE WRITES    none of the service writes (IRQ ACK, IRQ re-arm, KEYPAD, the ISR's INTSR W1C, the AV DMA reads) has ever been made with GB media in the slot:
+              every GB boot aborted before unmask. The inventory is recomputed from the logs; KEYPAD is held at the idle word without a new variable
+              (the Operator presses nothing, and the KEY record is the check).
+THE READINGS  the rival readings are written into the pre-registration and IMPLEMENTED in tools/gbmode_read.py before any data: a service that runs
+              and closes frames at the GBA cadence, a different structure, nothing arriving, a later strict-bit trip (a finding), a restore that holds or
+              clears the bit. Equal counts are the expected reading even if the picture is wrong (the frame rate is the same), so the picture is the
+              Operator's words, recorded verbatim, and the reader never computes on them.
+STILL OPEN    what GBI's forced CONTROL bit 0x80 and skipped serial queue are FOR (GBP-CTL-003, site 1) is the leading candidate for "nothing arrives",
+              written down and not tested, because copying it would be a second variable; and every question this one boot cannot answer (E4, DMG versus CGB,
+              a second cartridge, GB-mode audio content).
+```
