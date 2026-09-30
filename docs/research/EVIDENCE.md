@@ -12062,3 +12062,103 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 ```
 
 A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
+
+### GBP-CTL-002 — The Start-up Disc turns every CONTROL read into a derived status word, never compares CONTROL with a value it wrote, writes CONTROL only as a read-modify-write of a fresh read, waits on nothing tied to bit `0x01`, and consults the type bit in exactly one place: the length of a ramp — FACT (static, for the code only)
+
+GitHub Issue #144 (Phase 7's E1, Q1 and Q2). **Input:** the Disc's `main.dol`, sha256 `3dd3692f5931516b80915b38e795aa6092e4d4db43cd652bc396e0cba2b11b5d`, re-extracted from `input/gbp-disc.iso` (sha256 `947a5523e7be9b93a986d1e4daca9e335713827df48adcb1dfe79c6a00ed177d`) by `tools/gciso.py` on 2026-09-29 and found byte-identical to the copy the earlier readings used. Read with the project's headless Ghidra route (decompilation, then the instruction words of each claimed site). Nothing from the binary enters the repository; this entry describes behaviour.
+
+```text
+THE READ           0x8008a1dc reads CONTROL (semantic value = byte 0x1F of the 32-byte block, INITIALIZATION.md 8.1).
+                   Its callers: the init 0x8008a930, the HSP handler 0x8008af08, the 5 ms state function 0x8008b1ac
+                   (four call sites), the start 0x8008bf84, the run step 0x8008c26c, the stop 0x8008be04, the sleep
+                   callback 0x8008bd50, 0x8008c3a4 and the serial state machine 0x8008c42c.
+THE MAPPING        0x8008bcc4 turns the byte into a status word, the same mapping at every call: CONTROL 0x02 -> status
+                   0x02 (present), CONTROL 0x01 -> status 0x04 (TYPE), 0x20 -> 0x10, 0x40 -> 0x20, and CONTROL 0x04 ->
+                   0x08 (running) when a mode flag set at init is clear. The driver itself ORs status bit 0x01 in.
+                   The word (a halfword at r13-0x702c) is recomputed on every HSP interrupt with a pending source
+                   (0x8008af08: read at 0x8008afa0, map at 0x8008afa8) and on every 5 ms state pass (0x8008b1ac); the alarm's period is
+                   (bus clock / 500 000) x 5000 / 8 timebase ticks, 5 ms at the standard 162 MHz bus clock.
+NO EQUALITY        no site compares CONTROL with a value the Disc wrote. The one comparison in the state function is
+                   old status against new status under mask 0x10 (0x8008bb2c..0x8008bb34), i.e. a change of CONTROL bit
+                   0x20; it re-arms a ramp (0x8008ccd4) and clears a table. A change of the type bit is stored and
+                   nothing else. None of the readers re-reads CONTROL to verify a write.
+WRITES             read-modify-write of a fresh read, at every site read here: start 0x8008bf84 (read, OR 0x04, write;
+                   AND ~0x10, write), run 0x8008c26c (read, OR 0x08, write). The stop, sleep and serial paths were
+                   read in INITIALIZATION.md 8.1 and 7 and are not re-read here. Bits the Disc does not name -- 0x01
+                   included -- therefore ride along in every write.
+NO WAIT            no wait, delay or poll-until is tied to bit 0x01 or to its arrival. The only timed polling in these
+                   functions is the 5 ms alarm above and the 32-byte transfer completion.
+THE ONE CONSUMER   the status word reaches the rest of the program through one getter, 0x8008ade0 (returns the whole
+                   word, or only bit 0 when the init mode flag is set), which has eleven calling functions. Their masks:
+                   0x02 (present) in 0x8000a0e4, 0x8000a130, 0x8000a17c, 0x8000a1e0, 0x8000a250, 0x800127ac, 0x80009e80;
+                   bit 0 in 0x80005f28; 0x20 in 0x8008f480 and 0x8008f580; and 0x8008ccd4 alone tests 0x04. Every
+                   direct access to the halfword tests 0x02, 0x10 or 0x20 or clears bits; none tests 0x04.
+                   0x8008ccd4 (called at 0x8008c2bc in the run step and at 0x8008bc48 on a change of status bit 0x10)
+                   sets two linear ramps to a duration of 1000 when present AND type are both set, 300 otherwise. The
+                   ramps are set through 0x8008cc14, whose argument is a value 0..0x7F and a duration.
+```
+
+**What it establishes, for the code.** The Disc has no counterpart of a guard that requires CONTROL to equal what was written; it tolerates a device-set bit by construction, because it derives instead of comparing and writes back what it read. The type bit changes one thing in the Disc, a duration, and the reading of the ramps as an audio volume ramp (a 0..0x7F value, two channels) is an **INFERENCE**, not something the code says.
+
+**What it does not establish.** Nothing about what the hardware does; whether the ramp is audible; anything about the Disc's other modules, which were not enumerated (only the CONTROL readers, the status word's users and the getter's callers were). The stop, sleep and serial paths' read-modify-write is the earlier reading, cited, not repeated. Absence of a consumer in the code read is not absence in the whole program.
+
+### GBP-CTL-003 — GBI (Standard) mirrors CONTROL in one byte, rewrites the byte it last read in every pass, never compares it with a value it wrote, and branches on bit `0x01` in six places: two of them change what it sends (bit `0x80` of CONTROL, the KEYPAD word) — FACT (static, for the code only); the roles named for three of the six are INFERENCES
+
+GitHub Issue #144 (Q1 and Q2). **Input:** `input/gbi/apps/gbi/gbi.dol` (packed), sha256 `8083636c1b341e712859f40356bf5934f4622fab7e7a658bd7e8cb4feeb616b1`; unpacked by `tools/gbi_unpack.py` to an image of sha256 `0b2c44ea75f85aa8d64ac3ad167c400f778becc58e886c53a44b9a67f46384b0` (re-derived on 2026-09-29, identical to the earlier copy), wrapped at `0x80003100` by `tools/bin2dol.py` (`67dbbda74e6a4db090c043f0b62d699fb78a031b843c6edd2a6358569ae19dc4`) for Ghidra. Addresses are the image's.
+
+```text
+THE MIRROR         the low byte of a word at r13+0x374 (byte r13+0x377) holds CONTROL. Reads are a majority vote over
+                   a 32-byte half (0x80015b08).
+START              0x8000c068 reads CONTROL once (a 32-byte read at the CONTROL block), then writes it back as
+                   (v & ~0x10) | 0x04 | 0x08 (0x8000c078..0x8000c088): a read-modify-write, no read-back.
+EVERY PASS         0x8000c1a4 reads the 64-byte block holding CONTROL and SIOCTL; 0x8000c1ac / 0x8000c1b8 take the two
+                   votes and store them; 0x8000c1d0..0x8000c1f0 modify the CONTROL byte; 0x8000c200..0x8000c214
+                   writes the 64-byte block back. THE BYTE WRITTEN IS THE BYTE JUST READ, with GBI's own change. No
+                   comparison with a previous write exists anywhere in the pass.
+EXIT               0x8000c3a4 re-reads CONTROL and rewrites it as a read-modify-write (0x8000c3b4..0x8000c3c4); the
+                   original byte is not restored.
+NO WAIT            nothing in the thread waits for or times bit 0x01.
+THE SIX SITES, all reading bit 0x01 of the mirror
+ 1 0x8000c1d0      bit 0x80 of the CONTROL byte written back := bit 0x01 OR bit 0x40 OR (a word at r13+0x380 <= 0).
+                   When the result is 0, the pass takes one queued word and writes it (0x8000c458..0x8000c4a4); when it
+                   is 1 the queue is not read in that pass. So, with the type bit set, GBI writes 0x80 and does not
+                   send its queued serial word. (Serial semantics are U-GBP-001..003 and are NOT read here.)
+ 2 0x8000c894      the KEYPAD word is ANDed with 0xFCFF, which clears word bits 8 and 9 -- L and R.
+ 3 0x8000b7f4      (0x8000b75c) picks one of three routines that fill a 0x900-byte unit: 0x8001094c with the bit set,
+                   0x8000a7e0 clear, 0x80010a44 whenever a separate flag byte (0x800b0ad9) is set. The three routines
+                   were NOT read; that the choice is the frame conversion is an INFERENCE from the unit size and the
+                   8-buffer wrap. HOW THEY DIFFER IS UNKNOWN.
+ 4 0x8000dd34,     (0x8000d844) the on-screen text: "Game Boy" against "Game Boy Advance" (0x8000dd34 and 0x8000e128),
+   0x8000e128      "Game Pak" from bit 0x02, "Power ON/OFF" from 0x0C. Directly readable.
+ 5 0x8000e334      (0x8000e308) two sets of bounds built from one scale factor (0x800b0a48) over a read of the GX
+                   embedded-framebuffer window (0xC8800000): the GBA set is built from 0xEF and 0x9F multiples, the
+                   GB set from 0x08, 0x97, 0x28 and 0xC7 multiples. That it is a capture or crop of the picture is an
+                   INFERENCE.
+ 6 0x80005c98      inside the largest presentation function (0x80003444), an aspect-ratio computation (a ratio of two
+                   floats at r31+0x10 / +0x14) branches on the bit and compares the result with a constant. Not read
+                   further; it is where GBI's own picture geometry differs by type. INFERENCE for the role.
+```
+
+**What it establishes, for the code.** GBI, like the Disc, never asserts that CONTROL is what it wrote: it echoes the byte it read, so a bit the device sets is carried into its next write, and the exit does not restore the original byte. Bit `0x01` is consulted by GBI in four functions of presentation, capture, conversion and text, and in two places that change what it **sends**.
+
+**What it does not establish.** What the three routines of site 3 do differently; what site 6 computes beyond the branch; anything about GBI Speed-Run or High-Fidelity, which were not read; and nothing about the hardware.
+
+### GBP-KEY-011 — In GB type GBI does NOT send L and R to the AGB and the Disc does; no host-side response to L or R was found in either — FACT (static, for the code only) for each site; that this explains the Operator's recollection is an INFERENCE
+
+GitHub Issue #144 (Q3). Inputs as in `GBP-CTL-002` and `GBP-CTL-003`.
+
+```text
+THE DISC        0x8000822c builds the KEYPAD word from the pad: default mode L (SDK bit 6) -> word bit 0x100, R (bit 5)
+                -> 0x200; the alternate mode swaps them with X and Y. It hands the word to the setter 0x8008ad30, whose
+                only conditions are the cancelling of opposite directions and a state flag that, while set, keeps bits
+                4-7 of the previous word (the detection handshake's bits). NOTHING ON THE PATH READS THE TYPE BIT (GBP-CTL-002): the
+                Disc forwards L and R in every mode.
+GBI             0x8000bf30 builds the same word from up to four pad tables (L -> 0x100, R -> 0x200), and at 0x8000c894
+                clears both when CONTROL bit 0x01 is set (GBP-CTL-003, site 2). In GB type GBI does not send L or R.
+HOST SIDE       GBI: the zoom, offset and scale variables (0x800b0a3c, 0x800b0a28 / 0x800b0a2c, 0x800b0a48) are written
+                by the settings function 0x800085f0, which contains no L or R test and no read of the CONTROL mirror.
+                The Disc: the pad structure's other consumers were NOT enumerated. In neither reference was a
+                host-side scaling driven by L or R found; for the Disc that is a limit of the search, not a finding.
+```
+
+**What it establishes, for the code.** The two references DIVERGE, and the divergence is preserved rather than resolved (`RESEARCH_METHOD.md`): the Disc forwards L / R to the AGB in every mode and has no type-dependent behaviour on that path; GBI removes them from the word when the type bit is set. **Reading against the Operator's recollection (`GBC_PATH.md` 1.2), an INFERENCE:** the Disc cannot implement a GB-only stretch on the host, because nothing it does depends on the type; a stretch it shows in GB mode is therefore either the AGB acting on a forwarded L / R (the prediction of `GBC_PATH.md` 4.2) or a host action on L / R that is not mode-dependent, the second not excluded by this search. It stays a prediction, and the experiment is what decides.

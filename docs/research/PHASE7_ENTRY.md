@@ -586,3 +586,42 @@ GBATEK's own list, attributed and hedged as GBATEK hedges it. It does not
 authorise the static reading of §3.5, the observation of §4.3 or any experiment
 of §6: each waits for the Orchestrator to open the phase and for its own
 checkpoint.
+
+---
+
+## Amendment — 2026-09-29 (Issue #144): what the static reading changed in §3.3 and §3.5
+
+The committed text above is unchanged. This paragraph records what E1 (§3.5, narrowed by the Orchestrator to
+three questions) found, in the evidence entries `GBP-CTL-002`, `GBP-CTL-003` and `GBP-KEY-011`. **Everything
+here is FACT for the code of the two references and nothing about the hardware.** Phase 7 is ENTERED (ROADMAP
+status line, Issue #144).
+
+```text
+Q1  CONTROL after the transform. NEITHER reference compares CONTROL with a value it wrote. The Disc derives a
+    status word from each read (the type bit becomes one bit of it) and writes only read-modify-writes of a fresh
+    read; GBI mirrors the byte it read and writes that byte back, with its own changes, every pass. Neither waits
+    for or times bit 0x01, and neither restores the original byte at exit.
+    WHAT THIS CHANGES IN 3.3 ITEM 1: the guard is the PROJECT'S OWN, stricter than either reference, so it was not
+    "a copy of a solved problem" -- the references' solution is the absence of the check, not a mask. Two options
+    now stand next to the mask: derive-and-tolerate (compare only the bits the runtime writes) and the references'
+    read-modify-write on both the guard's and the restore's side. The choice is E2's. U-GBP-036's remark that a
+    restore comparing a read-back with what was written fails after a GB/GBC session is about OUR restore only.
+    GBI forces CONTROL bit 0x80 when the type bit is set (GBP-CTL-003 site 1); a tolerant first image should log
+    CONTROL and NOT copy that.
+Q2  What depends on bit 0x01. The Disc: exactly one thing, the duration of a ramp (300 or 1000) when present and
+    type are both set; nothing on its video, keypad or timing path reads the type bit. GBI: six sites --
+    on-screen text, the KEYPAD word (L and R), a frame-conversion routine choice, a bounds computation over the GX
+    framebuffer window, an aspect computation in its presentation code, and the serial queue with CONTROL bit
+    0x80. THE REFERENCES DIVERGE, and it is preserved: GBI has a GB-specific picture path and the Disc, in the
+    code read, has none. What E3 will measure (whether the VIDEO window's frames differ in GB mode) is not
+    decided by either.
+Q3  L / R in GB type. The Disc forwards L and R to the AGB in every mode; GBI removes them from the word when the
+    type bit is set. In neither was a host-side scaling on L or R found (for the Disc the search was not
+    exhaustive). E4's prediction (GBC_PATH 4.2) is unchanged and gains a second reading: an L / R sent by our
+    runtime that does nothing in GB mode would match GBI's behaviour and refute nothing about the Disc.
+```
+
+**Leads, written down and not followed (the Issue stops at three questions):** the three frame-conversion
+routines GBI chooses between; what GBI's bit 0x80 and its skipped serial queue mean in GB type (serial
+semantics are Phase 10's, U-GBP-026); the Disc's other consumers of the pad structure. §3.5's remaining items
+(the serial state machine in GB mode) were NOT read.

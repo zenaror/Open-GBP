@@ -19688,3 +19688,15 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `tests/host/test_phase7_entry.py` (the blinding vocabulary, every cited id and range end, the Operator's words verbatim, the open points left open, two code claims read from the tree).
 
 **Next.** The Orchestrator opens the phase or not; the static reading is the only step that costs the Operator nothing.
+
+## 2026-09-29 — Issue #144: Phase 7 ENTERED with E1, the static reading of GB/GBC-mode handling in the Disc and GBI (`GBP-CTL-002`, `GBP-CTL-003`, `GBP-KEY-011`)
+
+**Goal.** Three questions, from the private binaries only, before anything is built: what reads CONTROL after the transform (and whether it compares, masks, waits), what else depends on bit `0x01`, and what each reference does with L / R in GB type.
+
+**Done.** Inputs hashed and the executables re-derived from the raw files (identical to the earlier copies). Neither reference compares CONTROL with a value it wrote: the Disc derives a status word and writes read-modify-writes; GBI echoes the byte it read. The Disc consults the type bit once, for a ramp's length; GBI in six places, two of which change what it sends (CONTROL bit `0x80` with the serial queue skipped, and L / R cleared from the KEYPAD word). The references diverge on L / R and the divergence is kept. ROADMAP status line, evidence entries, UNKNOWNS amendments (`U-GBP-036`, `U-GBP-026`) and an amendment on `PHASE7_ENTRY.md`; nothing built, no guard changed.
+
+**Worth its own line.** The guard we wrote is stricter than either reference: it was not a solved problem to copy but a check the references never had. The review pass re-opened every claimed address against the instruction words and corrected two imprecise statements (the IRQ handler's read address, the setter's state flag).
+
+**Tests.** `tests/host/test_phase7_entry.py` extended (the entries, their hashes, the status line, the amendment, the blinding vocabulary over the new text).
+
+**Next.** E2, the guard policy, is its own checkpoint. RUN 58's ingestion comes first when the run arrives.

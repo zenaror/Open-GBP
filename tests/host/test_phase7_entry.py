@@ -132,5 +132,32 @@ class TheCodeClaimsAreReadFromTheTree(unittest.TestCase):
         self.assertIn("GB/GBC-mode audio (Phase 7)", a)
 
 
+class TheStaticReadingIsRecorded(unittest.TestCase):
+    """Issue #144: the three entries, the inputs' hashes, the status line and the amendment."""
+
+    HASHES = ["3dd3692f5931516b80915b38e795aa6092e4d4db43cd652bc396e0cba2b11b5d",
+              "947a5523e7be9b93a986d1e4daca9e335713827df48adcb1dfe79c6a00ed177d",
+              "8083636c1b341e712859f40356bf5934f4622fab7e7a658bd7e8cb4feeb616b1",
+              "0b2c44ea75f85aa8d64ac3ad167c400f778becc58e886c53a44b9a67f46384b0"]
+
+    def test_entries_and_hashes(self):
+        ev = read(EVIDENCE)
+        for i in ("GBP-CTL-002", "GBP-CTL-003", "GBP-KEY-011"):
+            self.assertRegex(ev, r"(?m)^### %s \u2014 " % i)
+        for h in self.HASHES:
+            self.assertIn(h, ev)
+
+    def test_status_line_and_amendment(self):
+        rm = plain(read(os.path.join(ROOT, "docs", "ROADMAP.md")))
+        self.assertIn("Status: ENTERED 2026-09-29 (GitHub Issue #144), static reading.", rm)
+        d = plain(read(DOC))
+        self.assertIn("Amendment \u2014 2026-09-29 (Issue #144)", d)
+        self.assertIn("NEITHER reference compares CONTROL with a value it wrote", d)
+
+    def test_the_amendment_is_after_the_committed_text(self):
+        d = read(DOC)
+        self.assertGreater(d.index("## Amendment"), d.index("## 8. What this document does not do"))
+
+
 if __name__ == "__main__":
     unittest.main()
