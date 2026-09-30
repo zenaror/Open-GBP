@@ -71,7 +71,7 @@ Record the reasoning.
 ## Independence of design, execution, observation and validation
 
 Four things are kept in different hands, or at least in different steps that
-each leave a record (`AGENTS.md` §7, "Roles"):
+each leave a record (`AGENTS.md`, "Roles and responsibilities"):
 
 - **experiment design and pre-registration** — the question and the PASS/FAIL
   gates are written down and committed *before* the hardware is touched, and
@@ -88,7 +88,7 @@ states it. The seats may be held by humans or AIs and may change independently.
 
 **Operational tracking is not evidence.** GitHub Issues, milestones, labels and
 the Project record who is doing what and in which order (`AGENTS.md`,
-§37, "GitHub operational coordination"). Opening, labelling or closing an Issue
+"Operational coordination — GitHub"). Opening, labelling or closing an Issue
 changes no classification; only this document's process does, through
 `docs/research/EVIDENCE.md`, `docs/research/HARDWARE_TESTS.md` and the
 fixtures. A pre-registered gate may be *linked* from an Issue, but it is frozen
