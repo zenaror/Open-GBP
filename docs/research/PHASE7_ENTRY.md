@@ -625,3 +625,79 @@ Q3  L / R in GB type. The Disc forwards L and R to the AGB in every mode; GBI re
 routines GBI chooses between; what GBI's bit 0x80 and its skipped serial queue mean in GB type (serial
 semantics are Phase 10's, U-GBP-026); the Disc's other consumers of the pad structure. §3.5's remaining items
 (the serial state machine in GB mode) were NOT read.
+
+---
+
+## Amendment — 2026-09-29 (Issue #145): E2, the CONTROL-equality policy, built host-side
+
+The committed text above and the Issue #144 amendment are unchanged. §3.3 item 1 chose between a mask, derive-and-tolerate and
+the references' read-modify-write; **the Orchestrator chose the narrow mask**, and this is what was built. Host-side only: no
+image, no hardware, no pre-registration, and nothing measured. E3 (the first GB-mode picture) builds on it and is its own checkpoint.
+
+```text
+THE RULE      CONTROL bit 0x01 no longer counts as "CONTROL changed under us"; every other bit stays fully strict. One
+              function decides it (src/gbp/gbp_control_policy.h, gbp_control_agrees) and its constant is 0x01.
+BOTH PLACES   the guards (every snapshot check of the vstate, avsvc, initirq4, initirqb and video families, and the two
+              shared checks in gbp_irq_service.c: PREUNMASK and PREACK) and the restore read-back (gbp_initirqa_probe.c). The
+              restore still WRITES the original byte, as before; only its read-back may differ from it in bit 0x01.
+STRICT STILL  the seven other bits; the consistency check between the two readings of one snapshot (the vote against byte 0x1F),
+              on every bit; and a difference in bit 0x01 PLUS any other bit.
+LOG, NOT      nothing branches on bit 0x01. When a comparison finds CONTROL differing from what was expected in bit 0x01 ONLY, the
+BRANCH        run counts it (gbp_initirqa_result.control_tol_*: the count of COMPARISONS, a snapshot examined by two sites counts
+              twice; the snapshot tag where it was first found; the two bytes) and the teardown writes one CONTROLTOL line; a run
+              that never exercised it writes no line, so every GBA log is what it was. Every snapshot still logs CONTROL as read.
+              THE LIMIT, stated: the tolerance is visible ONLY in that line (control_ok and restore_ok read as they always did),
+              and the line goes through the ringlog, which drops lines when full; it is written at the tail of the teardown.
+NOT DONE      no new CONTROL write of any kind; GBI's forced bit 0x80 is NOT copied; the power-cycle rule after a GB/GBC run
+              stays (power_cycle_required is set at the transform write and never cleared).
+LEFT ALONE    the two earliest probes (gbp_init_probe, gbp_init_irq_probe) still compare their restore read-back strictly: no
+              vstate-family image reaches them (a structural test says so and pins the inventory), so a GB session cannot.
+```
+
+**The gates of Issue #145, and what each one is.**
+```text
+(a) the GBA archive     every archived probe log replayed through the REAL check: every snapshot, PREUNMASK and restore verdict is
+                        the pre-policy one and equals the one the hardware logged; no GBA log carries bit 0x01 anywhere (no
+                        finding). tests/host/test_control_policy_replay.py (skips, with the registered phrase, on a host without
+                        captures/local).
+(b) still strict        tests/unit/test_gbp_control_policy.c: all 65 536 (read, expected) pairs against the spec, and each of the
+                        seven bits from every expected byte, alone and with 0x01; and, in each of the five probe families, the
+                        SAME matrix through the real probe on the mock's synthetic device: bit 0x01 proceeds and is counted, each
+                        other bit trips with the family's own reason, at PREUNMASK, POSTACK, the re-arm check, the restore and,
+                        where the family reaches it (initirq4), PREACK. PRESVC and POSTDRAIN share one check with POSTACK in three
+                        families; vstate's PRESVC is reached through the re-arm kind. In EVERY run of the matrix the runtime makes
+                        exactly two CONTROL writes, the last of them the original byte, and power_cycle_required is set.
+(c) the four GB boots   RUN 24, 27, 28 and 29 replayed at the snapshots their logs record: every snapshot through PREUNMASK now
+                        passes, differing from the expected byte in bit 0x01 only, and the real PREUNMASK check returns OK on
+                        the logged fields. THE REPLAY ENDS THERE: those logs stop at the abort, the test asserts they hold no
+                        service record, and nothing past PREUNMASK is claimed.
+(d) red on old code     the new tests were run against the OLD sources (plus a shim of the record fields, no behaviour): 25
+                        failures in each of four families and 11 in the fifth, every one at a bit-0x01 case (before the PREACK kind
+                        was added). The pure test is also compiled against two mutants of the policy header, a tolerance of
+                        nothing and a tolerance of two bits, and must fail both; a PREACK guard that never trips, and a tolerated
+                        restore that clears power_cycle_required, were each shown caught.
+(e) reachability        a call-graph walk from each family's entry function reaches the policy function, the snapshot check, the
+                        teardown and every guard site, and no reachable function compares a CONTROL reading with anything but the
+                        other reading (a detector over nine spellings; an alias through a local variable is beyond it, and the
+                        functional mutations above are the primary gate).
+```
+
+**The heavy review (one adversarial reviewer, read-only) found no blocker and the "only 0x01" claim held at every site;** it mutated all
+fourteen guard sites back to strict, one at a time, and each was caught. Its two MAJOR points were tests that were missing, not code that
+was wrong: no strict-bit test at PREACK, and no behavioural pin of the negative requirements (no third write, the original byte written
+back, the power-cycle rule); both are in the matrix now. Its MINOR points: the first-found site was always "SNAPSHOT" (now the snapshot's
+own tag, copied); the count is of comparisons (documented above); the structural detector missed most spellings (widened); and the GBA
+gate's wording. **A FINDING the reviewer surfaced and this round recounted:** the raw CONTROL blocks in the GBA archive carry bit 0x01 in
+byte 0 of the block (18 logs; the first byte is not the semantic value) and in isolated other bytes (10 raw bytes in 7 logs); the vote and
+byte 0x1F are clean in every one of them, so no guarded value ever differed. The policy is symmetric (a device clearing the bit where the
+runtime wrote it is tolerated too); real GB/GBC runs only ever set it.
+
+**One old test was amended on top, and why.** `test_gbp_initirq4.c` used CONTROL `0x8d` (`0x8c` with bit 0x01 set) as its example of a
+change first seen at PREUNMASK-1. That is exactly the tolerated case; it now uses `0x8e`, a strict-bit change, so the scenario is what it
+was, and the bit-0x01 case is covered by the matrix.
+
+**What this does not establish.** Nothing about hardware: the mock's device is synthetic. That a GB/GBC session now gets past PREUNMASK
+on the console is E3's question, and what happens after it (the frames, the service cycle, the restore's state on hardware) is
+unmeasured. The tolerance is a policy of this project, not a claim about the bit's meaning (`U-GBP-036` stays open; DMG versus CGB is not
+distinguished by it). The Orchestrator's note to keep for E4: the references' L / R handling is consistent with the stretch being done by
+the AGB itself, which would make GBC_PATH 4.2 a test of our KEYPAD path reaching the AGB in GB mode; a HYPOTHESIS, not tested here.

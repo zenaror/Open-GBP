@@ -258,6 +258,7 @@ static void deliver(struct gbp_mock *m)
     isr_mock = saved;
     record_ev(m, MOCK_ISR_EXIT, 0, 0, 0, GBP_OK);
     m->in_isr = 0;
+    if (m->control_change_on_delivery && m->deliveries == m->control_change_on_delivery) { m->control_byte = m->control_change_on_delivery_value; m->control_block = 0; }
     if (m->source_clear_at_delivery && m->deliveries == m->source_clear_at_delivery && m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK) {
         m->irq_reg &= (uint16_t)~SOURCE_BITS;                    /* synthetic: the source vanishes before the main loop looks */
         reg_after_change(m);
@@ -691,10 +692,13 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
     }
     if (answers(m) && index_of(base, addr) == 0x4) {
         m->control_writes++;
+        m->last_control_write = in[GBP_BLOCK_SIZE - 1u];
         if (m->intmr13_set_after_control_write && m->control_writes == 1u) m->intmr |= GBP_PI_HSP_BIT;
         if (m->control_writes_stick && m->control_writes != m->control_write_fail_at) {
             m->control_byte = in[GBP_BLOCK_SIZE - 1u];
             m->control_block = 0;
+            if (m->control_dev_xor && m->control_writes >= (m->control_dev_xor_from_write ? m->control_dev_xor_from_write : 1u))
+                m->control_byte = (uint8_t)(m->control_byte ^ m->control_dev_xor);
             if (m->irq_after_write) { m->irq_block = 0; m->irq_value = (uint16_t)((m->irq_after_write << 8) | m->irq_after_write); m->irq_present_u16 = 1; }
             if (m->intsr_bit13_follows_control) {
                 if (m->control_byte & 0x10u) m->intsr &= ~GBP_PI_HSP_BIT; else m->intsr |= GBP_PI_HSP_BIT;

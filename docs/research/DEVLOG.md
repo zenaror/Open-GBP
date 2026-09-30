@@ -19700,3 +19700,17 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `tests/host/test_phase7_entry.py` extended (the entries, their hashes, the status line, the amendment, the blinding vocabulary over the new text).
 
 **Next.** E2, the guard policy, is its own checkpoint. RUN 58's ingestion comes first when the run arrives.
+
+## 2026-09-29 — Issue #145: E2 built host-side -- the CONTROL guard and the restore read-back tolerate bit `0x01` only (`gbp_control_policy.h`; amendment on `PHASE7_ENTRY.md`)
+
+**Goal.** Let a GB/GBC session get past PREUNMASK without opening the guard any wider: bit `0x01` tolerated, the seven others strict, in BOTH the guards and the restore read-back; logged, never branched on; no new CONTROL write; the power-cycle rule kept.
+
+**Done.** One policy function and every guard site of the five probe families using it (the two earliest probes, which no vstate-family image reaches, keep strict equality and are pinned as an inventory). A `CONTROLTOL` line, written only in a run that exercised the tolerance, so every GBA log is what it was. Gates: the GBA archive replayed through the real check (every verdict the pre-policy one, none carrying bit `0x01` in a semantic reading); the four GB boots pass PREUNMASK's CONTROL clause on the logged fields, the replay ending at the abort; a matrix through each real probe on the mock's synthetic device (each bit, at PREUNMASK, POSTACK, the re-arm check, PREACK and the restore); red on the old sources; a call-graph walk instead of a token search. The heavy review found no blocker; its two MAJOR points were missing tests (PREACK's strict bits; the negative requirements), now written.
+
+**Worth its own line.** A pre-existing test used `0x8d` as its example of a CONTROL change; that is the tolerated bit alone, so the scenario was amended on top to `0x8e`. Two mutants that a green suite had let through (a PREACK guard that never trips; a tolerated restore that clears `power_cycle_required`) were what the reviewer's MAJOR points were about: the tests agreed with those bugs until the reviewer wrote them.
+
+**Rejected / left.** Widening beyond bit `0x01`; a mode branch; copying GBI's forced bit `0x80`; tolerating the vote-versus-byte-`0x1F` disagreement.
+
+**Tests.** `test_gbp_control_policy.c` (202 801 checks), the matrix in five families' unit tests, `test_control_policy_replay.py` (8), `test_phase7_entry.py`; the full gate is in the closeout on Issue #145.
+
+**Next.** E3, the first GB-mode picture, on an image built on this; RUN 58's ingestion first when it arrives.

@@ -56,7 +56,8 @@ int gbp_irq_service_preunmask_check(const struct gbp_initirqa_snapshot *s, uint8
     if (install_count || install_fired) { *why = "record_not_clear"; return 0; }
     if (!bit13(s->intsr) || (s->pi2_ok && !bit13(s->intsr2))) { *why = "cause_lost"; return 0; }
     if (bit13(s->intmr) || (s->pi2_ok && bit13(s->intmr2))) { *why = "intmr13_unmasked"; return 0; }
-    if (s->control_vote != control_exp || s->control_vote != s->control_b1f) { *why = "control_changed"; return 0; }
+    /* Issue #145: bit 0x01 tolerated, the seven others strict (gbp_control_policy.h); the CALLER records the tolerance. */
+    if (!gbp_initirqa_snapshot_control_agrees(s, control_exp)) { *why = "control_changed"; return 0; }
     if (s->irq_disc != s->irq_gbi) { *why = "semantic_disagree"; return 0; }
     if ((s->irq_gbi & src_mask) == 0 || (s->irq_gbi & odd_mask) != 0 ||
         (s->irq_gbi & bit15_mask) != 0 || (s->irq_gbi & high_mask) != 0) { *why = "irq_state_unexpected"; return 0; }
@@ -211,14 +212,16 @@ void gbp_irq_service_ack(const struct gbp_transport *t, struct ringlog *log, str
                    bit13(k->preack.intsr), bit13(k->preack.intsr2), bit13(k->preack.intmr),
                    (unsigned)k->preack.control_vote, (unsigned)k->preack.irq_gbi, (unsigned)k->preack.irq_disc,
                    (unsigned)(k->preack.irq_gbi & src_mask));
+    if (require_control && k->preack.control_rc == GBP_OK && gbp_initirqa_snapshot_control_agrees(&k->preack, control_exp))
+        gbp_initirqa_note_control_tolerance(a, "PREACK", k->preack.control_vote, control_exp);
 
     /* ---- 10. device ACK: IRQ := read | ack_or (GBI's form; A1's physically validated write), derived from the read ---- */
     if (k->preack.irq_rc != GBP_OK) {
         k->ack_skipped = 1; k->ack_skip_reason = "irq_read_failed";
     } else if (k->preack.irq_disc != k->preack.irq_gbi) {
         k->ack_skipped = 1; k->ack_skip_reason = "semantic_disagree";
-    } else if (require_control && (k->preack.control_rc != GBP_OK || k->preack.control_vote != control_exp ||
-                                   k->preack.control_vote != k->preack.control_b1f)) {
+    } else if (require_control && (k->preack.control_rc != GBP_OK ||
+                                   !gbp_initirqa_snapshot_control_agrees(&k->preack, control_exp))) {
         k->ack_skipped = 1; k->ack_skip_reason = "control_changed";
     } else if (require_control && (!k->preack.pi_ok || bit13(k->preack.intmr) || (k->preack.pi2_ok && bit13(k->preack.intmr2)))) {
         k->ack_skipped = 1; k->ack_skip_reason = "intmr13_set";

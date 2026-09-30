@@ -1084,11 +1084,32 @@ static void test_hw_avsvc_gbp(const char *path, const char *blocks_path)
     free(text);
 }
 
+/* ---- Issue #145: the shared matrix, this family's adapter (SYNTHETIC device) ---- */
+#include "control_policy_matrix.h"
+static void cp_setup(struct gbp_mock *m) { mock_av(m, 0x0500); }
+static void cp_run(struct gbp_mock *m, struct ringlog *rl, struct cp_result *o)
+{
+    static struct gbp_avsvc_result res;
+    run(m, rl, &res);
+    o->reason = res.reason;
+    o->changed = (res.reason && strstr(res.reason, "control_changed")) ? 1 : 0;
+    o->status = (int)res.status;
+    o->control_ok = res.control_ok;
+    o->ack_skipped_control = 0;
+    o->a = &res.a;
+}
+static void test_control_policy(void)
+{
+    static const struct cp_family f = { "avsvc", cp_setup, cp_run, W_ACK, W_REARM, 0u, "PREUNMASK", "POSTACK", "REARMPOST" };
+    cp_run_matrix(&f);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 4 && strcmp(argv[1], "--dump-log") == 0) return dump_log(argv[2], argv[3]);
     if ((argc == 3 || argc == 4) && strcmp(argv[1], "--replay") == 0) return replay_fixture(argv[2], argc == 4 ? argv[3] : 0);
     test_success_paths();
+    test_control_policy();
     test_snapshot_immutability();
     test_unexpected_sources();
     test_dma_failures();

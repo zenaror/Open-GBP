@@ -118,9 +118,18 @@ class EveryCitedIdExists(unittest.TestCase):
 class TheCodeClaimsAreReadFromTheTree(unittest.TestCase):
     def test_the_guard_compares_to_what_the_runtime_wrote(self):
         c = read(os.path.join(ROOT, "src", "gbp", "gbp_avsvc_probe.c"))
-        self.assertIn("s->control_vote != res->a.control_exp", c)
+        # Issue #145 (amended on top): the comparison is now the policy's -- still against the byte the runtime wrote,
+        # up to bit 0x01. The section-3.2 claim (a guard against what the runtime wrote) is unchanged; its spelling moved.
+        self.assertIn("!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)", c)
         self.assertIn("control_changed_PREUNMASK", c)
         self.assertIn("S2_before_unmask", c)
+
+    def test_the_amendment_of_issue_145_is_appended_and_names_the_rule(self):
+        d = plain(read(DOC))
+        self.assertIn("Amendment \u2014 2026-09-29 (Issue #145): E2", d)
+        self.assertIn("the Orchestrator chose the narrow mask", d)
+        self.assertIn("nothing branches on bit 0x01", d)
+        self.assertGreater(read(DOC).index("(Issue #145)"), read(DOC).index("(Issue #144)"))
 
     def test_the_v28_chassis_header_says_what_section_2_quotes(self):
         m = plain(read(os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")))

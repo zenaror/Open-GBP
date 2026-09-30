@@ -199,7 +199,9 @@ static const char *old_handler_name(const struct gbp_irq_handler_state *h)
 
 static void note_control(struct gbp_vstate_result *res, const struct gbp_initirqa_snapshot *s)
 {
-    if (s->control_rc == GBP_OK && (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f)) res->control_ok = 0;
+    if (s->control_rc != GBP_OK) return;
+    if (!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) res->control_ok = 0;   /* Issue #145: bit 0x01 tolerated */
+    else gbp_initirqa_note_control_tolerance(&res->a, s->id ? s->id : "SNAPSHOT", s->control_vote, res->a.control_exp);
 }
 
 static void set_status(struct gbp_vstate_result *res, gbp_vstate_status st, const char *reason)
@@ -699,7 +701,7 @@ static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *
      * complete when it is opened: it keeps its own read and claims nothing about
      * service, so its handle is deliberately dropped here (§R4.4). */
     if (service_handle) *service_handle = opened;
-    if (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f) {
+    if (!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) {
         snprintf(res->reason_buf, sizeof res->reason_buf, "control_changed_%s_cycle_%lu", site, (unsigned long)n);
         *st = GBP_VSTATE_ANOMALY_CONTROL_CHANGED; *reason = res->reason_buf; return 0;
     }

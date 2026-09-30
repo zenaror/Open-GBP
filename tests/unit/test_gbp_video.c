@@ -1144,11 +1144,32 @@ static int replay_fixture(const char *path, const char *seq_path)
     return (r.exhausted || r.mismatches || r.blocks_missing || r.block_crc_mismatches) ? 1 : 0;
 }
 
+/* ---- Issue #145: the shared matrix, this family's adapter (SYNTHETIC device) ---- */
+#include "control_policy_matrix.h"
+static void cp_setup(struct gbp_mock *m) { mock_video(m, 0x0500u, 50u); }
+static void cp_run(struct gbp_mock *m, struct ringlog *rl, struct cp_result *o)
+{
+    static struct gbp_video_result res;
+    run(m, rl, &res);
+    o->reason = res.reason;
+    o->changed = (res.reason && strstr(res.reason, "control_changed")) ? 1 : 0;
+    o->status = (int)res.status;
+    o->control_ok = res.control_ok;
+    o->ack_skipped_control = 0;
+    o->a = &res.a;
+}
+static void test_control_policy(void)
+{
+    static const struct cp_family f = { "video", cp_setup, cp_run, 3u, 4u, 0u, "PREUNMASK", "POSTACK", "REARMPOST" };
+    cp_run_matrix(&f);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 4 && strcmp(argv[1], "--dump-log") == 0) return dump_log(argv[2], argv[3]);
     if ((argc == 3 || argc == 4) && strcmp(argv[1], "--replay") == 0) return replay_fixture(argv[2], argc == 4 ? argv[3] : 0);
     test_single_cycle();
+    test_control_policy();
     test_target_reached();
     test_delivery_cap_320();
     test_source_patterns();

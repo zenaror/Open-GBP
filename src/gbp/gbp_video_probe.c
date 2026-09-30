@@ -158,7 +158,9 @@ static const char *old_handler_name(const struct gbp_irq_handler_state *h)
 
 static void note_control(struct gbp_video_result *res, const struct gbp_initirqa_snapshot *s)
 {
-    if (s->control_rc == GBP_OK && (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f)) res->control_ok = 0;
+    if (s->control_rc != GBP_OK) return;
+    if (!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) res->control_ok = 0;   /* Issue #145: bit 0x01 tolerated */
+    else gbp_initirqa_note_control_tolerance(&res->a, s->id ? s->id : "SNAPSHOT", s->control_vote, res->a.control_exp);
 }
 
 static void set_status(struct gbp_video_result *res, gbp_video_status st, const char *reason)
@@ -320,7 +322,7 @@ static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *
         snprintf(res->reason_buf, sizeof res->reason_buf, "%s_semantic_disagree_cycle_%u", site, n);
         *st = GBP_VIDEO_ABORT_READ_INCONSISTENT; *reason = res->reason_buf; return 0;
     }
-    if (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f) {
+    if (!gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) {
         snprintf(res->reason_buf, sizeof res->reason_buf, "control_changed_%s_cycle_%u", site, n);
         *st = GBP_VIDEO_ANOMALY_CONTROL_CHANGED; *reason = res->reason_buf; return 0;
     }
@@ -876,7 +878,7 @@ int gbp_video_probe_run(const struct gbp_transport *t, struct ringlog *log,
             latched_first = bit13(s->intsr);
             shape_ok = ((s->irq_gbi & cfg->odd_mask) == 0 && (s->irq_gbi & cfg->bit15_mask) == 0 && (s->irq_gbi & cfg->high_mask) == 0) ? 1 : 0;
             reads_ok = (s->pi_ok && s->control_rc == GBP_OK && s->irq_rc == GBP_OK) ? 1 : 0;
-            control_ok = (s->control_rc == GBP_OK && s->control_vote == res->a.control_exp && s->control_vote == s->control_b1f) ? 1 : 0;
+            control_ok = (s->control_rc == GBP_OK && gbp_initirqa_snapshot_control_agrees(s, res->a.control_exp)) ? 1 : 0;
             masked = (!bit13(s->intmr) && !(s->pi2_ok && bit13(s->intmr2))) ? 1 : 0;
             agree = (s->irq_disc == s->irq_gbi) ? 1 : 0;
             note_control(res, s);

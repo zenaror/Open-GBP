@@ -674,7 +674,10 @@ static void test_control_changed(void)
     CHECK(res.status == GBP_INITIRQ4_ANOMALY_CONTROL_CHANGED && strcmp(res.reason, "control_changed_preunmask_cycle_0") == 0 && res.unmasks == 0);
     check_never(&m, &res);
     /* seen first at PREUNMASK-1 (the NEXTCAUSE snapshot only records it) */
-    mock_004(&m); m.control_change_after_irq_write = W_REARM0; m.control_change_value = 0x8d;
+    /* Issue #145 (amended on top): this scenario changed CONTROL from 0x8c to 0x8d, a change of bit 0x01 ONLY, which is
+     * exactly what the policy now tolerates (tests below). 0x8e (bit 0x02) keeps the scenario what it was: a strict-bit
+     * change first seen at PREUNMASK-1. */
+    mock_004(&m); m.control_change_after_irq_write = W_REARM0; m.control_change_value = 0x8e;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQ4_ANOMALY_CONTROL_CHANGED && res.completed_cycles == 1);
     check_never(&m, &res);
@@ -1243,11 +1246,33 @@ static int replay_fixture(const char *path)
     return (r.exhausted || r.mismatches) ? 1 : 0;
 }
 
+/* ---- Issue #145: the shared matrix, this family's adapter (SYNTHETIC device) ---- */
+#include "control_policy_matrix.h"
+static void cp_setup(struct gbp_mock *m) { mock_004(m); }
+static void cp_run(struct gbp_mock *m, struct ringlog *rl, struct cp_result *o)
+{
+    static struct gbp_initirq4_result res;
+    run(m, rl, &res);
+    o->reason = res.reason;
+    o->changed = (res.reason && strstr(res.reason, "control_changed")) ? 1 : 0;
+    o->status = (int)res.status;
+    o->control_ok = res.control_ok;
+    o->ack_skipped_control = (res.cycles[0].k.ack_skipped && res.cycles[0].k.ack_skip_reason &&
+                              strcmp(res.cycles[0].k.ack_skip_reason, "control_changed") == 0) ? 1 : 0;
+    o->a = &res.a;
+}
+static void test_control_policy(void)
+{
+    static const struct cp_family f = { "initirq4", cp_setup, cp_run, W_ACK0, W_REARM0, 1u, "preunmask", "postack", "rearmpost" };
+    cp_run_matrix(&f);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 3 && strcmp(argv[1], "--dump-log") == 0) return dump_log(argv[2]);
     if (argc == 3 && strcmp(argv[1], "--replay") == 0) return replay_fixture(argv[2]);
     test_three_cycles();
+    test_control_policy();
     test_rearmpost_b_and_c();
     test_source_orders();
     test_unexpected_sources();

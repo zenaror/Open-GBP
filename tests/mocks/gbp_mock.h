@@ -181,6 +181,17 @@ struct gbp_mock {
     unsigned second_delivery_at;    /* one more handler entry after the Nth delivery returns (second_delivery = at 1) */
     unsigned control_change_after_irq_write;  /* CONTROL byte becomes control_change_value by itself after the Nth IRQ write */
     uint8_t control_change_value;
+    /* Issue #145 (E2), SYNTHETIC: the DEVICE flips these CONTROL bits by itself after every runtime CONTROL write from the
+     * Nth write on (1-based; 0 = from the first). It models a device-held bit the runtime never wrote (GBP-HW-275) and,
+     * with from_write = 2, one that appears only after the restore write, so a restore read-back can be tested apart
+     * from every guard. Zero (the default) changes nothing. */
+    uint8_t control_dev_xor;
+    unsigned control_dev_xor_from_write;
+    /* Issue #145: CONTROL becomes control_change_on_delivery_value when the Nth interrupt delivery has been made (1-based; 0 =
+     * never): a change between the PREUNMASK snapshot and the PREACK snapshot, which no IRQ-write count can place. */
+    unsigned control_change_on_delivery;
+    uint8_t control_change_on_delivery_value;
+    uint8_t last_control_write;     /* the byte the RUNTIME last wrote to CONTROL (not what the device then holds) */
     unsigned mask_ignored_from_call;/* every mask (handler or main) from the Nth mask call on has no effect (0 = never) */
     unsigned force_gen_at_unmask;   /* force_gen_valid applies at the Nth unmask call (0 = the next one) */
     unsigned suppress_delivery_at;  /* the Nth delivery (1-based) never reaches the CPU although cause and mask are open */
