@@ -19834,4 +19834,4 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 
 **Not established.** Toggle against set / clear; who changes the window; the interpolation kernel; a vertical change; the audio; DMG against CGB; a second title.
 
-**Next.** The Orchestrator orders it: an L, L (or R, R) sequence separates toggle from set / clear; E5's vehicle (Issue #153, design half committed, unpushed) waits.
+**Next.** The Orchestrator orders it: an L, L (or R, R) sequence separates toggle from set / clear; E5's vehicle (Issue #153: the design half is committed, the build is the next checkpoint) waits.
