@@ -449,7 +449,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["25"][1], rows["25"][2]), ("v28l", "gbp-audio-v28"))
         # Issue #141 (2026-09-29): the PERCEPTUAL image, frozen before its export (§V28.32); nothing renumbered
         self.assertEqual((rows["26"][1], rows["26"][2]), ("v28p", "gbp-audio-v28"))
-        self.assertNotIn("27", rows)
+        # Issue #146 / Hardware Issue #147 (2026-09-30): the GB-mode session image took the next number, frozen before its export (§V29.10); nothing renumbered
+        self.assertEqual((rows["27"][1], rows["27"][2]), ("gbmode", "gbp-video-stream-probe"))
+        self.assertNotIn("28", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own

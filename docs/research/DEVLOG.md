@@ -19726,3 +19726,7 @@ The review found one substantive fault in my design: the start-address register 
 **Tests.** `test_gbmode_read.py`, `test_gbmode_image.py` (with `gbmode_optrace.c`), `test_gbmode_prereg.py`; the full gate is in the closeout on Issue #146.
 
 **Next.** The Orchestrator validates the pre-registration and opens the Hardware Issue; staging waits for RUN 58 to be run and archived.
+
+## 2026-09-30 — Hardware Issue #147: `27-gbmode` pinned and staged on the Operator's own words, before RUN 58; every other slot byte-identical
+
+The Operator amended the staging gate himself ("O cartao SD está conectado já... Pode copiar o DOL."). Row 27 pinned at `e33115e3…a497` (`make_target` `gbmode-session`), the export and the card write done for that one slot, every card file hashed before and after (the only difference is the new file), all 16 pinned slots verified on the card, `INDEX.txt` untouched. Four tests that pinned the slot's absence were amended on top; one declared exemption to the manifest's range rule is recorded (a variant of a canonical POC, kept at 27 because the number is already in the Operator's frozen procedure). Recorded in `HARDWARE_TESTS.md` §V29.11.
