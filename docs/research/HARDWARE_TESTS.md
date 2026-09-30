@@ -40350,3 +40350,119 @@ card       /media/rafael/SD_GC/Open-GBP/27-gbmode/boot.dol written and read back
            the ONLY difference is the new line for 27-gbmode/boot.dol (26 files before, 27 after); INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f); the other directories (aout) untouched
 verified   all 16 pinned slots on the card read back equal to their pins (12-stream ... 27-gbmode); the slot staged for RUN 58 is byte-identical
 ```
+
+
+### V28.33 RUN 58 EXECUTED AND INGESTED — the perceptual nulling: 8 settings, all mechanistic gates hold, the confirmed rungs cover the WHOLE ladder (0 to 7; median rung 2, T448 A4, 261.7 ms), O1 holds by the registered rule with a margin one setting wide, and the Operator says nearly all of them looked alike — 2026-09-30 (Issue #142)
+
+*Appended. §V28.29 and §V28.29a (the registered design, gates G1-G6 and outcomes O1-O5), §V28.31 and §V28.32 (the image) stand; nothing in them is amended. The Operator's words were posted verbatim on Issue #142 BEFORE any figure was computed (O5); they are repeated here beside the figures they are set against.*
+
+**Files and integrity.**
+
+```text
+raw log     logs/run58/GBP-AUDIO-V28_v28-perceptual-0001.log     171 637 B  sha256 098fad302214b9e784aabd8f1c8bd7f2fde5e826fb2115f93161e93ead26addb
+archived    captures/local/GBP-AUDIO-V28_v28-perceptual-0001-run58.log (cmp and sha256 equal to the original)
+header      build_id=v28-perceptual-0001 commit=22d0328 status=ok_session_ended lines=1348 dropped=0 truncated=0; IDENT app=gbp-audio-v28-perceptual_no_phase1
+config      V28CFG plan=perceptual_no_phase1 session_cap_s=360 wall_s=425 step_mute=7 start_mute=10 rungs=8; ENVSTORE fault=- ok=1
+build       slot 26-v28p, boot.dol 4a700dfe...d4d3 (§V28.31, §V28.32; the Orchestrator read the same hash on the card on Issue #142)
+cartridge   Yoshi's Island (SMA3), Link Port empty, BBA absent (Issue #142)
+Gecko       none: the Operator forgot to tell the Orchestrator (his words: "esqueci de avisar do Gecko"); the SD log is the record
+tools       tools/v28null.py <log> --label M1 and tools/v28verdict.py <log>, unedited, on the archive
+order       the two drops' file mtimes read RUN 59 at 06:06 and RUN 58 at 06:15 on the card; the Operator later confirmed on Issue #147 that he ran RUN 59 BEFORE RUN 58, with a power cycle between them (OPERATOR OBSERVATION; it agrees with the mtimes, and the recommended order on Issue #147 was the opposite). The console clock is not a reference and is not read as an order by itself.
+```
+
+**The Operator's declaration (OPERATOR OBSERVATION, verbatim, posted on Issue #142 before any figure).**
+
+```text
+Q1  fiquei em duvida em quase todos, todos pareciam bem parecidos.
+Q2  tinha momentos que todos pareciam iguais. devia mudar micro segundos
+Q3  não, pois todos eram muito identicos
+Q4  em alguns momentos so ouvi o que parecia picotes, mas depois estabilizou
+Q5  não
+```
+
+**The tool's printed reading (`tools/v28null.py --label M1`), as printed.**
+
+```text
+PERCEPTUAL NULLING, 8 setting(s) -- label M1 (AHEAD + 1, RUN 57's marked block: as tabulated, CORROBORATED (address stage assumed identical))
+  L = the AUDIO PATH's latency (ring -> AI), INFERENCE; NOT the audio-versus-video offset (the video path is not here)
+  setting  1  start rung 2  dir LEFT=deeper  steps  7 (deeper 2, shallower 5)  floor presses 0  top presses 3  ->  rung 5 = (T256, A3)  L 183.5 ms  [interior]
+  setting  2  start rung 2  dir LEFT=shallower  steps  4 (deeper 2, shallower 2)  floor presses 0  top presses 2  ->  rung 2 = (T448, A4)  L 261.7 ms  [interior]  dwell 42 s
+  setting  3  start rung 5  dir LEFT=deeper  steps  5 (deeper 5, shallower 0)  floor presses 0  top presses 0  ->  rung 0 = (T704, A4)  L 324.4 ms  [interior]  dwell 30 s
+  setting  4  start rung 6  dir LEFT=deeper  steps  3 (deeper 3, shallower 0)  floor presses 0  top presses 0  ->  rung 3 = (T320, A4)  L 230.4 ms  [interior]  dwell 10 s
+  setting  5  start rung 0  dir LEFT=deeper  steps  0 (deeper 0, shallower 0)  floor presses 0  top presses 14  ->  rung 0 = (T704, A4)  L 324.4 ms  [top]  dwell 31 s
+  setting  6  start rung 5  dir LEFT=shallower  steps  2 (deeper 0, shallower 2)  floor presses 0  top presses 0  ->  rung 7 = (T256, A1)  L 121.0 ms  [interior]  dwell 16 s
+  setting  7  start rung 0  dir LEFT=shallower  steps  2 (deeper 0, shallower 2)  floor presses 0  top presses 0  ->  rung 2 = (T448, A4)  L 261.7 ms  [interior]  dwell 20 s
+  setting  8  start rung 0  dir LEFT=shallower  steps  1 (deeper 0, shallower 1)  floor presses 0  top presses 0  ->  rung 1 = (T576, A4)  L 293.1 ms  [interior]  dwell 23 s
+  MECHANISTIC GATE (the Executor's): fill tracks the target 8 of 8, READY at AHEAD-1 or AHEAD 8 of 8, no underrun 8 of 8, no dropped sample 8 of 8
+  VERDICT: NULL ESTIMATED from the 7 uncensored setting(s) of 8: median L 261.7 ms, range 121.0-324.4; censored at the floor 0, at the top 1 (the top-censored settings lie AT OR ABOVE the top, so the median is biased DOWN)
+```
+
+The tool prints no SUSPECT flag. (Rung 0 is the DEEPEST rung, T704 A4 324.4 ms; rung 7 the shallowest, T256 A1 121.0 ms; the ladder in between is rung 1 T576 A4 293.1, 2 T448 A4 261.7, 3 T320 A4 230.4, 4 T256 A4 214.7, 5 T256 A3 183.5, 6 T256 A2 152.2 ms. `[interior]` in the tool's vocabulary means "not censored by a press against an end": setting 3 confirmed AT rung 0 without a press against it and is counted uncensored by the registered rule; setting 5 started at rung 0 and pressed against it 14 times, and is the one censored setting.)
+
+**The admissibility reading (`tools/v28verdict.py`), as printed, and how it maps to this run.** ADMISSIBILITY: PASS. The tool is written for the validation run and labels the nulling phase "3a": its note "phase 1 (3a) ended with reason=cap (not `complete`)" is this run's nulling phase ending at the 240 s cap, as the registered plan says it may; "3A: no CONFIRM record", "3B: no V28ANCHOR record" and "SWEEP: 0 records" are the validation phases this plan does not run. The phase loss lines, as printed (the tool's label "3a" on the second line is this run's nulling phase):
+
+```text
+  p0 navigate    32.2 s  blocks_in 131492  loss 0.301 %  taps-blocks 0 failed 0 wrong 0  underruns 1 (1.9/min)  dup 7904 drop 0  produced 1028  gated 128  ring 16 -> 6448
+  p1 3a         240.0 s  blocks_in 980005  loss 0.309 %  taps-blocks 0 failed 0 wrong 0  underruns 0 (0.0/min)  dup 52817 drop 0  produced 7486  gated 0  ring 6448 -> 6192
+```
+
+Raw records read directly: `V28C underruns=1 overflow=0 silences=1 mute_handed=405 dup=60721 drop=0`; `V28C2 discarded=0 starved_steps=217 lost=0 blocks_in=1111498 ring_discarded=400865 trans_faults=0 dropped_front=202 cs=55 acted=54 syncpe_lost=0 lines_lost=0`; `V28TAPS taps=1160993 taps_failed=0 wrong_len=0 blocks_in=1111498`; per-setting `V28_NULLM n=0..7`: ring / READY 3254/2, 6096/4, 10240/4, 4016/4, 10080/4, 2701/0, 5772/3, 8208/3, `underruns=0 overflow=0` in all eight. The confirm times (seconds after the nulling began) are 57.5, 99.5, 129.4, 139.6, 170.9, 187.2, 206.9, 230.2; the phase ended at the 240.0 s cap, 9.8 s after the last confirm. The `SYNCCS` events: 36 LEFT, 9 RIGHT, 8 UP acted (kind 4), plus the DOWN that began the nulling (kind 0, acted 3) and one LEFT (kind 0, acted 0) in navigate.
+
+**The single underrun.** It is in phase 0 (navigate, before any setting): `V28PHC p=0 underruns=1`, and `V28C underruns=1` is the whole run's total; the nulling phase's is 0 and every `V28_NULLM` reads 0. Whether that is what the Operator describes in Q4 ("em alguns momentos so ouvi o que parecia picotes, mas depois estabilizou") the log does not say: it does not time the underrun against his listening, and his words carry no time. The two are recorded side by side and NOT linked (OPERATOR OBSERVATION beside FACT).
+
+**Scored against §V28.29's registered gates (mechanistic).**
+
+| | registered | measured | |
+|---|---|---|---|
+| G1 | at every confirm the ring at or below the rung's TARGET and no more than 2 300 under it | the tool: fill tracks the target 8 of 8 | HOLDS |
+| G2 | READY at every confirm AHEAD - 1 or AHEAD | 8 of 8 (READY 2 at AHEAD 3 ... 4 at AHEAD 4; 0 at AHEAD 1: setting 6, rung 7) | HOLDS |
+| G3 | no underrun, no dropped sample during any setting | `V28_NULLM underruns 0 overflow 0` 8 of 8 | HOLDS |
+| G4 | p1 loss 0.10-0.40 %, refuted above 0.5 %; taps == blocks_in, 0 failed, 0 wrong-length; ENVSTORE ok | 0.309 %; 980 005 = 980 005; 0; 0; `ok=1 fault=-` | HOLDS |
+| G5 | at least 3 completed settings | 8 | HOLDS |
+| G6 | every record's (T, A) is its rung's; assignment and randomisation in the log | no defect flagged by the tool; start rungs and mapping in `V28_NULL` | HOLDS |
+
+**Scored against the registered perceptual outcomes.** The tool's own reading is O4 (a mixed run: censored 0 at the floor, 1 at the top, the null estimated from the seven uncensored settings, the median biased DOWN by the top-censored one). O1's registered rule is applied to it:
+
+```text
+interior (uncensored) settings: 7 of 8 (at least half: yes)
+uncensored rungs, sorted:       0 1 2 2 3 5 7      median rung 2 (T448 A4, 261.7 ms)
+within TWO rungs of the median: rungs 0 1 2 2 3 = 5 of the 7 uncensored (71 %); 6 of 8 (75 %) counting the top-censored one at rung 0
+the registered bar:             at least 2/3 of the settings                                       -> O1 HOLDS, by one setting
+outside the window:             rung 5 (setting 1) and rung 7 (setting 6)
+```
+
+- **FACT (the readings).** Eight settings were completed and confirmed; the mechanistic gates hold on all eight; the rungs he confirmed were 5, 2, 0, 3, 0, 7, 2, 1; the estimator's median is rung 2, T448 A4, 261.7 ms (label M1), range 121.0-324.4 ms; one setting is censored at the top (14 presses against rung 0), none at the floor.
+- **What the registered rule gives.** O1 (INTERIOR, coherent) holds mechanically: 7 of 8 uncensored, and 5 of 7 (71 %) within two rungs of the median. The margin is ONE setting: with four in the window instead of five the fraction is 57 % and the run would read INCOHERENT.
+- **What the spread is.** The confirmed rungs cover the ENTIRE ladder, 0 to 7 (six distinct rungs; 203 ms from the deepest confirmed to the shallowest). Every setting had a stated start rung, drawn uniformly (`start` in `V28_NULL`: 2, 2, 5, 6, 0, 5, 0, 0). Descriptive, computed AFTER the reading and NOT registered: the correlation between the start rung and the confirmed rung is 0.40 over the 8 settings and 0.28 over the 7 uncensored, which is weak, and no claim about anchoring or its absence is made on eight points.
+- **The rule is weakly informative here, and that is recorded, not repaired.** Post hoc, not registered: a window of five rungs on an eight-rung ladder holds 5/8 = 62.5 % of rungs drawn uniformly at random, and the registered rule centres its window on the run's OWN median, which makes agreement more likely still. By exact enumeration of the rule as the tool scores it (seven uncensored rungs drawn uniformly and independently from the eight, the median the middle of the sorted seven, at least 5 of 7 within two rungs of it), **1 481 502 of 2 097 152 draws (70.6 %) would pass O1 with no discrimination at all**; with eight draws and the upper-middle median, 9 368 430 of 16 777 216 (55.8 %). The run's own 5 of 7 is therefore what a run that could not tell the rungs apart passes more often than not. (A fixed five-rung window catching six or more of eight, a different model, is about 37 % and is NOT the figure that applies.) The registered rule cannot separate "he located a point, loosely" from "he could not tell the rungs apart". **The instrument's discrimination was not tested in this run** (`feedback-instrument-must-discriminate`): a test that presents the same rung twice, or a rung known to be far off, was not registered and is not in the log.
+- **His words, set against the figures, without reconciling them.** Q1 ("doubt in almost all, all looked very similar") and Q3 ("no, since all were very identical") are consistent with a wide flat band and with no discrimination; they are NOT evidence of a located point. Q2 ("a moment when all looked the same; it should change micro-seconds") is ambiguous and the log cannot settle it: it may say the difference between settings was tiny to him (the steps are 15.6 ms at one step and 31.2 ms at the rest), or that the step SHOULD be much finer than it was, or that he could not tell the settings apart; the readings are UNRESOLVED and none is chosen. **One tension is recorded, not reconciled:** Q3 says he did not need to go further in either direction, while the log shows him pressing against the top end in three settings (top presses 3, 2 and 14; setting 5 is the censored one). Both are what they are; a press against the end of the scale is "not audible as such" (§V28.29), although §V28.29a records that he can tell an end press produced silence with no change in the delay, so the log's count is of his presses and it is not settled what he perceived at each.
+- **Q4 and the underrun** are recorded above; not linked.
+- **O2 and O3 (all settings censored at one end) did not occur;** the top-censored setting is one of eight.
+
+**What this run does NOT establish.**
+1. **The audio-versus-video offset in milliseconds.** L is the AUDIO PATH's own latency (ring entry to AI DMA reload, INFERENCE for the values, CORROBORATED for the DMA semantics they rest on); the video path's latency is not in the log. The null gives the audio latency at which the Operator judged the two aligned with all else constant; the constant offset of the picture is unmeasured.
+2. **That a null exists in this range.** The instrument did not test its own discrimination (above); the data are compatible with a loosely located point and with none.
+3. **That the estimator's median (261.7 ms) is the answer.** It is the median of eight draws from a distribution that spans the ladder; the confirmed rungs 0, 1, 2, 2, 3 (230.4-324.4 ms) sit within the top half and 5 and 7 (183.5 and 121.0 ms) below it. The top-censored setting biases the median DOWN by the registered rule; whether the true centre is deeper than the ladder's top, O3's reading, is not excluded by one setting of eight.
+4. **The address stage of the DMA** (assumed identical, label M1), **why T4608 varies** (§V28.30), **U-GBP-050's residual** (loss here 0.309-0.301 %), and **whether the "próximo de 1 segundo" residue of U-GBP-046 (§2 there) is resolved**: the offset was not measured, so it is not shown resolved or unresolved.
+5. **Any effect of the splice cue** (the run was built to be immune to it and did not test it).
+
+**What the evidence has for the shipping audio setting (the Orchestrator's decision; the Executor states the options and their limits, does not choose).** `U-GBP-046` and §V28.29 left the shipping setting to this ingestion. What the record holds: the Operator was NOT asked to rank the rungs, and his answers (Q1 "in doubt in almost all, all looked very similar", Q3 "no, since all were very identical", Q4 "picotes at some moments, then it stabilised") report no rung as better or worse; the nulling phase had no underrun (phase 1: 0) and each of the eight settings' measured points read `underruns 0`; rungs 4 (T256 A4) and 6 (T256 A2) were passed through but never confirmed, so they are covered only by the phase-level count; the AHEAD-1 rung (T256 A1, 121.0 ms) was confirmed once (setting 6) and its 60 s hold ran clean on three observed boots (RUN 55-57), but its READY was 0 at that confirm (ring 2 701), the thinnest margin of the eight confirms; the deeper rungs carry a READY of 3-4. **The comparator the record must name:** the native module's compile-time default is TARGET 8192 (a 125 ms cushion) at AHEAD 1 (`src/audio/gbp_aplay2.h`, `GBP_APLAY2_TARGET`, `GBP_APLAY2_AHEAD`), which is rung-equivalent T512 A1 and L = 183.7 ms by `tools/v28latency.py` (INFERENCE, not measured; whether it was ever held clean at AHEAD 1 is not read here). The older 0.5-0.67 s path of `U-GBP-046` (a HYPOTHESIS there, and the pre-#121 chain) is superseded and is not the comparison.
+
+```text
+option A  the estimator's rung: T448 A4 (261.7 ms), READY 3-4, ring 5 772 at its confirm in setting 7
+          for: the registered estimator's output; more margin against an underrun than option B.
+          against: 78 ms deeper than the module's default (183.7 ms) and 140.7 ms deeper than the shallowest rung accepted; the estimator is biased DOWN by the censored setting; the instrument's discrimination is untested.
+option B  the shallowest MEASURED clean rung: T256 A1 (121.0 ms)
+          for: the lowest audio-path latency the chain has been MEASURED to hold clean (three boots; T192 A1 is tabulated, never held); nothing he said prefers deeper.
+          against: READY 0 at its confirm, the least margin; the only setting that confirmed it is one of eight.
+option C  keep the module's default (T512 A1, 183.7 ms) as it is
+          for: no data in hand separates the rungs, and it sits inside the confirmed range (rung 5, 183.5 ms, was confirmed once).
+          against: it is not on the ladder and its margin at AHEAD 1 was not measured by this run.
+option D  hold the decision until an instrument that discriminates exists (a same-rung repeat, a far-rung control) and the video path's latency is read
+          for: neither A, B nor C is separated from the others by the data in hand.
+          against: another physical round; the Operator reported doubt and similarity, not that the choice is inaudible.
+```
+
+The choice changes `TARGET` in the runtime, which `U-GBP-045` prices; it is not made here. No runtime constant was changed by this ingestion.
+
+**Newly recorded (the archive).** The archived log records `CONTROL semantic orig=92` (a GBA cartridge in the slot, as the split predicts); with RUN 59's it takes the population to 70 logs (`GBP-HW-377`).

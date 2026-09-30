@@ -230,7 +230,11 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #139 (2026-09-29): RUN 56, validation_run with the DMA-semantics read and the doubled ring, a GBA cartridge
                  "GBP-AUDIO-V28_v28-validation-0001-run56.log": "92",
                  # Issue #139 (2026-09-29): RUN 57, validation_run with the marked DMA block, a GBA cartridge
-                 "GBP-AUDIO-V28_v28-validation-0001-run57.log": "92"}
+                 "GBP-AUDIO-V28_v28-validation-0001-run57.log": "92",
+                 # Issue #142 (2026-09-30): RUN 58, the perceptual image, a GBA cartridge
+                 "GBP-AUDIO-V28_v28-perceptual-0001-run58.log": "92",
+                 # Issue #147 (2026-09-30): RUN 59, gbmode-0001, a Game Boy Color cartridge (Pokemon Crystal)
+                 "GBP-VIDEO-004_gbmode-0001-run59.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -280,10 +284,13 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         sync = {f for f in cart if "sync-0001" in f}
         self.assertEqual(len(sync), 1, sorted(sync))
         # Issue #131/#133: RUN 50 (v28-validation-0001), the gbp-audio-v28 fix run; named the same way
-        v28 = {f for f in cart if "v28-validation" in f or "v28-diagloss" in f}
-        self.assertEqual(len(v28), 8, sorted(v28))
+        v28 = {f for f in cart if "v28-validation" in f or "v28-diagloss" in f or "v28-perceptual" in f}
+        self.assertEqual(len(v28), 9, sorted(v28))
+        # Issue #147: RUN 59 (gbmode-0001) is the stream POC under its own build id; named apart
+        gbmode = {f for f in cart if "gbmode-0001" in f}
+        self.assertEqual(len(gbmode), 1, sorted(gbmode))
         self.assertTrue(all(re.search(r"(color|stream)", f)
-                            for f in cart - play - drain - live - trace - split - game - game2 - sync - v28))
+                            for f in cart - play - drain - live - trace - split - game - game2 - sync - v28 - gbmode))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))
