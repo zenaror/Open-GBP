@@ -159,10 +159,7 @@ class TheToolReadsAndCanSayNo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             link = os.path.join(ROOT, "build", "analysis", "test_symlink_out")
             os.makedirs(os.path.dirname(link), exist_ok=True)
-            try:
-                os.symlink(d, link)
-            except OSError:
-                self.skipTest("symlinks unavailable")
+            os.symlink(d, link)
             try:
                 with self.assertRaises(SystemExit):
                     gp.render(FULL if os.path.exists(FULL) else __file__, link)
