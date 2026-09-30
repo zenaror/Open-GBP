@@ -1,6 +1,8 @@
 # INITIAL_PROMPT.md — Open-GBP First Claude Code Session
 
-Read `CLAUDE.md` completely before doing anything else.
+> Historical bootstrap prompt of the first session (Phase 1). The current entry points are `AGENTS.md` and `docs/HANDOFF.md`.
+
+Read `AGENTS.md` completely before doing anything else (it is the single normative source of project instructions; `CLAUDE.md` was merged into it and removed on 2026-09-30).
 
 Then read the authoritative project documents referenced by it, especially:
 
