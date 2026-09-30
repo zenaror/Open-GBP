@@ -19764,3 +19764,20 @@ The Operator amended the staging gate himself ("O cartao SD está conectado já.
 **Tests executed.** `tests/host/test_gbmode_run59_ingest.py` (recomputes the readings, the counts against the GBA family and the frame-close cadence from the hash-pinned archive); the recount tests carried both new logs at the RUN 58 checkpoint. **Rejected.** Nothing was refuted; `GBA_STRUCTURE` was not read as identity with the baselines, and the reviewer's catch that bit `0x80` was already set withdrew a "not needed" claim before the commit.
 
 **Next highest-value experiment.** The Orchestrator's to order from `PHASE7_ENTRY.md` §6: what the picture is (an offline decoding of the archived sidecars costs no hardware time), then a pressed button and L / R (a different experiment with a new variable).
+
+
+## 2026-09-30 — Issue #148: RUN 59's picture decoded offline from the archived sidecar (no hardware)
+
+**Goal.** What did the VIDEO window deliver in GB mode: geometry, border, colour, what the frames show; Operator's D set beside it AFTER.
+
+**Changes.** `tools/gbmode_picture.py` (geometry, border, colour, a duplication test that can say yes; `--render` refused outside the ignored roots) and `tests/host/test_gbmode_picture.py` (synthetic frames including a nearest-neighbour stretch; the archived sidecar recomputed; the by-construction INCONCLUSIVEs of `vfull`, `vindex`). `HARDWARE_TESTS.md` §V29.13, `EVIDENCE.md` `GBP-HW-379`, a `PHASE7_ENTRY.md` amendment. No retail picture in the repository.
+
+**Result.** The eight frames hold a 160 x 144 region at (40, 8) inside a black 40 / 8 / 40 / 8 border of the 240 x 160 window, no forced-equal pixel phase at any period where the test can speak, 1-13 colours per frame, bit 15 at (0, 0) only. The family's own verdicts are INCONCLUSIVE by construction (their oracle is a coordinate stimulus). The frames show a start-up sequence (a company logo, a figure in a ring, a forest scene with two creatures, plain white and black frames). The Operator's D is consistent with the decode ("native"); "quadrado" fits the 10:9 picture and "3:2" fits the 3:2 window, so the sentence is not decided.
+
+**Newly confirmed.** FACT: the window holds a 160 x 144 region at (40, 8) in a black border; the inference that it is unscaled (one window pixel per Game Boy pixel) is argued in §V29.13, not a fact. It is the baseline for the L / R stretch experiment, read against the fixed geometry (40, 8, 199, 151) and not against the tool's own box (a stretched picture's ring majority may become its "border").
+
+**Not established.** What the television showed, colour fidelity, the border's real extent, who decides the placement.
+
+**Tests executed.** `tests/host/test_gbmode_picture.py`.
+
+**Next highest-value experiment.** E4 (`GBC_PATH.md` §4.2): a pressed L or R changes the box towards the whole window if the AGB stretches; the tool reads it. It is a new variable and the Orchestrator's to order.

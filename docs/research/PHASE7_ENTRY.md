@@ -747,3 +747,8 @@ THE OPERATOR  recognised Crystal, described native GBA resolution in a square fo
 STILL OPEN    what the picture is (the sidecars are archived and not read), the audio content, GB-mode input and L / R (a different experiment, a new variable), DMG against CGB,
               a second cartridge, the meaning of bit 0x01, and the GBP-aware features (rumble and the rest).
 ```
+
+
+## Amendment — 2026-09-30 (Issue #148): E3's picture decoded; the baseline for E4
+
+RUN 59's eight preserved frames (`HARDWARE_TESTS.md` §V29.13, `GBP-HW-379`) hold a **160 x 144 region at (40, 8) inside a black border of 40 / 8 / 40 / 8 pixels of the 240 x 160 window** (FACT), with no forced-equal pixel phase at any period 2-12 where the test can speak and at most 13 colours per frame; that the picture is unscaled, one window pixel per Game Boy pixel, is an INFERENCE argued in §V29.13. The family's own tools are INCONCLUSIVE on it by construction (a coordinate-stimulus oracle). This is the BASELINE the stretch experiment (§6, E4; `GBC_PATH.md` §4.2) needs: a stretch inside the AGB would move the picture's box towards the whole window and add a period-3 column duplication, which `tools/gbmode_picture.py` finds (tested on a synthetic stretch and on RUN 59's own content stretched in memory); read E4 against the FIXED geometry (40, 8, 199, 151), not the tool's own box (a stretched picture's ring majority may become its "border"). Still open: what the television showed, colour fidelity on retail content (no oracle), the AGB's own rule for placing or stretching, the border's real extent (black cannot be told from the picture's own black).
