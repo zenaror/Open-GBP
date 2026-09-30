@@ -50,7 +50,8 @@ class TheStoreTableIsTheToolsArithmetic(unittest.TestCase):
     def test_the_proposed_bound_is_inside_what_a_v28_chassis_has_run_and_saved(self):
         self.assertLess(b.P0_ALLOWANCE_S + 300 + b.SLACK_S + b.WALL_ABOVE_SESSION_S, 533)
         d = plain(section())
-        for tok in ("300 s", "wall of 485 s", "533 s", "the largest wall a V28-chassis image has RUN AND SAVED", "INFERENCE only", "900 s is not reachable by the same store policy"):
+        for tok in ("300 s", "wall of 485 s", "533 s", "the largest allocation any V28-chassis image has BOOTED and SAVED", "INFERENCE only", "900 s is not reachable by the same store policy", "up to 6 minutes from the A",
+                    "What was never demonstrated:** a store FILLING on this chassis".replace("**", ""), "ok_no_change_inconclusive"):
             self.assertIn(tok, d, tok)
 
     def test_the_tools_descriptive_ceiling_the_text_quotes(self):
@@ -70,6 +71,8 @@ class TheDemonstratedEnvelopeIsTheArchives(unittest.TestCase):
         m = re.search(r"ENVSTORE frames=(\d+)/\d+ events=(\d+)/\d+ corr_cap=(\d+) fault=- ok=1", t)
         self.assertEqual(tuple(int(x) for x in m.groups()), (31980, 42107, 20787))
         self.assertEqual((b.need(533, 60), b.need(533, 79), b.need(533, 39)), (31980, 42107, 20787))
+        self.assertIn("EVENTS n=15526 shown=192 dropped=0 store_full=0", t, "RUN 57's events reached 15 526 of 42 107 (37 %): the store never filled")
+        self.assertIn("15 526 of 42 107 (37 %)", plain(section()))
         self.assertIn("# --- end --- dropped=0", t)
         self.assertGreater(31980, b.need(485, 60))
 
@@ -107,6 +110,25 @@ class TheCodeFactsTheDesignRestsOn(unittest.TestCase):
         self.assertNotIn("PLAY", plans, "a play plan exists: the build half has landed and this pin is amended on top")
 
 
+class TheDesignsFixesAfterItsReview(unittest.TestCase):
+    """The design review's findings, pinned: the delimiter is a hand-off count, the cold start is the plain setter, the declaration is after the session, the phase change is by itself."""
+
+    def test_the_fixes(self):
+        d = plain(section())
+        for tok in ("by the HAND-OFF COUNT, not by the ring", "K = 64 hand-offs after the DMA start", "a preallocated array of the first 64 underruns", "gbp_aplay2_set_target(&ap2, 4096)",
+                    "is NOT the cold-start route", "a title selection AFTER the session, before the save", "it forwards every pad change to the AGB and writes a KEY record".replace("it forwards", "forwards"),
+                    "neither is resolved", "navigate is a timed phase of 60 s", "play follows it by itself", "THE EVIDENCE BASE IS NOT THE VEHICLE'S CONFIGURATION", "the READERS",
+                    "two underruns in one pump interval are two records"):
+            self.assertIn(tok, d, tok)
+        self.assertNotIn("first fill with a chunk ready plus 2 s", d)
+        self.assertNotIn("gbp_atrans2_begin() call", d.replace("is NOT the cold-start route", ""))
+
+    def test_the_setter_exists_and_accepts_the_target(self):
+        h = read(os.path.join(ROOT, "src", "audio", "gbp_aplay2.h"))
+        self.assertIn("void gbp_aplay2_set_target(struct gbp_aplay2 *p, uint32_t target);", h)
+        self.assertRegex(h, r"#define GBP_APLAY2_TARGET_MIN\s+GBP_APLAY2_PUSHES")
+
+
 class NothingIsBuiltYet(unittest.TestCase):
     def test_no_poc_no_slot_no_record(self):
         self.assertFalse(os.path.exists(os.path.join(ROOT, "poc", "gbp-play-gba")))
@@ -122,9 +144,9 @@ class NothingIsBuiltYet(unittest.TestCase):
 
     def test_the_records_the_build_owes_are_named(self):
         d = section()
-        for tok in ("PLAYSTARTUP t_dma= t_fill_reached= t_end= ring= ready= underruns_before=", "PLAYUND n= t= since_end_ms= phase= ring= ready= handed=",
-                    "PLAYUNDER startup=<n> after_startup=<n> first_after_ms=<ms or -> total=<n>",
-                    'CARTDECL idx=<k> title="<text>" form=<ORIGINAL|UNOFFICIAL|FLASHCART_DELIVERED|UNDECLARED> mode=GBA entered=pad_selection'):
+        for tok in ("PLAYSTARTUP t_dma= k=64 ring_at_dma= ready_at_dma=", "PLAYUND n= handed= since_dma_ms=",
+                    "PLAYUNDER startup=<n> after_startup=<n> first_after_handed=<index or -> total=<n>",
+                    'CARTDECL idx=<k> title="<text>" form=<ORIGINAL|UNOFFICIAL|FLASHCART_DELIVERED|UNDECLARED> mode=GBA entered=pad_selection_after_session'):
             self.assertIn(tok, d, tok)
 
 
@@ -133,7 +155,7 @@ class TheOperatorsDraftPredictsNothing(unittest.TestCase):
         d = section()
         i = d.index("**DRAFT of the Operator's text")
         block = d[d.index("```text", i):d.index("```", d.index("```text", i) + 7)]
-        for tok in ("NÃO salve o jogo", "28-vehicle", "ESQUERDA / DIREITA", "A ×1", "X ×1", "com as suas palavras", "ciclo de energia"):
+        for tok in ("NÃO salve o jogo", "28-vehicle / boot.dol", "ESQUERDA / DIREITA", "A ×1", "X ×1", "com as suas palavras", "ciclo de energia", "PRESS A within 45 s", "até 6 minutos"):
             self.assertIn(tok, block, tok)
         self.assertNotRegex(block, r"\b(?:[LRABXYZ]|START)\d", "digits glued to a button name")
         for banned in (r"esperad", r"perfeit", r"sem falhas", r"suave", r"cristalin", r"vai (?:tocar|ouvir|aparecer|soar|parecer)", r"deve (?:tocar|soar|parecer|aparecer)", r"ouvir[áa]"):
@@ -144,8 +166,8 @@ class TheOperatorsDraftPredictsNothing(unittest.TestCase):
 class TheTitlesAreTheOperatorsAndTheRejectedOneIsReadNotReused(unittest.TestCase):
     def test_order_and_reasons(self):
         d = plain(section())
-        for tok in ("Yoshi's Island (SMA3), on the EZ-Flash Omega DE NOR", "the KNOWN CONTROL", "Kingdom Hearts: Chain of Memories (JP, original)", "NOT to save in the game",
-                    "The Simpsons: Road Rage (unofficial", "WarioWare: Twisted (JP and US)", "§V7.5.2", "the per-title input gate cannot be evaluated", "Drill Dozer", "a ROW and not a failed run"):
+        for tok in ("Yoshi's Island (SMA3), on the EZ-Flash Omega DE NOR", "the KNOWN CONTROL", "Kingdom Hearts: Chain of Memories (JP, original)", "NOT to save in the game", "let any save the game starts finish",
+                    "The Simpsons: Road Rage (unofficial", "WarioWare: Twisted (JP and US)", "§V7.5.2", "The KEY record exists for any title", "VOID IN A PLAY LOG", "Drill Dozer", "a ROW and not a failed run"):
             self.assertIn(tok, d, tok)
         self.assertLess(d.index("Yoshi's Island (SMA3)"), d.index("Kingdom Hearts: Chain of Memories"))
         self.assertLess(d.index("Kingdom Hearts: Chain of Memories"), d.index("The Simpsons: Road Rage"))

@@ -774,18 +774,20 @@ THE SAFETY      the one new element is a KEYPAD word carrying bit 8 or 9 in GB m
 
 ## Amendment — 2026-09-30 (Issue #153, design half): E5's vehicle designed; the build is its own checkpoint
 
-`HARDWARE_TESTS.md` §V31 designs the vehicle (item (a)-(d) of §2) and pre-registers the first breadth session as a DRAFT; nothing is built, no hash exists, no slot is pinned or staged. The committed text and the earlier amendments are unchanged.
+`HARDWARE_TESTS.md` §V31 designs the vehicle (items (a)-(d) of §2) and pre-registers the first breadth session as a DRAFT; nothing is built, no hash exists, no slot is pinned or staged. It was amended before any push after one heavy adversarial review. The committed text and the earlier amendments are unchanged.
 
 ```text
-THE VEHICLE   a new POC (poc/gbp-play-gba, proposed), the V28 chassis' modules and a PLAY plan: navigate (60 s allowance) then free play until Z; no research phase, no GX label, no walker-driven audio changes.
-              The chain is configured at T256 A1 by the vehicle's own begin() call (the Issue #142 decision); the library default (TARGET 8 192, AHEAD 1) is NOT changed and the reasons are in §V31.1.
-THE BOUND     PROPOSED: 300 s of play per boot (wall 485 s; events 38 315, frames 29 100, chunk corrections 18 915), inside the largest wall a V28 chassis has run and saved (RUN 57, 533 s). Longer is INFERENCE
-              on sync-0001's memory arithmetic (ceiling 804 s without the ride-along); 900 s is not reachable by the same store policy. A store that fills ends the boot cleanly at a registered stop.
-THE FALLBACK  the rule reads `after_startup` only. Start-up is delimited by a record (PLAYSTARTUP: DMA start to the first fill with a chunk ready plus 2 s); each later underrun is a PLAYUND line, the totals a
-              PLAYUNDER line. The first-fill underrun is NOT avoided: the DMA does not start on an unfilled ring (gbp_aplay2_start_ready), the remaining candidate (the start's own hand-off consumes the one ready
-              chunk at AHEAD 1) is a HYPOTHESIS, and a start rule that waits for two chunks is unreachable at AHEAD 1 by construction; any avoidance is a second variable.
-THE DECLARATION  a title selection (D-pad LEFT / RIGHT, A) at the prompt the chassis already has, from the Operator's own inventory table, written as one CARTDECL line beside the run's bytes: an OPERATOR
-              DECLARATION, never a machine reading.
-THE SESSION   one boot per title, up to 300 s each: Yoshi's Island (NOR, the known control), Kingdom Hearts CoM (JP original; no in-game save, saves are E6), The Simpsons: Road Rage (unofficial, its caveat
-              kept). WarioWare: Twisted (gyroscope: the per-title input gate cannot be evaluated; cartridge hardware is E7) and Drill Dozer (not owned as a cartridge) are NOT in it.
+THE VEHICLE   a new POC (poc/gbp-play-gba, proposed), the V28 chassis' modules and a PLAY plan: a timed start-up phase (60 s, no press moves it) then free play until Z; no research phase, no GX label, no
+              walker-driven audio changes. The shipping setting of the Issue #142 decision is passed by the plain target setter after init (the transition machine is not the cold-start route); the library
+              default (the shared cushion constant, one chunk queued) is NOT changed and the reasons are in §V31.1. The evidence base of that setting (the label on, a transition entry) is not the vehicle's configuration:
+              written down, and the fallback rule is what reads it.
+THE BOUND     PROPOSED: 300 s of play per boot after the 60 s phase (up to 6 minutes for the Operator; wall 485 s; events 38 315, frames 29 100, chunk corrections 18 915), inside the largest ALLOCATION a V28
+              chassis has booted and saved (RUN 57, wall 533 s); no V28 boot has ever FILLED a store. Longer is INFERENCE on sync-0001's memory arithmetic; 900 s is not reachable by the same store policy.
+THE FALLBACK  the rule reads `after_startup` only. Start-up is the first 64 hand-offs after the DMA start (a plain counter, so the delimiter cannot fail to fire); the first 64 underruns are stored by their
+              hand-off index in the chain itself and logged as PLAYUND lines, the totals as one PLAYUNDER line. The first-fill underrun is NOT avoided: the DMA does not start on an unfilled ring, the remaining
+              candidate (the start's own hand-off consumes the one ready chunk) is a HYPOTHESIS, and a start rule that waits for two chunks is unreachable by construction at one chunk queued.
+THE DECLARATION  a title selection on the FINAL screen, after the session and before the save (before it, the presses would reach the cartridge and the KEY record), written as one CARTDECL line: an OPERATOR
+              DECLARATION, never a machine reading; a disagreement with his earlier chat declaration is recorded, not resolved.
+THE SESSION   one boot per title: Yoshi's Island (NOR, the known control), Kingdom Hearts CoM (JP original; no in-game save, saves are E6), The Simpsons: Road Rage (unofficial, its caveat kept). WarioWare:
+              Twisted (a gyroscope title: cartridge hardware is E7) and Drill Dozer (not owned as a cartridge) are NOT in it. The per-run gates that read records only the research phases keep are named VOID.
 ```
