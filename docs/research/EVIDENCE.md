@@ -12162,3 +12162,39 @@ HOST SIDE       GBI: the zoom, offset and scale variables (0x800b0a3c, 0x800b0a2
 ```
 
 **What it establishes, for the code.** The two references DIVERGE, and the divergence is preserved rather than resolved (`RESEARCH_METHOD.md`): the Disc forwards L / R to the AGB in every mode and has no type-dependent behaviour on that path; GBI removes them from the word when the type bit is set. **Reading against the Operator's recollection (`GBC_PATH.md` 1.2), an INFERENCE:** the Disc cannot implement a GB-only stretch on the host, because nothing it does depends on the type; a stretch it shows in GB mode is therefore either the AGB acting on a forwarded L / R (the prediction of `GBC_PATH.md` 4.2) or a host action on L / R that is not mode-dependent, the second not excluded by this search. It stays a prediction, and the experiment is what decides.
+
+
+### GBP-HW-376 — RUN 58 (`perceptual_no_phase1`, the Operator's nulling on the eight-rung ladder): eight settings confirmed, every mechanistic gate holds, the confirmed rungs cover the whole ladder (median rung 2, T448 A4, 261.7 ms as tabulated), O1 holds by the registered rule with a margin of one setting, and the Operator reports nearly all settings alike — FACT (the readings, one boot); INFERENCE (L is the audio path's latency only); UNKNOWN (whether a null exists in this range: the instrument's discrimination was not tested)
+
+GitHub Issue #142 (Hardware Run; ingestion under the same Issue). **Input:** `logs/run58/GBP-AUDIO-V28_v28-perceptual-0001.log`, 171 637 B, sha256 `098fad302214b9e784aabd8f1c8bd7f2fde5e826fb2115f93161e93ead26addb`, archived as `captures/local/GBP-AUDIO-V28_v28-perceptual-0001-run58.log`; build `v28-perceptual-0001` at commit `22d0328` (slot 26-v28p, `4a700dfe…d4d3`); Yoshi's Island (SMA3), Link Port empty, BBA absent; no Gecko capture. Read with `tools/v28null.py --label M1` and `tools/v28verdict.py`, unedited. Full record and the scoring against the registered gates: `HARDWARE_TESTS.md` §V28.33.
+
+```text
+settings completed        8 (confirm times 57.5 .. 230.2 s after the nulling began; the phase ended at the 240 s cap)
+confirmed rungs           5 2 0 3 0 7 2 1        (start rungs 2 2 5 6 0 5 0 0)
+L as tabulated (M1)       183.5 261.7 324.4 230.4 324.4 121.0 261.7 293.1 ms
+censored                  floor 0, top 1 (setting 5: 14 presses against rung 0)
+estimate                  median of the 7 uncensored: rung 2, T448 A4, 261.7 ms, range 121.0 - 324.4 ms (biased DOWN by the top-censored one)
+gates                     G1-G3 8 of 8; G4 loss 0.309 % (p1), taps == blocks_in 980 005, 0 failed, 0 wrong, ENVSTORE ok; G5 8; G6 no defect
+underruns                 phase 0 (navigate) 1; the nulling phase 0; every V28_NULLM 0
+O1 by the registered rule 7 of 8 uncensored; 5 of 7 (71 %) within two rungs of the median, 6 of 8 (75 %) with the censored one; bar 2/3 -> holds by ONE setting
+```
+
+**What it establishes, for the log.** The mechanistic conditions the run needed held at every setting (the fill at the rung's target, READY at AHEAD - 1 or AHEAD, no underrun, no dropped sample), so the settings are attributable to the rung and not to a broken chain. The registered outcome O4 (a mixed run) is the tool's own reading, and O1's INTERIOR/coherence rule holds mechanically.
+
+**What it does not establish.** (1) The audio-versus-video offset in ms: L is the audio path's latency, INFERENCE for the values on a CORROBORATED DMA semantics with the address stage assumed identical (`GBP-HW-374`); the video path is not in the log. (2) That a null exists in this range: the confirmed rungs span the ENTIRE ladder (0 to 7); post hoc, not registered, by exact enumeration 70.6 % of draws with no discrimination at all (seven uncensored rungs drawn uniformly, at least 5 of 7 within two rungs of their own median) would pass O1 as the run did, and the run carries no test of its own discrimination. (3) That 261.7 ms is the answer: it is the median of eight loose draws. (4) A link between the phase-0 underrun and the Operator's "picotes" (Q4): the log does not time it against his listening.
+
+**OPERATOR OBSERVATION (verbatim, `HARDWARE_TESTS.md` §V28.33; quoted, not promoted).** Q1 "fiquei em duvida em quase todos, todos pareciam bem parecidos."; Q2 "tinha momentos que todos pareciam iguais. devia mudar micro segundos"; Q3 "não, pois todos eram muito identicos"; Q4 "em alguns momentos so ouvi o que parecia picotes, mas depois estabilizou"; Q5 "não". One tension is preserved and not reconciled: Q3 says no need to go further, while the log records his presses against the top end in three settings (3, 2 and 14).
+
+**Status.** FACT for the readings (one boot, one Operator); INFERENCE for L; the null point UNKNOWN. This entry promotes nothing into `docs/hardware/` or `docs/protocol/`. The shipping audio setting is the Orchestrator's decision with the options in §V28.33; no runtime constant changed.
+
+### GBP-HW-377 — GBP-HW-272's CLAIM 1 recomputed over 70 logs (RUN 58 and RUN 59 add two cartridge-present logs, both `0x92`): 13 at `0x90`, 57 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-375`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 58 (`v28-perceptual-0001-run58`, Issue #142, a GBA cartridge) and RUN 59 (`gbmode-0001-run59`, Issue #147, a Game Boy Color cartridge, the Operator's original Pokémon Crystal) each record `orig=92`, as the split predicts. Before them the population was 68 logs, 13 at `0x90` and 55 at `0x92`; after them it is **70: 13 at `0x90` and 57 at `0x92`**. CLAIM 1 stays FACT and gains two logs; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched. RUN 59's log also records bit `0x01` set in its CONTROL snapshots with the Game Boy Color cartridge; that is a different claim, to be recorded under RUN 59's own ingestion (Issue #147), and it does not enter this count (`orig=` is the value read at the start of the session).
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     57 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.

@@ -19730,3 +19730,20 @@ The review found one substantive fault in my design: the start-address register 
 ## 2026-09-30 — Hardware Issue #147: `27-gbmode` pinned and staged on the Operator's own words, before RUN 58; every other slot byte-identical
 
 The Operator amended the staging gate himself ("O cartao SD está conectado já... Pode copiar o DOL."). Row 27 pinned at `e33115e3…a497` (`make_target` `gbmode-session`), the export and the card write done for that one slot, every card file hashed before and after (the only difference is the new file), all 16 pinned slots verified on the card, `INDEX.txt` untouched. Four tests that pinned the slot's absence were amended on top; one declared exemption to the manifest's range rule is recorded (a variant of a canonical POC, kept at 27 because the number is already in the Operator's frozen procedure). Recorded in `HARDWARE_TESTS.md` §V29.11.
+
+
+## 2026-09-30 — Issue #142: RUN 58 (the Operator's nulling) ingested; the ladder was covered end to end and no point was located
+
+**Goal.** Ingest RUN 58 (`v28-perceptual-0001`, commit `22d0328`) as the pre-registration fixes it (§V28.29, §V28.29a), the Operator's words first.
+
+**Changes.** The two raw drops (RUN 58 and RUN 59) archived to `captures/local` by run number, hashes equal to the originals. `HARDWARE_TESTS.md` §V28.33 (the tools' printed readings, G1-G6 and O1-O5 scored against the registered text, the Operator's words verbatim beside the figures, what the run does not establish, the shipping-setting options for the Orchestrator); `EVIDENCE.md` `GBP-HW-376` (the run) and `GBP-HW-377` (the recount, 70 logs: 13 at `0x90`, 57 at `0x92`, covering RUN 58 and RUN 59); `UNKNOWNS.md` amendment on `U-GBP-046` / `U-GBP-049`; `tests/host/test_v28_run58_ingest.py` recomputes the numbers from the hash-pinned archive; the recount tests (`test_control_bit_split.py`, `test_gbc_path.py`) carry the two new logs.
+
+**Result.** Eight settings confirmed; the mechanistic gates hold at all of them (loss 0.309 %, no underrun in the nulling phase). Confirmed rungs 5 2 0 3 0 7 2 1: the whole ladder; median rung 2, T448 A4, 261.7 ms as tabulated, one setting censored at the top. O1 holds by the registered rule by one setting; post hoc, by exact enumeration, 70.6 % of draws with no discrimination at all would pass it. The Operator: nearly all settings looked alike.
+
+**Newly confirmed.** The nulling phase ran with no underrun and the eight confirmed settings' measured points read none (rungs 4 and 6 were never confirmed); the Operator's "picotes" (Q4) is left unlinked to the one underrun, which is in navigate.
+
+**Not established.** The audio-versus-video offset; that a null exists in this range; the shipping `TARGET` (the Orchestrator's decision).
+
+**Rejected.** Nothing was refuted. The registered reading of O1 was not rescued: it holds and its weakness is recorded beside it.
+
+**Next highest-value experiment.** An instrument that discriminates (a same-rung repeat, a far-rung control) and the video path's latency.

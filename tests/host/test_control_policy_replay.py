@@ -42,6 +42,9 @@ DRIVER_SRC = os.path.join(UNIT, "test_gbp_control_policy.c")
 
 GB_RUNS = ["GBP-VIDEO-004_stream-0015-run24.log", "GBP-VIDEO-004_stream-0015-run27.log",
            "GBP-VIDEO-004_stream-0015-run28.log", "GBP-VIDEO-004_stream-0015-run29.log"]
+# Issue #147: RUN 59 (gbmode-0001) is the first GB-mode session run under the E2 policy: its CONTROL snapshots carry bit 0x01, so the pre-policy verdict differs by design.
+# It is named apart, not swept into GB_RUNS (those four aborted at PREUNMASK; this one did not).
+GB_SESSION_RUN = "GBP-VIDEO-004_gbmode-0001-run59.log"
 
 
 def read(p):
@@ -139,7 +142,7 @@ class TheGbaArchiveIsUnchanged(unittest.TestCase):
         findings = []
         for p in logs:
             name = os.path.basename(p)
-            if name in GB_RUNS:
+            if name in GB_RUNS or name == GB_SESSION_RUN:
                 continue
             rec = parse_log(p)
             if rec["exp"] is None or not rec["snaps"]:
@@ -171,6 +174,25 @@ class TheGbaArchiveIsUnchanged(unittest.TestCase):
         self.assertGreater(seen_rst, 20)
         # bit 0x01 in a GBA log would be a FINDING to report, never a pass
         self.assertEqual(findings, [], "FINDING: a GBA log carries CONTROL bit 0x01: %s" % findings[:5])
+
+
+class TheGbSessionBoot(unittest.TestCase):
+    """Issue #147: RUN 59's snapshots, apart from the GBA archive: the bit the device sets is tolerated by the new check and refused by the old one, and nothing else differs."""
+
+    def test_bit_0x01_is_the_only_difference_and_the_new_check_tolerates_it(self):
+        archive()
+        p = os.path.join(LOCAL, GB_SESSION_RUN)
+        self.assertTrue(os.path.exists(p), "%s missing from the archive" % GB_SESSION_RUN)
+        rec = parse_log(p)
+        self.assertEqual((rec["orig"], rec["exp"]), (0x92, 0x8e))
+        tags = [t for (t, _v, _b) in rec["snaps"]]
+        window = rec["snaps"][:tags.index("POSTACK-3") + 1]      # through the last service pass, before the teardown's own writes (TDCTL, FINAL)
+        outs = [o.split() for o in run_driver(["snap %x %x %x" % (rec["exp"], v, b) for (_t, v, b) in window])]
+        for (_t, v, _b) in window:
+            self.assertIn(v ^ rec["exp"], (0x00, 0x01))
+        self.assertTrue(all(o[0] == "1" for o in outs), "the new check refuses a snapshot before the teardown")
+        self.assertTrue(any(o[1] == "0" for o in outs), "the old check never failed: the exemption would be unfounded")
+        self.assertTrue(any(v & 0x01 for (_t, v, _b) in window))
 
 
 class TheFourGbBoots(unittest.TestCase):

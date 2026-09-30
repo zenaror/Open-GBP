@@ -30,7 +30,9 @@ def read(p):
 def section():
     t = read(HW)
     i = t.index("## V29 — PHASE 7's E3")
-    return t[i:]
+    # Issue #142: the file is append-only, so RUN 58's ingestion (a V28 section) lands AFTER V29; the fence covers the V29 sections, not the V28 ones appended behind them
+    j = t.find("\n### V28.", i)
+    return t[i:j if j > 0 else len(t)]
 
 
 def plain(s):
