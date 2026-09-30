@@ -168,13 +168,41 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
     def test_every_strictly_frozen_file_is_byte_identical_to_the_base(self):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit is not in this checkout")
-        changed = guards.changed_since(BASE_COMMIT, ["src/gbp/" + f for f in SERVICE_PATH_FILES])
+        # Issue #145 (E2), declared here as this guard's own comment asks: gbp_irq_service.c's two CONTROL comparisons (the
+        # PREUNMASK check and the PREACK skip) now go through the policy of gbp_control_policy.h. It is the ONLY declared move and
+        # the next test pins its exact lines, so it cannot grow unseen.
+        declared = ("gbp_irq_service.c",)
+        changed = guards.changed_since(BASE_COMMIT, ["src/gbp/" + f for f in SERVICE_PATH_FILES if f not in declared])
         # ONLY the named service-path files above are watched, so an exemption for any other path can
         # never match. Issue #97 removed 54 such exemptions (stimulus/, tools/, src/audio/, poc/,
         # captures/), copied here by the checkpoints that tripped the directory guards. Nothing has
         # been exempted for a WATCHED file since the base: a change to one is a decision about the
         # shared service path, declared here with its Issue, and this guard is meant to hold forward.
         self.assertEqual(sorted(changed), [], "a frozen service-path file moved: %s" % sorted(changed))
+
+    def test_the_one_declared_move_is_exactly_the_issue_145_policy(self):
+        """Issue #145: gbp_irq_service.c differs from the base in these lines and no others -- the two CONTROL comparisons
+        (PREUNMASK, PREACK) through the policy, and the note of the tolerance at PREACK. No device operation, no new write."""
+        if not guards.base_available(BASE_COMMIT):
+            self.skipTest("the base commit is not in this checkout")
+        old = subprocess.run(["git", "-C", ROOT, "show", "%s:src/gbp/gbp_irq_service.c" % BASE_COMMIT],
+                             capture_output=True, text=True, check=True).stdout
+        new = read(os.path.join(ROOT, "src", "gbp", "gbp_irq_service.c"))
+        added = [l.strip() for l in added_lines(old, new)]
+        removed = [l.strip() for l in removed_lines(old, new)]
+        self.assertEqual(added, [
+            "/* Issue #145: bit 0x01 tolerated, the seven others strict (gbp_control_policy.h); the CALLER records the tolerance. */",
+            'if (!gbp_initirqa_snapshot_control_agrees(s, control_exp)) { *why = "control_changed"; return 0; }',
+            "if (require_control && k->preack.control_rc == GBP_OK && gbp_initirqa_snapshot_control_agrees(&k->preack, control_exp))",
+            'gbp_initirqa_note_control_tolerance(a, "PREACK", k->preack.control_vote, control_exp);',
+            "} else if (require_control && (k->preack.control_rc != GBP_OK ||",
+            "!gbp_initirqa_snapshot_control_agrees(&k->preack, control_exp))) {",
+        ])
+        self.assertEqual(removed, [
+            'if (s->control_vote != control_exp || s->control_vote != s->control_b1f) { *why = "control_changed"; return 0; }',
+            "} else if (require_control && (k->preack.control_rc != GBP_OK || k->preack.control_vote != control_exp ||",
+            "k->preack.control_vote != k->preack.control_b1f)) {",
+        ])
 
     def test_the_probes_diff_adds_the_hook_and_no_device_operation(self):
         if not guards.base_available(BASE_COMMIT):
