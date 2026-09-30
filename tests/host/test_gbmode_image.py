@@ -156,10 +156,17 @@ class ThePocIsNotEdited(unittest.TestCase):
         self.assertIn("build/poc/gbp-video-stream-probe-gbmode", r.stdout)
         self.assertEqual(r.stdout.count("make --no-print-directory -C poc/"), 1)
 
-    def test_nothing_is_staged_or_pinned(self):
+    def test_the_slot_is_pinned_to_the_recorded_hash_and_nothing_else_moved(self):
+        """AMENDED ON TOP (Issue #147, 2026-09-30): at the checkpoint this test pinned the ABSENCE of the slot (staging waited for RUN 58); the Operator's
+        own words on #147 amended that gate, and the pin now carries exactly the hash V29.10 records, for the make target this file checks."""
         layout = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
-        self.assertNotIn("gbmode", layout)
-        self.assertIsNone(re.search(r"^27\t", layout, re.M), "slot 27 is reserved, not assigned: staging waits for RUN 58 and the Orchestrator")
+        rows = [l.split("\t") for l in layout.split("\n") if l and not l.startswith("#")]
+        mine = [r for r in rows if "gbmode" in "\t".join(r)]
+        self.assertEqual(len(mine), 1)
+        self.assertEqual(mine[0], ["27", "gbmode", "gbp-video-stream-probe", "gbp-video-stream-probe.dol", "gbp-video-stream-probe-gbmode",
+                                   "gbmode-session", "1", "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497"])
+        self.assertIn("e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497", read(HW))
+        self.assertIsNone(re.search(r"^28\t", layout, re.M))
 
 
 class TheDriftInventory(unittest.TestCase):

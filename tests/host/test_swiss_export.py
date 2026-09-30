@@ -67,9 +67,14 @@ class Manifest(unittest.TestCase):
         and belongs below 80 like any other.
         """
         canonical_source_pocs = {r["source_poc"] for r in self.rows if r["out_dir"] == r["source_poc"]}
+        # AMENDED ON TOP (Issue #146 / Hardware Issue #147, 2026-09-30): 27-gbmode is the stream POC UNCHANGED under its own build id, so by this file's
+        # own rule it is a VARIANT and would belong in 80-89. Its number was reserved by the Orchestrator in the pre-registration (HARDWARE_TESTS
+        # V29.2) and is already in the Operator's frozen procedure (V29.6, "Open-GBP / 27-gbmode / boot.dol"); "the number is an operational
+        # interface" (this manifest's header), so it keeps 27. It is the ONE declared exemption, named, and the Orchestrator was told.
+        declared_exemptions = {"27-gbmode"}
         for r in self.rows:
             n = int(r["number"])
-            is_variant = r["out_dir"] != r["source_poc"] and r["source_poc"] in canonical_source_pocs
+            is_variant = r["out_dir"] != r["source_poc"] and r["source_poc"] in canonical_source_pocs and r["dir"] not in declared_exemptions
             if is_variant:
                 self.assertGreaterEqual(n, 80, "%s is a variant and belongs in a diagnostic range" % r["dir"])
             else:
@@ -382,9 +387,13 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # Issue #141 (2026-09-29): the PERCEPTUAL image (perceptual_no_phase1, v28-perceptual-0001), built at 22d0328 clean, reproduced identically across two separate clean Docker rebuilds before
         # the pin (HARDWARE_TESTS section V28.31 / V28.32); no DMA instrumentation in it
         self.assertEqual(rows["26-v28p"], "4a700dfe55ac48cde085217b489540976aa9ebb3a751b8ed26c94c5b0a37d4d3")
+        # Issue #146 / Hardware Issue #147 (2026-09-30): the GB-mode session image (gbmode-0001), the stream-0015 POC UNCHANGED under its own build id,
+        # built at 4d6fe06 clean and reproduced identically across two separate clean Docker rebuilds (HARDWARE_TESTS section V29.10). Pinned and staged
+        # before RUN 58 on the Operator's own words on #147 (the gate item that waited for RUN 58 was amended); its make target is `gbmode-session`.
+        self.assertEqual(rows["27-gbmode"], "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace", "19-split",
-                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p"])
+                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p", "27-gbmode"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid

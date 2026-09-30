@@ -152,6 +152,15 @@ class TheCandidateOfRecord(unittest.TestCase):
             self.assertIn(w, d)
 
 
+class TheStagingRecord(unittest.TestCase):
+    def test_v29_11_records_the_operators_words_the_pin_and_the_card_verification(self):
+        d = plain(read(HW)[read(HW).index("### V29.11"):])
+        for w in ("O cartao SD está conectado já... Pode copiar o DOL.", "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497",
+                  "the ONLY difference is the new line for 27-gbmode/boot.dol", "INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f)",
+                  "all 16 pinned slots on the card read back equal to their pins", "26-v28p (RUN 58's image) byte-identical", "ONE declared, named exemption"):
+            self.assertIn(w, d)
+
+
 class TheFenceHolds(unittest.TestCase):
     FORBIDDEN = [r"\brungs?\b", r"\bladder\b", r"\bnulling\b", r"\bperceptual\b", r"\bAHEAD\b", r"\bT\d{3,4}\b", r"\bL\(", r"v28p", r"26-v28",
                  r"\bnull point\b", r"latency table"]
