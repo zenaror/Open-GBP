@@ -294,7 +294,8 @@ silently before doing so.
 6. [`docs/research/HARDWARE_TESTS.md`](research/HARDWARE_TESTS.md)
 7. [`docs/research/UNKNOWNS.md`](research/UNKNOWNS.md)
 8. [`docs/research/DEVLOG.md`](research/DEVLOG.md) — chronological decisions
-9. [`CLAUDE.md`](../CLAUDE.md) — permanent project policies, all agents
+
+`AGENTS.md` is the single normative source of project policy: `CLAUDE.md` was merged into it and removed on 2026-09-30 (the Operator's decision, Issue #150), so there is no ninth file. Old citations of "`CLAUDE.md` §N" in the records resolve through the section map below.
 
 ## Source-of-truth hierarchy
 
@@ -492,7 +493,7 @@ same commit and build id. That is the strongest identity link any physical run i
 this project has, and it is the pattern to repeat: build, read
 `build/poc/<poc>/build-info.txt`, confirm the commit matches HEAD and carries no
 `-dirty` suffix, and record that hash with the run. Hardware is never tested with
-a dirty build (`CLAUDE.md` §18).
+a dirty build (`AGENTS.md` §12; formerly `CLAUDE.md` §18).
 
 ## Open questions
 
@@ -700,8 +701,8 @@ The next safe action is the Orchestrator's: validate the assessment and the
 promotion against `origin/main`, then hand the Executor the next bounded Issue
 for whichever phase the Operator chooses — Phase 5 (input) is the ROADMAP's
 next; Phase 9 (presentation, GBP-VID-032) is not opened by Phase 4's closure
-and crossing to it needs the blocking-feasibility justification `CLAUDE.md`
-§26 demands. The residual that Phase 7 owns — correctness of retail content by
+and crossing to it needs the blocking-feasibility justification `AGENTS.md`
+§35 demands (formerly `CLAUDE.md` §26). The residual that Phase 7 owns — correctness of retail content by
 measurement — is named, not scheduled. Nothing below this paragraph is
 pending; it is the Phase-4 trail.
 
@@ -2458,6 +2459,65 @@ Update this file when any of these happens:
 Do **not** update it for a typo, a refactor with no scientific effect, or a
 cosmetic build change — unless that change alters an artifact identity that this
 file records.
+
+## AGENTS.md section map — the old `CLAUDE.md` §N, so the records' citations stay resolvable (Issue #150, 2026-09-30)
+
+On 2026-09-30 the Operator merged everything into `AGENTS.md` (2 054 lines, 47 sections, sha256 `4a063b8f…3d41`) and removed `CLAUDE.md`; no stub was created (his decision). **The append-only records (`EVIDENCE.md`, `HARDWARE_TESTS.md`, `UNKNOWNS.md`, `DEVLOG.md`, the research documents, committed Issue text) keep their "`CLAUDE.md` §N" citations exactly as written; this table resolves them.** It was built from the last committed `CLAUDE.md` (`git show 5739f6b:CLAUDE.md`, §1-§31) against the text of `AGENTS.md` at its landing commit. `AGENTS.md` itself was not touched by this checkpoint. The last column says where a policy was condensed or has no single home, and what was dropped; nothing is forced into a mapping.
+
+```text
+OLD CLAUDE.md                                        NEW AGENTS.md          NOTE
+preamble ("Read AGENTS.md and HANDOFF first ...")   preamble               inverted: AGENTS.md is the single normative source; "CLAUDE.md, when present, is only a compatibility entry
+                                                                            point". The old rule "where the two overlap, AGENTS.md rules evidence handling and CLAUDE.md project policy" is superseded.
+§1  Read this first                                  §1                     the list now starts with AGENTS.md and HANDOFF; EVIDENCE / HARDWARE_TESTS / UNKNOWNS / DEVLOG are read in "relevant sections"
+                                                                            (the old text said "read completely"); the bounded Issue is item 8.
+§2  Project mission                                  §2                     condensed (the compatibility goal, the not-merely-boot statement, the feature list and "do not assume how rumble works" are kept).
+§3  Preserve normal Link Port behavior               §10                    kept; PicoAdapterGB as a regression fixture, the two Mobile Adapters kept apart.
+§4  Mobile Adapter / libmobile late-stage            §11 (+ §35, §46)       kept; the libmobile gate is repeated in §35. The old statement of the rule's PURPOSE (to keep Mobile Adapter assumptions from
+                                                                            contaminating the Game Boy Player research) survives only as the last line of §46.
+§5  Documentation is a primary deliverable           §33                    kept.
+§6.1 Physical hardware; evidence authority           §3, §4 (+ §13)         the authority hierarchy is §3, the FACT / CORROBORATED / HYPOTHESIS / UNKNOWN vocabulary §4; "request physical tests only when
+                                                                            necessary" is §13.
+§6.2 Start-up Disc                                   §27                    kept.
+§6.3 Game Boy Interface                              §28                    kept; the old list of what GBI may be especially useful for (compatibility behaviour, initialisation, optimised hardware handling,
+                                                                            video / audio, Link Port, networking, configuration, timing, undocumented behaviour) was dropped.
+§6.4 Dolphin (and the local Flatpak environment)     §25                    kept, including the on-screen-display override; dropped: the sentence that the Flatpak already has read-only access to the
+                                                                            repository, that a homebrew application may legitimately stay running indefinitely, and that Claude may automate the invocation.
+§6.5 Ghidra and GameCubeLoader                       §26                    kept (rewritten).
+§6.6 Enhanced mGBA                                   §29                    kept.
+§6.7 Other reference projects                        §30                    kept.
+§7  Private inputs and proprietary material          §31                    kept; the RAG exclusions are also §42.
+§8  Development environment                          §16                    kept.
+§9  Autonomous testing policy                        §13 (+ §46)            §13 is the list; §46 adds the ladder from static analysis up to the physical Game Boy Player.
+§10 Testable architecture                            §18                    kept.
+§11 Synthetic tests                                  §19                    kept.
+§12 Trace / replay infrastructure                    §20                    kept, including the logs/ -> captures/local -> captures/fixtures workflow.
+§13 SD2SP2 logging                                   §21                    kept.
+§14 No USB Gecko or logic analyzer dependency        §22                    kept.
+§15 Hardware test requests                           §14                    kept.
+§16 Build identification                             §15                    kept (the "-dirty" rule is also §5, §12 and §46).
+§17 First GameCube code                              §17                    kept.
+§18 Hardware research safety                         §12                    kept.
+§19 Internal SIO research                            §23                    kept.
+§20 Network / BBA development                        §24                    kept.
+§21 GBI-class functionality                          §43                    kept.
+§22 Code quality                                     §32 (second half)      no single home: §22 and §23 are one section in AGENTS.md.
+§23 Source organization                              §32 (first half)
+§24 Commit discipline                                §36                    kept, including "a GitHub Issue may explicitly delegate commit / push authority".
+§25 Development log discipline                       §34                    kept.
+§26 Phase gates                                      §35                    kept.
+§27 First-session behavior                           §44                    kept.
+§28 Core decision rule                               §47                    kept.
+§29 Where the current state lives                    §45                    kept.
+§30 Operational coordination — GitHub                §37                    Issues, milestones, labels, the Project board, the templates; "no Issue / label / milestone / Project field promotes evidence" is
+                                                                            also in §4.
+§31 Local retrieval — open-gbp-rag                   §39, §40, §41, §42     §39 use, never-authority and stale indexes; §40 dirty trees ("the Orchestrator does not edit Open-GBP files" is its last line);
+                                                                            §41 procedure; §42 what is excluded. The two sub-rules that were in §31: the shared-checkout rule is §38; "the current bounded
+                                                                            Issue is read IN FULL, never retrieved or summarised from snippets" is carried only in part (§1 item 8 and closing paragraph,
+                                                                            §37 "read the entire Issue"), and "do not load EVIDENCE / HARDWARE_TESTS / DEVLOG wholesale by default" is softened to
+                                                                            "unless necessary" (§41 item 7).
+```
+
+The records also cite `AGENTS.md` (the previous, shorter file) by section NAME, in quotes. Those names now map as follows: "Mandatory read order" -> §1; "Authority" -> §3; "Evidence vocabulary" -> §4; "Mandatory rules" -> §5, §6, §12 and §46; "Roles and responsibilities" (Operator, Orchestrator, Executor, role independence) -> §7 and §8; "Checkpoint discipline" -> §9; "Operational coordination — GitHub" -> §37; "What this repository will not do" -> §46.
 
 ## Canonical resume prompt
 

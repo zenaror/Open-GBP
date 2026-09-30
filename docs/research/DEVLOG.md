@@ -19786,3 +19786,13 @@ The Operator amended the staging gate himself ("O cartao SD está conectado já.
 ## 2026-09-30 — Issue #149: the RUN 59 → RUN 58 run order recorded as a procedural deviation (`HARDWARE_TESTS.md` §V29.14, cross-reference §V28.34)
 
 The Operator's direction quoted verbatim; the four items kept apart (the observable fact; the mitigation: power cycle before and after, distinct drops; the consequence demonstrated: the two logs checked, no contamination found, the limits of the check stated; what is NOT concluded: neither "order irrelevant" nor "run invalidated"). No verdict changed, no run proposed. `tests/host/test_run_order_deviation.py` recomputes the log checks from the archive.
+
+## 2026-09-30 — Issue #150: the Operator's unified `AGENTS.md` landed (single normative source; `CLAUDE.md` removed)
+
+**Goal.** Land the Operator's own change (`AGENTS.md`, 2 054 lines, 47 sections, sha256 `4a063b8f…3d41`; `CLAUDE.md` deleted, no stub) with tests, live pointers and a section map.
+
+**Changes.** Commit `0ce9b4b`: his `AGENTS.md` verbatim and the `CLAUDE.md` deletion, nothing else (the committed file hashes to the value in the Issue). Then: `tests/host/test_handoff.py` (the two pins of the superseded door-and-pointer design were shown red first, and replaced by pins of the single-source design; the map is tested); the live pointers (`docs/HANDOFF.md` read order and two citations, `README.md`, the two `.github` templates) name `AGENTS.md`; `docs/HANDOFF.md` carries the old `CLAUDE.md` §1-§31 -> `AGENTS.md` section map, with what was condensed or dropped stated. The append-only records keep their "`CLAUDE.md` §N" citations as written.
+
+**Result.** Suite green after the amendments; the RAG is reindexed after the push (`CLAUDE.md` leaves it).
+
+**Not changed.** `AGENTS.md` itself; no scientific status; no hardware.

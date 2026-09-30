@@ -59,7 +59,7 @@ and research records to update.
 
 ## Commits / push
 
-Logical commits, one technical purpose each (`CLAUDE.md` §24). Push to
+Logical commits, one technical purpose each (`AGENTS.md` §36). Push to
 `origin` (GitHub) is authorised by this Issue when it says so.
 
 ## Stop condition
