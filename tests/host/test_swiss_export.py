@@ -391,9 +391,12 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # built at 4d6fe06 clean and reproduced identically across two separate clean Docker rebuilds (HARDWARE_TESTS section V29.10). Pinned and staged
         # before RUN 58 on the Operator's own words on #147 (the gate item that waited for RUN 58 was amended); its make target is `gbmode-session`.
         self.assertEqual(rows["27-gbmode"], "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497")
+        # Issue #153 / Hardware Issue #154 (2026-09-30): the GBA play image (vehicle-0001), built at 6396851 clean and reproduced identically across two from-scratch Docker
+        # rebuilds (HARDWARE_TESTS section V31.8); pinned and staged for GBP-BREADTH-001; its make target is `vehicle`.
+        self.assertEqual(rows["28-vehicle"], "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace", "19-split",
-                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p", "27-gbmode"])
+                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p", "27-gbmode", "28-vehicle"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid

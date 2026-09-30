@@ -74,7 +74,9 @@ class TheTextIsTheReadersAndTheRepositorys(unittest.TestCase):
         rows = [l.split("\t") for l in read(TSV).splitlines() if re.match(r"^\d+\t", l)]
         nums = [int(r[0]) for r in rows]
         self.assertIn(27, nums)
-        self.assertNotIn(28, nums, "a slot 28 exists: something was staged for E4, and this checkpoint stages nothing")
+        # amended on top (Hardware Issue #154, 2026-09-30): slot 28 is the GBA play image (Issue #153), not something staged for E4; E4 staged nothing and slot 29 stays unassigned
+        self.assertEqual([r for r in rows if r[0] == "28"][0][2], "gbp-play-gba")
+        self.assertNotIn(29, nums, "a slot 29 exists: something was staged for E4, and this checkpoint stages nothing")
         row27 = [r for r in rows if r[0] == "27"][0]
         self.assertEqual(row27[-1].strip(), PIN)
         d = plain(section())

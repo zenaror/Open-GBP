@@ -41211,3 +41211,21 @@ Question answered:          PHASE7_ENTRY §6 E5: does the native audio chain at 
 ```
 
 **Not decided here.** Whether the vehicle is staged and run (the Orchestrator's order and the Operator's schedule); whether any fallback rung applies (it needs a log); a longer bound (an `ENVMEM` figure first); whether the library default should follow the setting; saves (E6), GB/GBC mode, rumble, the serial path and presentation are out of scope.
+
+
+### V31.9 The candidate PINNED as `28-vehicle` and STAGED — 2026-09-30 (Hardware Issue #154, GBP-BREADTH-001; staging delegated by the Orchestrator once the card was connected)
+
+*Appended. V31.8 above said "not staged, not pinned" when it was written and is not edited. This record is a staging act, not evidence about the hardware; no evidence id is allocated.*
+
+```text
+layout     tools/swiss-layout.tsv row 28: 28 vehicle gbp-play-gba gbp-play-gba.dol gbp-play-gba vehicle 1 a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2 (frozen at the hash of V31.8; the make target is `vehicle`)
+tests      test_swiss_export.py pins the row and the frozen set (17 slots); test_awin_image.py, test_play_image.py, test_gbmode_image.py, test_gbmode_e4_prereg.py, test_play_gba_image.py and test_e5_vehicle_design.py learn slot 28 (amended on top, nothing renumbered, slot 29 unassigned)
+exemption  none: 28-vehicle is the play POC's own program under its own directory name (out_dir == source_poc), so by test_swiss_export.py's rule it belongs in the canonical range
+export     python3 tools/swiss_export.py --root . --only 28-vehicle  -> build/swiss/28-vehicle/boot.dol (sha256 a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2; 1 exported, 27 carried over)
+card       /media/rafael/SD_GC/Open-GBP/28-vehicle/boot.dol written and read back: sha256 equal to the build's, cmp equal. A sha256 of EVERY file under Open-GBP/ was taken before the write and after it:
+           the ONLY difference is the new line for 28-vehicle/boot.dol (29 files before, 30 after); INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f); the other directories (aout) untouched
+verified   all 17 pinned slots on the card read back equal to their pins (12-stream ... 28-vehicle); 26-v28p and 27-gbmode byte-identical to before
+stale      no file named GBP-PLAY-002* or *vehicle-0001* anywhere on the card before the first boot
+```
+
+The Orchestrator re-checks the card and clears the run on #154 before the Operator is told; nothing here starts a run.

@@ -62,4 +62,5 @@
 25	v28l	gbp-audio-v28	gbp-audio-v28-diag_loss.dol	gbp-audio-v28-diag_loss	build	1	08971b525b3a7c1b94cba0063da154f113d0f196820a4d76c0bc0086f3361b90
 26	v28p	gbp-audio-v28	gbp-audio-v28-perceptual_no_phase1.dol	gbp-audio-v28-perceptual_no_phase1	build	1	4a700dfe55ac48cde085217b489540976aa9ebb3a751b8ed26c94c5b0a37d4d3
 27	gbmode	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe-gbmode	gbmode-session	1	e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497
+28	vehicle	gbp-play-gba	gbp-play-gba.dol	gbp-play-gba	vehicle	1	a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-
