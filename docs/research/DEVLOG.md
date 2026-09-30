@@ -19796,3 +19796,14 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Result.** The first full run after the landing had ONE red test beyond the two pinned to the superseded design: `test_ambiguity_rule.py::test_agents_carries_the_pointer` (the Operator's rewrite of the Orchestrator bullet cut the ambiguity-rule pointer to one sentence in §7.2 and dropped the rule's title and the "two copies drift" sentence); it was amended on top, keeping the no-copy pins. The adversarial read also found the map's shortfalls (a softened shared-checkout rule, the old `AGENTS.md` "Mandatory rules" mapping, dropped items), which the map now states, and a per-row target-and-heading pin so a wrong-but-valid target fails. The suite is green after the amendments; the RAG is reindexed after the push (`CLAUDE.md` leaves it).
 
 **Not changed.** `AGENTS.md` itself; no scientific status; no hardware.
+
+
+## 2026-09-30 — Issue #151: PHASE 7's E4 (the L / R stretch in GB mode) designed and pre-registered; the unchanged `gbmode-0001` is the instrument; nothing staged
+
+**Goal.** Design and pre-register E4 (GBC_PATH §4.2), preferring no new image; the Operator's text in Portuguese, no prediction of the picture.
+
+**Changes.** `HARDWARE_TESTS.md` §V30 (the question; identity; the code check of whether a frame can land after a press; the RUN 59 legibility profile; nine rival readings; the reader's tokens; the safety inventory; gates; the fallback; the frozen Operator text; the request in AGENTS §14's format); `tools/gbmode_e4_read.py` (the frozen reader) with `tests/host/test_gbmode_e4_read.py` (every token and rival on synthetic strips; RUN 59 as the negative control; a stretch of RUN 59's own real sample applied in memory as the positive control); `PHASE7_ENTRY.md` amendment.
+
+**Result (a design, not a measurement).** Frames DO land after a press in the unchanged image: the witness keeps a strip of every frame, the KEY lines share its time base, the 8 full samples are on a fixed schedule. RUN 59 is the baseline: not one strip word outside the baseline rectangle in 2 048 frames. The instrument's limit is legibility: four windows of one scene on one observed timeline. The reach of the written word is NOT separable from "no stretch" by this image: registered.
+
+**Not done.** No run, no build, no staging, no prediction. **Next.** The Orchestrator validates §V30 and opens the Hardware Issue; if the run is inconclusive or reach must be shown, the named fallback (one build, one staging) is the next checkpoint.

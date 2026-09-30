@@ -40687,3 +40687,187 @@ RUN 58's first 140 records against RUN 57's   compared after normalising the tim
 ### V28.34 Cross-reference (Issue #149): §V28.33's `order` line records a PROCEDURAL DEVIATION, not a compliant order — 2026-09-30
 
 §V28.33's `order` line (RUN 59 before RUN 58, with a power cycle between) is a deviation from the clearance's recommended order and is NOT to be read as compliant; it is classified in §V29.14 (amendment on top of §V29.12), which found no demonstrated contamination and concludes neither "order irrelevant" nor "run invalidated". RUN 58 is not reclassified here.
+
+
+## V30 — PHASE 7's E4: THE L / R STRETCH IN GB MODE — `GBP-GBMODE-002`, RUN 60 — **PRE-REGISTERED 2026-09-30 (GitHub Issue #151); NOT RUN, NOT AUTHORISED HERE; NO NEW IMAGE: the unchanged `gbmode-0001` in slot 27 is the instrument; NOTHING IS STAGED**
+
+Written before the hardware is touched. **No hardware run is authorised by this section.** The Orchestrator validates it and opens the Hardware Issue. `GBC_PATH.md` §4.2 is the design this pre-registers; `PHASE7_ENTRY.md` §6 E4 is its place; `HARDWARE_TESTS.md` §V29.13 and `GBP-HW-379` are its baseline. `AGENTS.md` §12 (safety) and §14 (request format) are the authority. Nothing here is evidence and no evidence id is allocated.
+
+### V30.1 The question
+
+With a GB/GBC game running on the Game Boy Player and Open-GBP's input path writing a KEYPAD word that carries **L** or **R**, does the picture the VIDEO window delivers change from the baseline of RUN 59 (a 160 x 144 region at (40, 8) inside a black border of 40 / 8 / 40 / 8 pixels, §V29.13), and how, per key and per key state?
+
+The Operator remembers from the Start-up Disc that the image fills the screen or not with L / R. That is his recollection (`GBC_PATH.md` §1.2 and §4.2) and is not read into any token below.
+
+**The static readings kept side by side, none of them the expectation.** The Disc forwards L and R to the AGB in every mode and has no type-dependent behaviour on that path; GBI clears L and R from the KEYPAD word when CONTROL bit 0x01 is set (`GBP-KEY-011`, static, for the code only; a divergence, preserved). In neither reference was a HOST-side scaling driven by L or R found (for the Disc, a limit of the search). **The Orchestrator's lead on Issue #144, that the stretch is done by the AGB itself, is a HYPOTHESIS and one rival among the others (§V30.4), not the expectation.** No prediction is registered for what the picture will do.
+
+### V30.2 Identity, names, and what is NOT staged
+
+```text
+Test ID          GBP-GBMODE-002 (the experiment's id). The image's embedded TEST_ID stays GBP-VIDEO-004: the log header reads test_id=GBP-VIDEO-004 build_id=gbmode-0001
+Run              RUN 60 (the next free number after RUN 59)
+Build ID         gbmode-0001   commit 4d6fe06   UNCHANGED: the image of RUN 59, byte for byte
+DOL              build/poc/gbp-video-stream-probe-gbmode/gbp-video-stream-probe.dol   sha256 e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497   516 544 B
+Slot             27-gbmode (pinned in tools/swiss-layout.tsv since Issue #147). Read from the card on 2026-09-30, read-only: boot.dol reads e33115e3...a497, the pin. NOTHING is exported, written or staged by this checkpoint.
+Cartridge        the Operator's ORIGINAL Pokemon Crystal (JP), the same cartridge as RUN 59 (asked, not assumed; item A below). ONE instrument; no second arm unless this one cannot answer (§V30.8).
+Link Port        nothing         BBA / display / pad: the standing declarations (§V29.4)         Recovery: POWER CYCLE before AND after (mandatory)
+Raw names        the console names the run's files after the image, NOT after the run: sd:/open-gbp/GBP-VIDEO-004_gbmode-0001.log and -disp.bin, -full.bin, -idxcap.bin, -vi.bin -- the SAME names as
+                 RUN 59's. The card must therefore hold NONE of them before the run (procedure step 3; RUN 14's precedent moved such a file aside, never deleted). RUN 59's drop is archived
+                 (captures/local, hashes in §V29.12), and the drop of this run is archived by run number, captures/local/GBP-VIDEO-004_gbmode-0001-run60{...}, before anything else boots.
+Reader           python3 tools/gbmode_e4_read.py <log> <idxcap.bin> --full <full.bin> --build gbmode-0001 --commit 4d6fe06     (frozen with this pre-registration; tests/host/test_gbmode_e4_read.py)
+                 and python3 tools/gbmode_read.py <log> --build gbmode-0001 --commit 4d6fe06 for the run's health, as for RUN 59
+```
+
+### V30.3 The code check: can a delivered frame land AFTER a press in the unchanged image? YES, with limits
+
+Recomputable from the sources named; nothing was run for it.
+
+```text
+THE PRESS IS RECORDED   poc/gbp-video-stream-probe/source/main.c input_step() polls pad 1 and gbp_input_step() writes the KEYPAD word on change and every 5 ms (ENVINPUT refresh_ms=5); each CHANGE is
+                        one "KEY n= act= keys= word= t_poll= t_attempt= t_done= xfer= rc=" line (GBP_INPUT_EVENT_FMT, src/gbp/gbp_input.h), t_done being the instant the write returned, on the transport's
+                        ticks64: the SAME base as OGBPIDXCAP1, OGBPDISP2 and OGBPVI1 (main.c's own comment: "a join to the frame records needs no conversion"). A refresh is counted, never recorded. The KEY
+                        store is the ringlog with KEYLOG_TAIL_RESERVE 64 lines kept free: a schedule of tens of changes fits. The word: KEYPAD bit 8 = L, bit 9 = R (GBP_KEYPAD_DESCRIPTOR;
+                        routing on a GBA cartridge is FACT, GBP-HW-266..271); the default policy reads the digital click only (trigger_threshold 0).
+NOTHING ELSE REACTS     the stream POC reads pad 1 for three things: the KEYPAD forwarding above, X (save) and START (exit), the last two AFTER the run (main.c lines 1795 and 1953; START also on the no-run path, line 1381). No code path scales, crops or
+                        re-places the presented frame on L or R: whatever changes in the delivered frames comes from the AGB side of the window, not from this program.
+EVERY FRAME IS WATCHED  the witness (OGBPIDXCAP1) retains, for EVERY frame of its window (frame_index 355 .. 2402 in RUN 59, 2 048 frames, about 34.3 s), 40 blocks x 54 words: local row 0 of each 4-row
+                        block, x = 1..54 (rows y = 4 b), with t_first_block / t_last_block per frame. Positions inside the baseline rectangle: x 40..54 in blocks 2..37 (540 words). Positions OUTSIDE it: x 1..39
+                        in all 40 blocks and x 40..54 in blocks 0, 1, 38, 39 (1 620 words) -- the border columns and the border rows 0, 4, 152, 156.
+EIGHT FRAMES ARE SAMPLED  OGBPFULL1 keeps K = 8 complete frames at witness frame 355 + 256 i (GBP_VFULL_K, GBP_VFULL_SPACING 256, the static assert at main.c line 284; the origin is the witness window's first
+                        frame): 4.29 s apart, NOT triggered by a press, each with t_take on the same base. Which of them fall after a press depends on when the press is made.
+NO PIXELS ELSEWHERE     OGBPDISP2 and OGBPVI1 carry the presentation chain, no pixels.
+```
+
+**RUN 59 is the baseline AND the legibility profile.** Recomputed from its idxcap (`tools/gbmode_e4_read.py` on the archive): in **all 2 048 frames not one strip word outside the baseline rectangle is non-black**, and the frames whose strip words inside the rectangle are at least 90 % non-black (**LEGIBLE**: only such a frame can show a change) are exactly four windows, all the same backdrop (the strip words are the sky and foliage words of the sample at frame 1635, 0.83-0.93 similar):
+
+```text
+window   frames        seconds after the CONTROL transform   after the first picture   length
+A        355 .. 373    5.94 .. 6.24                           0.0 .. 0.3                19 frames (a plain white picture)
+B        1192 .. 1321  19.96 .. 22.12                         14.0 .. 16.2              130 frames (2.2 s)
+C        1622 .. 1918  27.16 .. 32.11                         21.2 .. 26.2              297 frames (5.0 s)
+D        2245 .. 2375  37.59 .. 39.76                         31.6 .. 33.8              131 frames (2.2 s)
+everything else: black, or a small object on black (samples 1-4, 7 of §V29.13): a stretch cannot be seen there (its border positions would still be black)
+the run: the CONTROL transform at t = 0, the last witness frame at +40.23 s, the teardown at +40.35 s
+```
+
+**So the unchanged image CAN answer, but only through three short windows of one scene, on one observed timeline.** The limits, stated:
+
+1. **The timeline is one observation** (RUN 59, the same cartridge, no key pressed). Whether the intro recurs to within a second or two at the next boot is UNKNOWN; the schedule below is a cue by SCENE, and every verdict is gated on legible frames counted from the run's own strips, so a timeline that shifts makes a cell INSUFFICIENT and the run INCONCLUSIVE, never a false no.
+2. **The write-to-frame latency is not measured.** Frames within 30 frames (0.5 s) of any change of the L / R bits are excluded from the cells and printed apart.
+3. **A change that keeps every non-black pixel inside the rectangle** (a crop or a zoom) is invisible to the strip; only the 8 samples can show it (their bounding box), and few of them will fall in a window. It is stated, not resolved.
+4. **What the strip cannot separate:** "no stretch" from "the word never reached the AGB's keypad in GB mode" (below).
+
+### V30.4 The rival readings, written before the data
+
+The reader implements each as a state machine over the run's own KEY timeline (`MODELS` in `tools/gbmode_e4_read.py`) and prints which of them every evaluable cell is CONSISTENT with. For the planned schedule (§V30.6: L held, nothing, R held, L held) the four cells and what each reading predicts of them (S = stretched: the picture reaches past the baseline rectangle; N = not):
+
+```text
+reading            L|after:   -|after:L   R|after:L   L|after:LR      meaning
+NOTHING            N          N           N           N               no change; AND ALSO "the word never reached the AGB in GB mode" (see below)
+L_MOMENTARY        S          N           N           S               a change while L is held, gone on release
+R_MOMENTARY        N          N           S           N               a change while R is held, gone on release
+EITHER_MOMENTARY   S          N           S           S               either key, only while held
+L_LATCH            S          S           S           S               L sets a change that stays (R's own effect is then masked; "either key latches" leaves the same pattern)
+R_LATCH            N          N           S           S               R sets a change that stays
+L_TOGGLE           S          S           S           N               each press of L flips it: the second press of L turns it back
+R_TOGGLE           N          N           S           S               each press of R flips it (one R press: the same pattern as R_LATCH)
+BOTH_TOGGLE        S          S           N           S               each press of either key flips it
+```
+
+**The rival readings the Issue names, and where each lands.** "The region grows or changes geometry after L or R" is S in a cell; "nothing changes" is NOTHING; "the change follows only one of L / R" is L_* against R_*; "the change toggles back on the second press" is L_TOGGLE against L_LATCH (the second L hold is the fourth cell); **"the AGB does the stretch" is a HYPOTHESIS that the S patterns follow from an AGB-side response, and it is NOT distinguished here from any other cause of a change in the window** (the reading says WHAT the window did, not who did it: nothing in the stream POC reacts to L or R, §V30.3).
+
+**"The press never reached the AGB" and how the KEY record separates it from "no stretch": IT DOES NOT, and this is registered, not hidden.** The KEY record shows the word was WRITTEN and the write returned ok (`rc=ok`, `t_done`); the AGB's keypad window is write-only in every reference, and no reading of this image can say that the AGB's register held the word in GB mode. On a GBA cartridge the routing is FACT because a GBA program displayed the tally; a GB game that ignores L and R offers no such witness. A result NOTHING therefore means "the written word produced no change in the delivered window", which is what §4.2 calls NOT CHANGED, and the reading "the AGB does not apply the stretch, or not from an injected key" of `GBC_PATH.md` §4.2 is **narrowed** here: "or the word did not act in GB mode at all" is one of the things it cannot exclude. Only a CHANGE is unambiguous (a KEY write that returned ok, followed by a change: both the reach and the effect).
+
+### V30.5 The reader's tokens (`tools/gbmode_e4_read.py`, rules fixed here)
+
+```text
+INADMISSIBLE                   a gate of tools/gbmode_read.py fails (identity, complete log, CONTROL orig=92 exp=8e, GB media attested)
+NO_LR_WORD_SENT                the KEY record holds no write with bit 8 or bit 9 set and rc ok. With the Operator's declaration that he pressed: GBC_PATH's NOT SENT, an input-path finding, not a GB/GBC one
+CHANGED                        at least one cell of a press state (a key held, or after a press) is STRETCHED: at least 40 legible frames outside the 30-frame margins, at least 90 % of them LEAK frames
+                               (25 % or more of the 1 620 outside words non-black). MEANS: the written word was followed by a change in the delivered window that RUN 59's window never showed
+NOT_CHANGED_REACH_NOT_SHOWN    every evaluable press-state cell is NOT_STRETCHED (at least 40 legible frames, at most 2 % leak, at most 2 % partial) and each key that was sent has an evaluable HELD cell
+PARTIAL                        the cells that can be evaluated leave a sent key without an evaluable held cell, or a cell MIXED
+INCONCLUSIVE_NOT_LEGIBLE       a word was sent and no press-state cell reaches 40 legible frames: the scene was not on the screen where and when the presses were made
+a frame with 1 % to 25 % of the outside words non-black is PARTIAL LEAK: counted and never classified. Any other KEYPAD bit written is listed as a recorded deviation (never a void).
+```
+
+The verdict is the reader's; the Operator's words are recorded verbatim BEFORE any figure is computed or shown, set beside the machine reading after both exist, and never used to tune a threshold. **The reader is tested** (`tests/host/test_gbmode_e4_read.py`) on synthetic strips for every token and every rival above, on RUN 59 as the NEGATIVE control (no press: `NO_LR_WORD_SENT`, all nine readings consistent, zero leak frames), and on a POSITIVE control made of RUN 59's own real strips with a nearest-neighbour stretch of its real sample applied in memory (nothing stored): the stretch is found, `CHANGED`.
+
+### V30.6 Hardware safety (`AGENTS.md` §12) and the write inventory
+
+**The only new element compared with RUN 59 is a KEYPAD word carrying L (bit 8) or R (bit 9) in GB mode.** Everything else is RUN 59's image and procedure byte for byte, including the power cycle before and after (`power_cycle_required=1` is set at the transform write and never cleared).
+
+```text
+WRITE            KEYPAD (index 0xC), one 32-byte block, on change and every 5 ms: in RUN 59 the word was 0x0000 throughout (7 873 writes, none failed), with GB media; in this run it carries bit 8 or 9 while a key is held
+JUSTIFICATION    (1) the same register, same layout, same cadence, with GB media (RUN 59); (2) the routing of all ten bits is a physical FACT on a GBA cartridge (GBP-HW-266..271); (3) the Disc forwards L and R in every mode (GBP-KEY-011, static);
+                 (4) GBI clears bits 8 and 9 in GB type (GBP-KEY-011): a DIVERGENCE, preserved, and a reason the effect is not assumed. WHAT IS NOT KNOWN is exactly the question: the GB-mode effect.
+ONE VARIABLE     the key state. No other write is added, removed or changed; the sampling, the session, the image and the cartridge are RUN 59's.
+BOUNDED          the session ends by itself at the witness target (about 40 s), with the 60 s safety cap; a hold lasts as long as the Operator's finger, at most about 5 s in the schedule; nothing waits on a key.
+DEVIATIONS       any key other than L and R is a recorded deviation (a game may answer it and move the timeline); pressing NOTHING at a step is admissible and recorded as such.
+```
+
+### V30.7 The gates, decided before the run
+
+```text
+identity        the screen and the log read build=gbmode-0001 and commit 4d6fe06 (the reader's gate). Otherwise INADMISSIBLE.
+log             `# --- end --- dropped=0` and header dropped=0 truncated=0. CONTROL record orig=92 exp=8e. The reader's gb_media_attested gate (bit 0x01 read after the transform).
+files           no GBP-VIDEO-004_gbmode-0001* on the card before the boot (item 3); a stale file is INADMISSIBLE, never merged.
+cartridge       declared (item A) as the same original Crystal (JP); "I do not know" is admissible and recorded (an attribution caveat).
+power cycle     declared before AND after; a run not preceded by one is INCONCLUSIVE on that item.
+topology        the standing declarations cited; a change announced and not in the record: INCONCLUSIVE on that item.
+health          tools/gbmode_read.py reads the run as RUN 59 was read (Q1-Q4): a run that does not reach the witness target reads as such and its verdict is INCONCLUSIVE.
+```
+
+### V30.8 What this run does not decide, and the fallback (a named variable), NOT authorised
+
+It does not decide: what the AGB does with L or R in the GBA-mode sense; the meaning of bit 0x01; DMG against CGB; a second title; the stretch a Disc shows on a television (the decode stops at the source window); Phase 7's acceptance. **It is one boot of one title, one console, one Game Boy Player.**
+
+**If the run is INCONCLUSIVE_NOT_LEGIBLE or PARTIAL, or NOT_CHANGED_REACH_NOT_SHOWN and the reach must be shown, the smallest change is ONE named variable: the witness window's position and the session's safety cap** (the same stream POC under its own build id, `gbmode-0002`, built by a variant `make` target like `gbmode-session`), so that the window covers a screen the game keeps on for many seconds and a key the game itself answers can be pressed as a POSITIVE control in the same session. Its cost: one build and two identical rebuilds, one pin and one export to slot 28, a card write with every other slot verified byte-identical, one pre-registration and one Operator boot. It is named here so the Orchestrator can see the cost; it is NOT designed, built or authorised, and it is NOT the first arm.
+
+### V30.9 The Operator's procedure and questions -- frozen here, in Portuguese, before the run
+
+```text
+ANTES
+ A. Antes de ligar: o cartucho Pokémon Crystal ORIGINAL (JP) que vai no Game Boy Player é o MESMO exemplar do teste anterior (RUN 59)?
+    Responda "sim", "não" ou "não sei" -- isso é uma DECLARAÇÃO, não uma observação.
+ 1. Console DESLIGADO POR COMPLETO (ciclo de energia: desligue, espere alguns segundos e só então ligue).
+ 2. Cartucho Pokémon Crystal (JP) original no Game Boy Player. Nada no Link Port. Cartão SD2SP2 no console. Controle GENÉRICO na porta 1.
+ 3. No cartão, na pasta Open-GBP, confira que NÃO existe nenhum arquivo GBP-VIDEO-004_gbmode-0001* (.log, -disp.bin, -full.bin, -idxcap.bin, -vi.bin).
+    Se existir: MOVA para outra pasta (nunca apague) e avise.
+ 4. AVISE ANTES DE LIGAR -- eu abro a captura do Gecko (ela fecha sozinha no fim).
+ 5. Ligue e abra pelo Swiss:  Open-GBP / 27-gbmode / boot.dol
+ 6. Confira na tela:  Build : gbmode-0001   Commit: 4d6fe06.   Se estiver diferente, PARE e avise.
+DURANTE (a tela do jogo passa sozinha; só olhe a TV até o passo 8)
+ 7. NÃO aperte NADA até aparecer a cena da FLORESTA (céu alaranjado, árvores verde-escuras). Ela aparece 3 vezes: a 1ª e a 3ª duram poucos segundos; a 2ª dura um pouco mais.
+ 8. Na 1ª vez que a floresta aparecer:      L (gatilho esquerdo, até o clique)  ×1   -- segure apertado enquanto a floresta estiver na tela; solte quando ela sair.
+ 9. Na 2ª vez: deixe passar cerca de 2 segundos (conte "um, dois") SEM apertar nada; depois:   R (gatilho direito, até o clique)  ×1   -- segure até a floresta sair; solte.
+10. Na 3ª vez que a floresta aparecer:      L (gatilho esquerdo, até o clique)  ×1   -- segure apertado enquanto a floresta estiver na tela; solte quando ela sair.
+11. NÃO aperte nenhuma outra tecla, nem o direcional, nem o analógico, nem A, B, X, Y, Z ou START. Se em algum passo você não tiver certeza de qual aparição é, NÃO aperte e me avise depois.
+12. Espere a execução terminar sozinha (cerca de 35 segundos depois que a imagem do jogo aparece).
+DEPOIS
+13. Quando aparecer a tela final com "X = save log", X ×1 grava. Espere confirmar. Depois START.
+14. DESLIGUE o console POR COMPLETO (ciclo de energia obrigatório). Cartão no leitor do PC. Diga "RUN 60 feito" e confirme: ciclo de energia ANTES e DEPOIS -- sim / não.
+
+O QUE VOCÊ VIU (responda com as suas palavras; eu registro literalmente ANTES de te mostrar qualquer número do log)
+ B. O que apareceu na TV durante a execução? Descreva na ordem em que apareceu.
+ C. Nos três momentos em que você apertou (L, R, L): a imagem que você via era a mesma de antes do aperto, durante o aperto e depois de soltar, ou algo mudou (tamanho, posição, bordas, proporção)?
+    Descreva cada um dos três momentos com as suas palavras, antes / durante / depois.
+ D. Aconteceu algo diferente do que o passo pedia (não deu tempo de apertar, apertou outra tecla, a floresta apareceu mais ou menos vezes, outra cena confundiu)? O que, e quando?
+ E. Qualquer outra coisa: a tela, o controle, dúvidas sobre o procedimento.
+```
+
+His answers are OPERATOR OBSERVATION, recorded **verbatim before any figure is computed or shown to him**, and never read into a machine verdict (no threshold in §V30.5 uses them). Item A is a declaration about the instrument. **The text says nothing about what the picture may do**: no prediction and no word for a change is offered to him (the reader's leak is named in §V30.5 for the machine half only, never in this text).
+
+### V30.10 The hardware test request, in `AGENTS.md` §14's format (for the Orchestrator's Hardware Issue)
+
+```text
+Test ID:                    GBP-GBMODE-002 (RUN 60), log test_id=GBP-VIDEO-004
+Build ID:                   gbmode-0001, commit 4d6fe06 (unchanged from RUN 59)
+DOL:                        slot 27-gbmode, boot.dol sha256 e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497 (already on the card)
+Required cartridge:         the Operator's original Pokemon Crystal (JP), the same physical cartridge as RUN 59 (declared)
+Physical Link Port state:   nothing connected
+BBA state:                  the standing declaration (present, no cable)
+Steps:                      §V30.9 (power cycle; verify no stale GBP-VIDEO-004_gbmode-0001* on the card; Swiss 27-gbmode; L held in the 1st forest scene, nothing then R held in the 2nd, L held in the 3rd; X to save; power cycle)
+Expected result/log:        the five console files under the reserved run60 names; the KEY lines of the presses; NO prediction of the picture
+Question answered:          §V30.1: does the delivered window change from the RUN 59 baseline with L or R in GB mode, per key and key state; the reach of the word is NOT separable (§V30.4)
+```
