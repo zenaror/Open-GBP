@@ -19835,3 +19835,16 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Not established.** Toggle against set / clear; who changes the window; the interpolation kernel; a vertical change; the audio; DMG against CGB; a second title.
 
 **Next.** The Orchestrator orders it: an L, L (or R, R) sequence separates toggle from set / clear; E5's vehicle (Issue #153: the design half is committed, the build is the next checkpoint) waits.
+
+
+## 2026-09-30 — Issue #153 (build half): the GBA play image built at `6396851`, two identical rebuilds; not staged, no run authorised
+
+**Goal.** Build Phase 7's E5 vehicle as `HARDWARE_TESTS.md` §V31 designed it: a new POC (the executed V28 image untouched), the native audio chain configured once at T256 A1 (library default unchanged), stores sized for a stated bound, the start-up apart from what follows it in the underrun record, the cartridge declaration in the log, two identical rebuilds, the frozen Operator text for the first breadth session.
+
+**Changes.** `poc/gbp-play-gba`; the plan `GBP_V28_PLAY_GBA` and the walker kind `GBP_WALKER_PLAY` (appended, no handler); `src/audio/gbp_play_under.*`, `src/gbp/gbp_cartdecl.*`; the callback's two stores per underrun in `gbp_aplay2`; `tools/playread.py`; the `vehicle` audit profile and `make vehicle`, `vehicle-audit`, `vehicle-dolphin`; unit and host tests (the plan, the ordinals with mutants, the real chain through a cold start and injected stalls, the reachability of `main()`, the reader with positive and negative controls); `HARDWARE_TESTS.md` §V31.8 (build record, decisions, frozen text, request).
+
+**Result.** Commit `6396851`, SHA-256 `a02bcfa3…5d2`, 509 952 B; two from-scratch rebuilds byte-identical; both one-shot handlers identical to the physically validated GBP-VIDEO-001 build's; `poc_audit --profile vehicle` 0 findings (and `live` 42, `sync` 99: it discriminates); Dolphin PASS on the absent-device abort path only (the session flow never runs there).
+
+**Review (one heavy adversarial read of the code) and what it changed before the push.** The DMA kept handing out silence after the feed stopped on every end that is not the walker's own (a store cap, the wall, Z inside the alive window), and those silences were counted in the fallback rule's only input: the end is now tested before the production branch and the underrun record carries `post_feed`, apart from `after_startup`; the final screen took the game's own last presses (START pauses) as commands and could lose the RAM-only log: it now waits for every button to be released, ignores edges for a second and guards START; the screen showed the stepped-to title while the log said UNDECLARED; a direct write to the chain's AHEAD was removed; the reader gained its cross-checks (phase sum, `k`, `first_after_handed`, ordinal 1, rising ordinals); the structural tests gained the lines whose deletion no host run shows; `-dirty` now also covers an untracked source.
+
+**Not done.** No staging, no pin, no run; the pump slot, the callback and the session flow have run only on the host. **Next.** The Orchestrator validates §V31.8 and opens the Hardware Issue if it orders the first breadth session; its fallback rule reads `after_startup` and nothing else.

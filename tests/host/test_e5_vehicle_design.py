@@ -188,5 +188,62 @@ class TheTitlesAreTheOperatorsAndTheRejectedOneIsReadNotReused(unittest.TestCase
         self.assertLess(d.index("Kingdom Hearts: Chain of Memories"), d.index("The Simpsons: Road Rage"))
 
 
+def build_section():
+    d = section()
+    i = d.index("### V31.8 THE BUILD HALF")
+    j = d.find("\n### ", i + 10)
+    return d[i:j if j >= 0 else len(d)]
+
+
+VEHICLE_COMMIT = "6396851"
+VEHICLE_SHA = "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2"
+VEHICLE_UNPADDED_SHA = "c9322e3fbb0bb8d62cbf2982d48203760c7843726783c1d2922b64e30965cf34"
+
+
+class TheBuildRecordV318(unittest.TestCase):
+    """Issue #153, the build half: V31.8 records the image, its identity, what the build decided, and the frozen Operator text."""
+
+    def test_identity_and_build_record(self):
+        d = build_section()
+        for tok in (VEHICLE_COMMIT, VEHICLE_SHA, VEHICLE_UNPADDED_SHA, "509 952 B", "GBP-PLAY-002", "vehicle-0001", "byte-identical (cmp)", "IDENTICAL to the physically validated GBP-VIDEO-001 build's",
+                    "0 findings", "42 and the sync profile 99", "the absent-device abort path only", "28-vehicle is RESERVED and nothing more", "NOT PHYSICALLY EXECUTED, NOT STAGED, NOT PINNED, NO RUN AUTHORISED HERE",
+                    "GIT_COMMIT=6396851 GIT_DIRTY= make vehicle", "an untracked source under src/, poc/gbp-play-gba/ or tools/ dirty"):
+            self.assertIn(tok, plain(d), tok)
+
+    def test_the_built_dol_is_the_recorded_one_when_it_is_built_here_at_that_commit(self):
+        out = os.path.join(ROOT, "build", "poc", "gbp-play-gba")
+        info = os.path.join(out, "build-info.txt")
+        if not os.path.isfile(info) or ("commit=%s\n" % VEHICLE_COMMIT) not in read(info):
+            self.skipTest("gbp-play-gba is not built in this checkout")
+        import hashlib
+        with open(os.path.join(out, "gbp-play-gba.dol"), "rb") as f:
+            self.assertEqual(hashlib.sha256(f.read()).hexdigest(), VEHICLE_SHA)
+        with open(os.path.join(out, "gbp-play-gba.unpadded.dol"), "rb") as f:
+            self.assertEqual(hashlib.sha256(f.read()).hexdigest(), VEHICLE_UNPADDED_SHA)
+
+    def test_the_decisions_the_review_changed_are_recorded(self):
+        d = plain(build_section())
+        for tok in ("POST-FEED, a finding of the review", "post_feed=0|1", "which is NOT in after_startup", "tested before the production branch", "The fallback rule reads after_startup, and only that",
+                    "START exits at once only after a successful save, otherwise on a 1.5 s hold", "waits, bounded at 5 s, for every button to be released", "entered=none",
+                    "The transition machine is not linked at all", "the struct grew by 768 B", "Inherited from the V28 chassis and not changed"):
+            self.assertIn(tok, d, tok)
+
+    def test_the_frozen_text_carries_the_no_save_instruction_for_original_cartridges_and_predicts_nothing(self):
+        d = build_section()
+        i = d.index("ANTES\n 1.")
+        block = d[i:d.index("```", i)]
+        for tok in ("commit=6396851", "28-vehicle / boot.dol", "Kingdom Hearts (cartucho ORIGINAL): NÃO crie nem sobrescreva um save", "não aceite \"salvar\"", "A ×1", "X ×1", "com as suas palavras",
+                    "ciclo de energia", "PRESS A within 45 s", "SOLTE todos os botões", "GBP-PLAY-002_vehicle-0001*"):
+            self.assertIn(tok, block, tok)
+        self.assertNotRegex(block, r"\b(?:[LRABXYZ]|START)\d", "digits glued to a button name")
+        for banned in (r"esperad", r"perfeit", r"sem falhas", r"suave", r"cristalin", r"vai (?:tocar|ouvir|aparecer|soar|parecer)", r"deve (?:tocar|soar|parecer|aparecer)", r"ouvir[áa]"):
+            self.assertIsNone(re.search(banned, block, re.I), banned)
+        self.assertIn("Nothing is predicted to him", plain(d))
+        self.assertIn("on his ORIGINAL cartridges (title 2) he is told NOT to create or overwrite a save", plain(d))
+        req = d[d.index("Test ID:                    GBP-BREADTH-001"):]
+        for tok in ("Build ID:                   vehicle-0001, commit 6396851", VEHICLE_SHA, "NO save created or overwritten", "Physical Link Port state:   nothing connected", "Question answered:"):
+            self.assertIn(tok, req, tok)
+
+
 if __name__ == "__main__":
     unittest.main()
