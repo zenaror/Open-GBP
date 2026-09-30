@@ -1429,6 +1429,85 @@ SYNC_OBJECT_REFERENCES = {
 
 PROFILES["sync"] = _sync_profile()
 
+
+def _vehicle_profile():
+    """Issue #153: the `vehicle` profile IS the `live` profile with the V28 chassis' chain and the play image's own changes named (HARDWARE_TESTS V31.5: "the poc_audit profile of the new
+    POC"). poc/gbp-play-gba is poc/gbp-audio-v28's chassis, copied, with the research machinery left out; no V28 image had an audit profile, so this one is written from the `live` base (the
+    service module, the tap, the pump slot, the AI, the card after the session) and says what differs:
+      * the chain is the native one: gbp_adec2 / gbp_aresamp2 / gbp_aplay2 replace gbp_adec / gbp_aresamp / gbp_aplay, with the same bars (CAPTURE-class code, an allowlist of what each may
+        reach); gbp_walker joins them (sequencing only, from the tap and the pump slot), gbp_play_under and gbp_cartdecl are main's, AFTER the session;
+      * NO sidecar: there is no L2 keep and no streaming writer, so `play`'s ban on sdlog_stream_* is back in force and gbp_aplay2_arm_l2 is called from nowhere;
+      * the configuration is ONE call in main (gbp_aplay2_set_target), the DMA start is gbp_aplay2_start_ready's, in the pump slot; no transition machine, no mute, no front drop
+        (gbp_aplay2_mute and gbp_aplay2_drop_front have no caller);
+      * the pump slot reads the pad five times (the sample, the press record, Z's edge and the two holds of the walker's stop latch), not three;
+      * the phase snapshots (v28_phase_snap_take) add one gettime site.
+    `live` fails this image on exactly those points; every interrupt-path pin of `live` (the write sites, INTMR, INTSR, the handlers) still holds and is part of this profile."""
+    p = copy.deepcopy(PROFILES["live"])
+    rename = (("gbp_adec_", "gbp_adec2_"), ("gbp_aresamp_", "gbp_aresamp2_"), ("gbp_aplay_", "gbp_aplay2_"))
+
+    def ren(x):
+        for a, b in rename:
+            if x.startswith(a):
+                return b + x[len(a):]
+        return x
+
+    p["required_objects"] = tuple({"gbp_aplay.o": "gbp_aplay2.o", "gbp_adec.o": "gbp_adec2.o", "gbp_aresamp.o": "gbp_aresamp2.o"}.get(o, o) for o in p["required_objects"]) + (
+        "gbp_walker.o", "gbp_play_under.o", "gbp_cartdecl.o")
+    lifted = ("sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["forbidden_symbols"] = p["forbidden_symbols"] + tuple(x for x in lifted if x not in p["forbidden_symbols"])
+    p["main_must_not_call"] = p["main_must_not_call"] + tuple(x for x in lifted if x not in p["main_must_not_call"])
+    drop = lifted + ("gbp_aplay_sidecar", "gbp_aplay_arm_l2")
+    p["elf_required"] = tuple(ren(x) for x in p["elf_required"] if x not in drop) + (
+        "gbp_aplay2_set_target", "gbp_aplay2_start_ready", "gbp_aplay2_ready", "gbp_walker_start", "gbp_walker_tick", "gbp_walker_stop", "gbp_walker_finished",
+        "gbp_walker_phase_record", "gbp_play_under_summarize", "gbp_play_under_fmt_startup", "gbp_play_under_fmt_und", "gbp_play_under_fmt_sum",
+        "gbp_cartdecl_fmt", "gbp_cartdecl_step")
+    p["elf_forbidden"] = p["elf_forbidden"] + ("gbp_aplay2_arm_l2", "gbp_aplay2_sidecar", "gbp_aplay2_mute", "gbp_aplay2_drop_front", "gbp_atrans2_begin", "gbp_atrans2_step")
+    p["main_must_call"] = tuple(ren(x) for x in p["main_must_call"] if x not in drop) + ("gbp_aplay2_set_target", "gbp_play_under_summarize", "gbp_cartdecl_fmt")
+    sc = dict((ren(k), v) for k, v in p["symbol_callers"].items() if k not in drop)
+    sc.update(VEHICLE_SYMBOL_CALLERS)
+    p["symbol_callers"] = sc
+    # the chain's CRC is its own table (gbp_aplay2.o), as before; each module keeps the capture family's bar, with its own allowlist (read from the listings)
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_may_only_reference"] = dict((k, v) for k, v in p["object_may_only_reference"].items() if k not in ("gbp_aplay.o", "gbp_adec.o", "gbp_aresamp.o"))
+    for o in ("gbp_aplay.o", "gbp_adec.o", "gbp_aresamp.o"):
+        p["object_must_not_reference"].pop(o, None)
+    for o in ("gbp_aplay2.o", "gbp_adec2.o", "gbp_aresamp2.o", "gbp_walker.o"):
+        p["object_must_not_reference"][o] = _CAPTURE_SYMBOLS
+    p["object_may_only_reference"].update(VEHICLE_OBJECT_REFERENCES)
+    return p
+
+
+# The play image's call sites, read from the listings of the image built at the #153 candidate and PINNED: a new caller of any of these is a finding. live_step, syncpe_edges and live_screen are
+# static and GCC inlines them into pump(); live_tap and live_dma_cb are reached through pointers and keep their own names.
+VEHICLE_SYMBOL_CALLERS = {
+    "gbp_adec2_init": {"main": 1}, "gbp_adec2_calibrate": {"live_tap": 1}, "gbp_adec2_push_block": {"live_tap": 1}, "gbp_adec2_pop": {"produce_impl2": 1},
+    "gbp_aresamp2_push": {"push_one2": 1}, "gbp_aresamp2_init": {"gbp_aplay2_init": 1},
+    "gbp_aplay2_init": {"main": 1}, "gbp_aplay2_set_target": {"main": 1}, "gbp_aplay2_produce": {"pump": 1}, "gbp_aplay2_queue": {"pump": 1},
+    "gbp_aplay2_ready": {"pump": 1}, "gbp_aplay2_start_ready": {"pump": 1}, "gbp_aplay2_process": {"main": 1, "pump": 2},
+    "gbp_aplay2_irq_handoff": {"live_dma_cb": 1, "pump": 1},
+    "gbp_aplay2_mute": {}, "gbp_aplay2_drop_front": {}, "gbp_aplay2_arm_l2": {},
+    "gbp_walker_start": {"live_tap": 1}, "gbp_walker_tick": {"pump": 1}, "gbp_walker_stop": {"pump": 1},
+    "gbp_walker_finished": {"live_tap": 2, "main": 2, "pump": 4, "submit_ready": 1}, "gbp_walker_phase_record": {"main": 2, "pump": 1},
+    "gbp_play_under_summarize": {"main": 1}, "gbp_play_under_fmt_startup": {"main": 1}, "gbp_play_under_fmt_und": {"main": 1}, "gbp_play_under_fmt_sum": {"main": 1},
+    "gbp_cartdecl_fmt": {"main": 1}, "gbp_cartdecl_step": {"main": 2}, "gbp_cartdecl_count": {"decl_draw": 2}, "gbp_cartdecl_entry_at": {"decl_draw": 1},
+    "PAD_ButtonsHeld": {"pump": 5},
+    "gettime": {"h_ticks64": 1, "main": 6, "pump": 2, "submit_ready": 1, "live_dma_cb": 1, "v28_phase_snap_take": 1},
+    "gbp_alive_finished": {"live_tap": 1},
+}
+# What each module may reach outside itself, read from the same listings (AGENTS.md: the list is an ALLOWLIST, so a new outward edge is a finding by default). The chain pops the decoder's ring and
+# pushes the resampler and keeps its own CRC table (.bss); the decoder divides 64-bit sums; the walker zeroes its state; the two modules main calls after the session format with snprintf
+# (gbp_play_under also divides a 64-bit tick): they are not capture-class code, and no other outward edge is allowed them.
+VEHICLE_OBJECT_REFERENCES = {
+    "gbp_aplay2.o": ("gbp_adec2_pop", "gbp_aresamp2_init", "gbp_aresamp2_push", "memset", "gbp_aplay2_crc_update", ".bss.crc_table", ".bss.crc_ready", ".rodata"),
+    "gbp_adec2.o": ("__divdi3", "__moddi3", "gbp_adec2_slice_sum"),
+    "gbp_aresamp2.o": (),
+    "gbp_walker.o": ("memset",),
+    "gbp_play_under.o": ("__udivdi3", "snprintf"),
+    "gbp_cartdecl.o": ("snprintf",),
+}
+
+PROFILES["vehicle"] = _vehicle_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player

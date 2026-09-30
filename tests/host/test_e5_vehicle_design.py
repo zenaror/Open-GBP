@@ -2,7 +2,7 @@
 
 The store table is recomputed with tools/v28budget.py's own rules; the demonstrated envelope (RUN 57's stores) is read from the archive (ignored by Git: that test skips, with the registered
 reason, on a host without it); every code claim the design rests on is read from the sources; nothing exists yet that the design says does not exist (no POC, no slot, no record); the library
-default is untouched; the Operator's draft text predicts nothing. When the build half lands, the 'nothing is built' pins are the ones that are amended on top.
+default is untouched; the Operator's draft text predicts nothing. The build half has landed (Issue #153): the 'nothing is built' pins are amended on top, each saying so.
 """
 import os
 import re
@@ -80,10 +80,13 @@ class TheDemonstratedEnvelopeIsTheArchives(unittest.TestCase):
 class TheCodeFactsTheDesignRestsOn(unittest.TestCase):
     def test_the_underrun_counter_and_the_playing_flag(self):
         c = read(os.path.join(ROOT, "src", "audio", "gbp_aplay2.c"))
-        self.assertIn("if (p->playing) p->underruns = p->underruns + 1u;", c)
+        # amended on top at the build half (Issue #153): the increment itself is unchanged, the callback now also stores the hand-off ordinal beside it
+        self.assertIn("if (p->playing) {\n            const uint32_t n = p->underruns;", c)
+        self.assertIn("p->underruns = n + 1u;", c)
         users = subprocess.run(["grep", "-rn", r"ap2\.playing", os.path.join(ROOT, "src"), os.path.join(ROOT, "poc")], capture_output=True, text=True).stdout
         self.assertEqual(sorted(set(l.split(":")[0].replace(ROOT + os.sep, "") for l in users.splitlines())),
-                         ["poc/gbp-audio-v28/source/main.c"], "the aplay2 chain's playing flag is set only by the V28 chassis' main.c")
+                         ["poc/gbp-audio-v28/source/main.c", "poc/gbp-play-gba/source/main.c"],
+                         "the aplay2 chain's playing flag is set only by the V28 chassis' main.c and by its copy, the play image's")
         self.assertIn("ap2.playing = 1u;", read(os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")))
 
     def test_the_dma_does_not_start_on_an_unfilled_ring(self):
@@ -106,8 +109,11 @@ class TheCodeFactsTheDesignRestsOn(unittest.TestCase):
             self.assertIn(name, st)
         m = read(os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c"))
         self.assertIn("PRESS A within 45 s", m)
+        # amended on top at the build half (Issue #153): the play plan now exists, with the design's numbers (tests/host/test_v28_plans.py pins it against tools/v28budget.py)
         plans = read(os.path.join(ROOT, "src", "audio", "gbp_v28_plans.h"))
-        self.assertNotIn("PLAY", plans, "a play plan exists: the build half has landed and this pin is amended on top")
+        self.assertIn("GBP_V28_PLAY_GBA", plans)
+        self.assertIn("#define GBP_V28_PLAY_BOUND_S  300u", plans)
+        self.assertIn('"play_gba"', read(os.path.join(ROOT, "tools", "v28budget.py")))
 
 
 class TheDesignsFixesAfterItsReview(unittest.TestCase):
@@ -130,14 +136,23 @@ class TheDesignsFixesAfterItsReview(unittest.TestCase):
 
 
 class NothingIsBuiltYet(unittest.TestCase):
-    def test_no_poc_no_slot_no_record(self):
-        self.assertFalse(os.path.exists(os.path.join(ROOT, "poc", "gbp-play-gba")))
+    """Amended on top at the build half (Issue #153): the DESIGN record says nothing was built when it was written (its tokens stay asserted: an append-only record is not edited), and the tree now
+    holds exactly what the build half owes -- the POC and the records in it -- and STILL holds no slot, no pin, no export and no card write: the name 28-vehicle stays reserved and nothing more."""
+
+    def test_the_poc_and_the_records_exist_and_no_slot_is_pinned(self):
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, "poc", "gbp-play-gba", "source", "main.c")))
         tsv = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
         self.assertNotIn("vehicle", tsv)
+        self.assertNotIn("gbp-play-gba", tsv)
         self.assertNotIn("\n28\t", "\n" + tsv)
+        allowed = {"src/audio/gbp_play_under.c", "src/audio/gbp_play_under.h", "src/gbp/gbp_cartdecl.c", "src/gbp/gbp_cartdecl.h", "tools/playread.py"}
         for rec in ("PLAYSTARTUP", "PLAYUND", "PLAYUNDER", "CARTDECL"):
-            hits = subprocess.run(["grep", "-rln", rec, os.path.join(ROOT, "src"), os.path.join(ROOT, "poc"), os.path.join(ROOT, "tools")], capture_output=True, text=True).stdout.split()
-            self.assertEqual(hits, [], "%s exists in the tree: the build half has landed and this pin is amended on top" % rec)
+            hits = subprocess.run(["grep", "-rln", "--include=*.c", "--include=*.h", "--include=*.py", rec, os.path.join(ROOT, "src"), os.path.join(ROOT, "poc"), os.path.join(ROOT, "tools")],
+                                  capture_output=True, text=True).stdout.splitlines()
+            hits = sorted(h.replace(ROOT + os.sep, "") for h in hits)
+            self.assertTrue(set(h for h in hits if h.startswith(("src/", "tools/"))) <= allowed, "%s appears outside its modules and its reader: %s" % (rec, hits))
+            self.assertIn("poc/gbp-play-gba/source/main.c", hits, rec)
+            self.assertEqual([h for h in hits if h.startswith("poc/")], ["poc/gbp-play-gba/source/main.c"], "only the play image's main.c writes %s" % rec)
         d = plain(section())
         for tok in ("NOTHING IS BUILT", "NO HASH EXISTS", "NO SLOT IS PINNED OR STAGED", "NO RUN IS AUTHORISED", "the name 28-vehicle is RESERVED here and nowhere else"):
             self.assertIn(tok, d, tok)

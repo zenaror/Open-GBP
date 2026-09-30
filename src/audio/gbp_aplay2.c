@@ -329,7 +329,14 @@ const uint8_t *gbp_aplay2_irq_handoff(struct gbp_aplay2 *p, uint64_t t)
         p->rq_head = p->rq_head + 1u;
     } else {
         p->silences = p->silences + 1u;
-        if (p->playing) p->underruns = p->underruns + 1u;
+        if (p->playing) {
+            const uint32_t n = p->underruns;
+            if (n < GBP_APLAY2_UNDER_CAP) {
+                p->under_handed[n] = p->handed + 1u;       /* `handed` counts AFTER this call: the ordinal is one more */
+                p->under_t[n] = t;
+            }
+            p->underruns = n + 1u;
+        }
     }
     if (p->hl_tail - p->hl_head < GBP_APLAY2_LOG) {
         p->hl[p->hl_tail % GBP_APLAY2_LOG] = (int8_t)buf;

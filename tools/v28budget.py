@@ -78,6 +78,7 @@ PLANS = {
     "perceptual_no_phase1": ([("p0", P0_ALLOWANCE_S, "allowance"), ("nulling", 240, "cap")], None),
     "diag_3a_stall": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 60, "RUN 48's own stall, short")], None),
     "diag_loss": ([("p0", P0_ALLOWANCE_S, "allowance"), ("loss", 348, "310 s of holds + 38 s for the two entries")], None),
+    "play_gba": ([("p0", P0_ALLOWANCE_S, "timed start-up phase"), ("play", 300, "the play bound, Issue #153 / V31.2")], None),
     "perceptual_phase1": ([("p0", P0_ALLOWANCE_S, "allowance"), ("p1", 220, "cap"), ("nulling", 240, "cap")], None),
     "one_session_descent_first": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 138, "§V27 budget"),
                                    ("3b", 120, "AHEAD holds"), ("washout", 60, "at 512 / AHEAD 4"),

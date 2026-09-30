@@ -131,6 +131,25 @@ static const struct gbp_walker_plan GBP_V28_DIAG_LOSS = {
     GBP_V28_DIAG_LOSS_PHASES, 2u, GBP_V28_DIAG_LOSS_CAP_S
 };
 
+/* ---- play_gba: navigate -> play -- Issue #153 (HARDWARE_TESTS.md V31.1/V31.2), Phase 7's E5 vehicle ------------------------------------
+ *
+ * The play image of poc/gbp-play-gba: a timed navigate phase of GBP_V28_P0_ALLOWANCE_S (60 s), then `play` for GBP_V28_PLAY_BOUND_S = 300 s of
+ * free play that only the Operator's Z or the cap ends. GBP_WALKER_PLAY has NO handler: nothing is started, ticked or completed for it. The
+ * session cap is p0 60 + play 300 + slack 60 = 420, the wall 485 s (tools/v28budget.py: "play_gba"), and the image's stores are sized for it. */
+#define GBP_V28_PLAY_BOUND_S  300u
+static const struct gbp_walker_phase_def GBP_V28_PLAY_GBA_PHASES[2] = {
+    { GBP_WALKER_NAVIGATE, GBP_V28_P0_ALLOWANCE_S },      /* p0, the timed start-up phase */
+    { GBP_WALKER_PLAY,     GBP_V28_PLAY_BOUND_S },        /* play, free-running */
+};
+#define GBP_V28_PLAY_GBA_SUM_S (GBP_V28_P0_ALLOWANCE_S + GBP_V28_PLAY_BOUND_S)
+#define GBP_V28_PLAY_GBA_CAP_S (GBP_V28_PLAY_GBA_SUM_S + GBP_V28_SLACK_S)
+_Static_assert(GBP_V28_PLAY_GBA_CAP_S == 420u,
+    "gbp_v28_plans: play_gba's session cap no longer matches tools/v28budget.py's own 420 (the stores are sized for a wall of 485 s)");
+
+static const struct gbp_walker_plan GBP_V28_PLAY_GBA = {
+    GBP_V28_PLAY_GBA_PHASES, 2u, GBP_V28_PLAY_GBA_CAP_S
+};
+
 #ifdef __cplusplus
 }
 #endif

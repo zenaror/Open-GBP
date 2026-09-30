@@ -119,6 +119,8 @@ class Run43(unittest.TestCase):
                                # Issue #131/#133 (RUN 50, Defect B): 3a's own 138 -> 168 s margin
                                "validation_run": (408, 468, 60, 533, 34050, 40860),
                                "perceptual_no_phase1": (300, 360, 60, 425, 26965, 32357),
+                               # Issue #153 (build half): the play image's plan -- navigate(60) + play(300), cap 420, wall 485
+                               "play_gba": (360, 420, 60, 485, 30901, 37081),
                                "perceptual_phase1": (520, 580, 60, 645, 41398, 49677),
                                "one_session_descent_first": (618, 678, 60, 743, 47827, 57393),
                                # Issue #131: diag_3a_stall -- navigate(60) + 3a(60), RUN 48's own
@@ -132,7 +134,7 @@ class Run43(unittest.TestCase):
         self.assertEqual(floor, {"v27_as_frozen": (False, True), "v27_with_3b": (False, True),
                                  "validation_run": (True, True), "perceptual_no_phase1": (True, True),
                                  "perceptual_phase1": (True, True), "one_session_descent_first": (False, True),
-                                 "diag_3a_stall": (True, True), "diag_loss": (True, True)})
+                                 "diag_3a_stall": (True, True), "diag_loss": (True, True), "play_gba": (True, True)})
         self.assertEqual(pl["perceptual_phase1"]["awr_kept"]["above_floor"], 16384)       # one wall-second from the edge
         self.assertEqual((pl["v27_as_frozen"]["events"], pl["v27_as_frozen"]["frames"]), (62015, 47100))
 

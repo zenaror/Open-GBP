@@ -30,6 +30,7 @@ PHASE_KIND_C_NAME = {
     "sweep": "GBP_WALKER_SWEEP",
     "nulling": "GBP_WALKER_NULLING",
     "loss": "GBP_WALKER_LOSS",
+    "play": "GBP_WALKER_PLAY",
 }
 
 # tools/v28budget.py's own name -> this header's own array/plan names.
@@ -183,6 +184,35 @@ class TheTwoPlansAgreeWithVBudget(unittest.TestCase):
         for py_name in PLAN_C_NAME:
             names, _secs, _cap = python_plan(py_name)
             self.assertNotIn("p1", names, "%s must not carry Phase 1 (#128 §2 point 3)" % py_name)
+
+
+class ThePlayPlanAgreesWithVBudget(unittest.TestCase):
+    """Issue #153 (HARDWARE_TESTS.md V31.1/V31.2): the play plan is checked against tools/v28budget.py the same way, but it is NOT a gbp-audio-v28 build (the play image is poc/gbp-play-gba,
+    a separate POC), so it stays out of PLAN_C_NAME -- which also drives the V28 Makefile's clean-target test and the V28 handler-start tests, neither of which concerns it. GBP_WALKER_PLAY has no
+    handler: there is nothing in KIND_START_FN for it, and the play image starts none."""
+
+    def test_the_phases_the_seconds_and_the_cap_agree(self):
+        header = code(read(PLANS_H))
+        names, secs, cap = python_plan("play_gba")
+        entries = c_plan_array(header, "GBP_V28_PLAY_GBA_PHASES")
+        self.assertEqual([PHASE_KIND_C_NAME[n] for n in names], [k for k, _c in entries])
+        self.assertEqual(names, ["p0", "play"])
+        caps = [c_macro_value(header, c) if not re.fullmatch(r"\d+[uU]?", c) else int(c.rstrip("uU")) for _k, c in entries]
+        self.assertEqual(caps, secs)
+        self.assertEqual(secs, [60, 300])
+        self.assertEqual(c_macro_value(header, "GBP_V28_PLAY_GBA_CAP_S"), cap)
+        self.assertEqual(cap, 420)
+        self.assertEqual(cap + v28budget.WALL_ABOVE_SESSION_S, 485)
+
+    def test_the_play_kind_is_appended_and_no_kind_was_renumbered(self):
+        h = read(os.path.join(AUDIO, "gbp_walker.h"))
+        order = re.findall(r"^\s+(GBP_WALKER_\w+)", h[h.index("enum gbp_walker_kind"):h.index("enum gbp_walker_end_reason")], re.M)
+        self.assertEqual(order, ["GBP_WALKER_NAVIGATE", "GBP_WALKER_DESCENT_3A", "GBP_WALKER_HOLD_3B", "GBP_WALKER_SWEEP", "GBP_WALKER_NULLING", "GBP_WALKER_LOSS", "GBP_WALKER_PLAY"],
+                         "the executed images' kinds keep their values; PLAY is appended")
+
+    def test_no_handler_is_named_for_play(self):
+        self.assertNotIn("GBP_WALKER_PLAY", KIND_START_FN)
+        self.assertNotIn("play_gba", PLAN_C_NAME)
 
 
 class TheHandlersAreStarted(unittest.TestCase):
