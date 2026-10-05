@@ -1,7 +1,7 @@
 # Open-GBP top-level build/test driver.
 #
-# GameCube code is compiled inside the pinned Docker image (see Dockerfile,
-# compose.yaml). Host tests and Dolphin runs execute on the host.
+# GameCube code is compiled inside the pinned container image under rootless Podman (see Dockerfile,
+# compose.yaml, COMPOSE below). Host tests and Dolphin runs execute on the host.
 #
 #   make env-check      verify container toolchain
 #   make build          build every POC (poc/smoke-test, poc/gbp-probe) -> build/poc/*/
@@ -111,7 +111,16 @@ SHELL := /bin/bash
 export LOCAL_UID ?= $(shell id -u)
 export LOCAL_GID ?= $(shell id -g)
 
-COMPOSE     := docker compose
+# The container engine is rootless Podman (Issue #159; the Docker engine is gone from this host). `podman compose` is a thin shim over
+# the external docker-compose provider that points it at Podman's own user socket, so no socket path is written here; the socket must
+# be active (`systemctl --user start podman.socket`). Override on the command line or in the environment for another engine, e.g.
+# `make COMPOSE="docker compose" ...`.
+# The shim prints a one-line banner on stderr; `compose_warning_logs=false` under [engine] in ~/.config/containers/containers.conf silences it (a user setting, not the project's).
+COMPOSE ?= podman compose
+# Rootless Podman maps the container's uid 1000 to a sub-uid, which cannot write a bind-mounted directory that the host user owns on a
+# POSIX filesystem (this repository's fuseblk mount shows every file as mode 777, so it happens to work there). keep-id maps the host
+# user to itself; compose.yaml reads it as `userns_mode`. A Docker engine takes LOCAL_USERNS= (empty).
+export LOCAL_USERNS ?= keep-id
 
 # BUILD IDENTITY IS COMPUTED ON THE HOST AND PASSED IN.
 #

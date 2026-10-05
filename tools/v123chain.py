@@ -22,7 +22,7 @@ hardware measured and computed where it did not. DESCRIPTIVE, host-side; it deci
 3. THE INSTRUCTION MODEL (INFERENCE), for what section 1 cannot separate: its slope is 125 MACs AND one input's
    handling at once, so the hardware alone does not say how a native chain -- 16 times the inputs a channel, twice
    the channels -- would cost. The resampler compiled for the Gekko (powerpc-eabi-gcc -O2 -mogc -mcpu=750, the
-   images' flags, in the project's container: `docker compose run --rm -T dev powerpc-eabi-objdump -d` of
+   images' flags, in the project's container: `podman compose run --rm -T dev powerpc-eabi-objdump -d` of
    gbp_aresamp.o and gbp_adec.o) counts: 9 instructions a tap (the inner loop), 27 more an output frame (its setup,
    rounding, clamp and store), 46 a push that makes an output and 28 one that does not; the block popcount, 4 a byte.
    Assumed on top: 15 a take (the ring's pop) and 8 a frame for the chunk's big-endian store. At one instruction a

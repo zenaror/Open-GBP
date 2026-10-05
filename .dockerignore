@@ -1,0 +1,5 @@
+# The Dockerfile has no COPY/ADD: the image is the pinned libogc2 base plus ENV lines, and the
+# project tree reaches the container through the compose bind mount (.:/workspace), never through
+# the build context. Excluding everything keeps an image build from uploading build/, captures/,
+# logs/ and the private input/ (gigabytes) to the container engine.
+*

@@ -413,7 +413,8 @@ class TheNewRecords(unittest.TestCase):
         for head in ("## Current blocker / current question\n\n", "## Next safe action\n\n"):
             i = h.index(head) + len(head)
             sec = h[i:h.index("\n## ", i)]
-            self.assertTrue(sec.startswith("**2026-10-05 (Issue #157), on top: "), head)
+            # amended on top by Issue #159 (a later checkpoint's paragraph may lead the section): #157's paragraph is there, and only the leading position is no longer asserted
+            self.assertIn("**2026-10-05 (Issue #157), on top: ", sec, head)
             self.assertEqual(sec.count("Issue #157), on top:"), 1)
             self.assertIn("**2026-10-05 (Issue #156), on top:", sec)
             self.assertIn("**2026-10-05 (Issue #155), on top:", sec)

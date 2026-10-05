@@ -4,6 +4,9 @@ services:
       context: .
     working_dir: /workspace
     user: "${LOCAL_UID}:${LOCAL_GID}"
+    # rootless Podman: `keep-id` (the Makefile's default) maps the host user to itself so the bind mount is writable on a POSIX
+    # filesystem; empty for a Docker engine, where it means "no override".
+    userns_mode: "${LOCAL_USERNS:-}"
     environment:
       HOME: /tmp
     volumes:
