@@ -1509,6 +1509,30 @@ VEHICLE_OBJECT_REFERENCES = {
 
 PROFILES["vehicle"] = _vehicle_profile()
 
+
+# Issue #158: vehicle-0002 (poc/gbp-play-gba2) is vehicle-0001's copy plus ONE teardown block in main() that writes five records through
+# src/gbp/gbp_startrec. Its profile is `vehicle` (unchanged) with the formatter named: the object is linked, may reach nothing but snprintf, and each
+# of its five functions is called from main once and from nothing else (the pump, the tap, the DMA callback and the draw-done handler never reach it;
+# tools/hotpath_cmp.py proves their code unchanged). Every count of `vehicle` was re-read from the vehicle-0002 listings and holds as pinned.
+VEHICLE2_FORMATTERS = ("gbp_startrec_startup", "gbp_startrec_startupt", "gbp_startrec_startupv", "gbp_startrec_streaminv",
+                       "gbp_startrec_streamselftest")
+
+
+def _vehicle2_profile():
+    p = copy.deepcopy(PROFILES["vehicle"])
+    p["required_objects"] = p["required_objects"] + ("gbp_startrec.o",)
+    p["elf_required"] = p["elf_required"] + VEHICLE2_FORMATTERS
+    p["main_must_call"] = p["main_must_call"] + VEHICLE2_FORMATTERS
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    for f in VEHICLE2_FORMATTERS:
+        p["symbol_callers"][f] = {"main": 1}
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    p["object_may_only_reference"]["gbp_startrec.o"] = ("snprintf",)
+    return p
+
+
+PROFILES["vehicle2"] = _vehicle2_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player

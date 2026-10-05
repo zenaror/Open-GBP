@@ -678,7 +678,8 @@ class PreHandlerWait(unittest.TestCase):
             # Issue #129/#130: and §V28's own validation-round image, built on gbp-audio-sync's own chassis
             if d in ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe", "gbp-audio-drain-probe",
                      "gbp-audio-live", "gbp-audio-trace", "gbp-audio-split", "gbp-audio-game", "gbp-audio-game2",
-                     "gbp-audio-sync", "gbp-audio-v28", "gbp-play-gba"):   # Issue #153: the play image, a copy of the V28 chassis
+                     "gbp-audio-sync", "gbp-audio-v28", "gbp-play-gba",   # Issue #153: the play image, a copy of the V28 chassis
+                     "gbp-play-gba2"):   # Issue #158 (amended on top): vehicle-0002, the play image's copy
                 self.assertIn("cfg.prehandler_wait_ms = startup.prehandler_wait_ms;", text)
                 self.assertNotIn("cfg.prehandler_wait_ms = 5000u;", text)
                 h = self._read("src/gbp/gbp_startup.h")

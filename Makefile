@@ -96,6 +96,9 @@
 #                       into its own directory. It edits no POC source; it is the family's variant mechanism, as prehandler-wait is
 #   make vehicle        build the GBA play image (Issue #153, Phase 7's E5): poc/gbp-play-gba, build id vehicle-0001, the output directory removed
 #                       first. NOT staged, NOT pinned. vehicle-audit audits it (profile vehicle), vehicle-dolphin runs its absent-device abort path
+#   make vehicle2       build the GBA play image vehicle-0002 (Issue #158): poc/gbp-play-gba2, vehicle-0001's copy that also writes the startup profile
+#                       and the Policy A invariants at teardown; the output directory removed first. NOT staged, NOT pinned (29-vehicle2 is reserved in
+#                       the record only). vehicle2-audit audits it (profile vehicle2), vehicle2-dolphin runs its absent-device abort path
 #   make vstate-audit   audit gbp-video-state-probe: both 002/003B handlers and every object (profile vstate:
 #                       one __UnmaskIrq site, no INTMR store, 3 + 1 + 3 IRQ-register write sites, the 64-bit
 #                       time base through gettime() only, and NO filesystem reference in the capture path)
@@ -177,6 +180,8 @@ SYNC_OUT := build/poc/gbp-audio-sync
 SYNC_DOL := $(SYNC_OUT)/gbp-audio-sync.dol
 VEHICLE_OUT := build/poc/gbp-play-gba
 VEHICLE_DOL := $(VEHICLE_OUT)/gbp-play-gba.dol
+VEHICLE2_OUT := build/poc/gbp-play-gba2
+VEHICLE2_DOL := $(VEHICLE2_OUT)/gbp-play-gba2.dol
 AOUT_OUT := build/poc/audio-output-replay
 AOUT_DOL := $(AOUT_OUT)/audio-output-replay.dol
 COLOR_DOL := $(COLOR_OUT)/gbp-video-color-probe.dol
@@ -285,6 +290,8 @@ $(eval $(call ISR_RULE,$(SYNC_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_i
 $(eval $(call ISR_RULE,$(SYNC_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(VEHICLE_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(VEHICLE_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VEHICLE2_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VEHICLE2_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQA_OUT),003a))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQB_OUT),003b))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQ4_OUT),004))
@@ -303,6 +310,7 @@ $(eval $(call POC_AUDIT_RULE,$(GAME_OUT),game))
 $(eval $(call POC_AUDIT_RULE,$(GAME2_OUT),game))
 $(eval $(call POC_AUDIT_RULE,$(SYNC_OUT),sync))
 $(eval $(call POC_AUDIT_RULE,$(VEHICLE_OUT),vehicle))
+$(eval $(call POC_AUDIT_RULE,$(VEHICLE2_OUT),vehicle2))
 $(eval $(call POC_AUDIT_RULE,$(AOUT_OUT),aout))
 $(eval $(call ISR_COMPARE_TARGET,vstate-audit,$(VSTATE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,color-audit,$(COLOR_OUT)))
@@ -317,12 +325,18 @@ $(eval $(call ISR_COMPARE_TARGET,game-audit,$(GAME_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,game2-audit,$(GAME2_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,sync-audit,$(SYNC_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,vehicle-audit,$(VEHICLE_OUT)))
+$(eval $(call ISR_COMPARE_TARGET,vehicle2-audit,$(VEHICLE2_OUT)))
 
 # Issue #153: the GBA play image (poc/gbp-play-gba) is not in POCS (`make build` does not build it, as with poc/gbp-audio-v28); its own rules are these.
 $(VEHICLE_OUT)/gbp-play-gba.elf: poc/gbp-play-gba/Makefile $(wildcard poc/gbp-play-gba/source/*.c poc/gbp-play-gba/source/*.h) $(SRC_TREE)
 	$(IN_CONTAINER) sh -c 'make --no-print-directory -C poc/gbp-play-gba'
 $(VEHICLE_OUT)/audit/elf.nm.txt: $(VEHICLE_OUT)/gbp-play-gba.elf tools/audit_listings.sh
 	$(IN_CONTAINER) sh tools/audit_listings.sh $(VEHICLE_OUT) gbp-play-gba
+# Issue #158: vehicle-0002 (poc/gbp-play-gba2), not in POCS either.
+$(VEHICLE2_OUT)/gbp-play-gba2.elf: poc/gbp-play-gba2/Makefile $(wildcard poc/gbp-play-gba2/source/*.c poc/gbp-play-gba2/source/*.h) $(SRC_TREE)
+	$(IN_CONTAINER) sh -c 'make --no-print-directory -C poc/gbp-play-gba2'
+$(VEHICLE2_OUT)/audit/elf.nm.txt: $(VEHICLE2_OUT)/gbp-play-gba2.elf tools/audit_listings.sh
+	$(IN_CONTAINER) sh tools/audit_listings.sh $(VEHICLE2_OUT) gbp-play-gba2
 
 # GBP-INIT-002's handler audit and the GBP-INIT-001 INTMR negative control keep
 # their historical paths (tests/host/test_isr_audit.py, test_poc_audit.py): they
@@ -336,7 +350,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep stimulus-route swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin gbmode-session vehicle vehicle-audit vehicle-dolphin
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep stimulus-route swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin gbmode-session vehicle vehicle-audit vehicle-dolphin vehicle2 vehicle2-audit vehicle2-dolphin
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -655,6 +669,23 @@ vehicle-dolphin:
 	  --heartbeats 0 --expect 'OPENGBP-PLAY READY app=gbp-play-gba build=vehicle-0001' --expect 'OPENGBP-PLAY SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
 	  --expect 'OPENGBP-PLAY RESULT status=abort_inconsistent stop=failure service=0 deliveries=0 restore=1' \
 	  --report $(VEHICLE_OUT)/dolphin-report-absent.json --screen-png $(VEHICLE_OUT)/dolphin-screen-absent.png
+
+# Issue #158: the GBA play image vehicle-0002 (poc/gbp-play-gba2). The same discipline as `vehicle`: the whole output directory removed first, so two runs are two from-scratch builds;
+# a physical candidate is built at a clean commit only. NOT staged: the slot name 29-vehicle2 is reserved in the record and nowhere else.
+# -dirty also for an UNTRACKED file under src/, poc/gbp-play-gba2/ or tools/
+VEHICLE2_GIT_DIRTY := $(shell { git diff --quiet HEAD -- 2>/dev/null && test -z "$$(git status --porcelain --untracked-files=normal -- src poc/gbp-play-gba2 tools 2>/dev/null)"; } || echo -dirty)
+vehicle2:
+	$(COMPOSE) run --rm -T -e GIT_COMMIT="$(GIT_COMMIT)" -e GIT_DIRTY="$(VEHICLE2_GIT_DIRTY)" dev sh -c 'set -e; make --no-print-directory -C poc/gbp-play-gba2 clean; make --no-print-directory -C poc/gbp-play-gba2'
+	@echo
+	@echo "  GBA PLAY IMAGE - build id vehicle-0002; not staged, not pinned, no run authorised"
+	@sha256sum $(VEHICLE2_DOL)
+
+# The absent-device abort path in Dolphin (the pump slot never runs there): identity, both self-tests, the abort result. Auxiliary only; PASS is never "survived until timeout".
+vehicle2-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(VEHICLE2_DOL) --build-info $(VEHICLE2_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-PLAY READY app=gbp-play-gba2 build=vehicle-0002' --expect 'OPENGBP-PLAY SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
+	  --expect 'OPENGBP-PLAY RESULT status=abort_inconsistent stop=failure service=0 deliveries=0 restore=1' \
+	  --report $(VEHICLE2_OUT)/dolphin-report-absent.json --screen-png $(VEHICLE2_OUT)/dolphin-screen-absent.png
 
 # The controlled AGB stimulus of GBP-VIDEO-003 (devkitARM, inside the same container).
 # The ROM is a DEVELOPMENT ARTIFACT: it has never run on hardware, and this repository

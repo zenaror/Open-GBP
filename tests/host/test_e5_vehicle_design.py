@@ -85,8 +85,9 @@ class TheCodeFactsTheDesignRestsOn(unittest.TestCase):
         self.assertIn("p->underruns = n + 1u;", c)
         users = subprocess.run(["grep", "-rn", r"ap2\.playing", os.path.join(ROOT, "src"), os.path.join(ROOT, "poc")], capture_output=True, text=True).stdout
         self.assertEqual(sorted(set(l.split(":")[0].replace(ROOT + os.sep, "") for l in users.splitlines())),
-                         ["poc/gbp-audio-v28/source/main.c", "poc/gbp-play-gba/source/main.c"],
-                         "the aplay2 chain's playing flag is set only by the V28 chassis' main.c and by its copy, the play image's")
+                         # amended on top (Issue #158): vehicle-0002's main.c is the play image's copy
+                         ["poc/gbp-audio-v28/source/main.c", "poc/gbp-play-gba/source/main.c", "poc/gbp-play-gba2/source/main.c"],
+                         "the aplay2 chain's playing flag is set only by the V28 chassis' main.c and by its copies, the play images'")
         self.assertIn("ap2.playing = 1u;", read(os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")))
 
     def test_the_dma_does_not_start_on_an_unfilled_ring(self):
@@ -153,7 +154,8 @@ class NothingIsBuiltYet(unittest.TestCase):
             hits = sorted(h.replace(ROOT + os.sep, "") for h in hits)
             self.assertTrue(set(h for h in hits if h.startswith(("src/", "tools/"))) <= allowed, "%s appears outside its modules and its reader: %s" % (rec, hits))
             self.assertIn("poc/gbp-play-gba/source/main.c", hits, rec)
-            self.assertEqual([h for h in hits if h.startswith("poc/")], ["poc/gbp-play-gba/source/main.c"], "only the play image's main.c writes %s" % rec)
+            # amended on top (Issue #158): vehicle-0002 (poc/gbp-play-gba2) is the play image's copy and writes the same records
+            self.assertEqual([h for h in hits if h.startswith("poc/")], ["poc/gbp-play-gba/source/main.c", "poc/gbp-play-gba2/source/main.c"], "only the play images' main.c write %s" % rec)
         d = plain(section())
         for tok in ("NOTHING IS BUILT", "NO HASH EXISTS", "NO SLOT IS PINNED OR STAGED", "NO RUN IS AUTHORISED", "the name 28-vehicle is RESERVED here and nowhere else"):
             self.assertIn(tok, d, tok)

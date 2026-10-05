@@ -211,6 +211,7 @@ class GroundedInRealArtifacts(unittest.TestCase):
                                         "poc/gbp-audio-v28/source/main.c",
                                         "poc/gbp-audio-window-probe/source/main.c",
                                         "poc/gbp-play-gba/source/main.c",   # Issue #153: the play image, a copy of the V28 chassis
+                                        "poc/gbp-play-gba2/source/main.c",  # Issue #158 (amended on top): vehicle-0002, the play image's copy
                                         "poc/gbp-play-session/source/main.c",
                                         "poc/gbp-video-stream-probe/source/main.c"], hits)
         self.assertIn("Changed 2026-09-18 by the implementation of this design", flat(v5()))
