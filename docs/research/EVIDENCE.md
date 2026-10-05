@@ -12287,3 +12287,44 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 ```
 
 A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.
+
+
+### GBP-HW-382 — RUN 61 / RUN 62 / RUN 63 (`GBP-BREADTH-001`, E5, `vehicle-0001` on three GBA titles, one boot each): the service and transport gate passes, each session runs its 60 s start-up phase and its 300 s play phase to the cap, the native audio chain cold-started at T256 A1 underruns exactly once, at hand-off 2 of the start-up, and never after it, and the loss is 0.174-0.179 % in every phase — FACT (the readings, one boot per title, one console, one Game Boy Player); no capture loss inside the phases CORROBORATED, NOT FACT (the frozen reader's whole-session capture check declines); the start-up underrun's mechanism HYPOTHESIS; UNKNOWN (what the television showed and the audio sounded like beyond the Operator's words, other titles, play past 300 s, saves)
+
+GitHub Issue #155 (ingestion) of Hardware Issue #154. **Input:** `logs/run61/GBP-PLAY-002_vehicle-0001-{1,2,3}.log` (the Operator's own copies, renamed by him), archived by run number to `captures/local/GBP-PLAY-002_vehicle-0001-run61.log` (sha256 `9a8120351db9e129620d53708f190ba3acfdfd0cd23179452f09d775f67ce0cd`, title 1, Yoshi's Island on the EZ-Flash Omega DE NOR), `-run62.log` (`56575eb5e1573daa25f63574193fc7953c93debe6cde35e3bff7410fb9594b33`, title 2, Kingdom Hearts: Chain of Memories, JP, original) and `-run63.log` (`ddc8381e144072ede3d477c3fadcc262aba4af590594ddf4b1ebea9a212267f2`, title 3, The Simpsons: Road Rage, unofficial); build `vehicle-0001` at `6396851` (slot 28-vehicle, `a02bcfa3…5d2`); no Gecko; power cycle declared. Read with `tools/playread.py`, unedited at `18f9eb8`. Pre-registration: §V31.6 / §V31.8; full record, the reader's output verbatim and the scoring: `HARDWARE_TESTS.md` §V31.10.
+
+```text
+service / transport   ok_session_ended, stop session_end, restore ok, errors 0, transport_ok 1 (all three); deliveries = acks = re-arms = unmasks 2 230 182 / 2 233 700 / 2 231 650
+session               both phases ended reason=cap (navigate 60 s, play 300 s); capture 366.429 / 366.747 / 366.363 s; no Z
+loss per phase        p0 0.179 / 0.176 / 0.174 %, p1 0.174 / 0.175 / 0.176 %: inside the registered 0.10-0.40 % band in all six
+underruns             V28C 1 in each run, p0 1, p1 0; PLAYUNDER startup=1 after_startup=0 post_feed=0; PLAYUND n=0 handed=2 since_dma_ms=0; PLAYSTARTUP ring_at_dma=4097 ready_at_dma=1 k=64
+capture, per phase    V28PHC taps = blocks_in in p0 and p1 of all three (245 321 / 245 329 / 245 333 and 1 226 658 / 1 226 652 / 1 226 642), failed 0, wrong 0; V28C2 lost 0, syncpe_lost 0, lines_lost 0
+capture, the reader   CAPTURE: FAIL -- V28TAPS taps != blocks_in over the WHOLE session (1 498 246 / 1 471 980; 1 499 549 / 1 471 982; 1 497 970 / 1 471 976): 26 266 / 27 567 / 25 994 taps before the
+                      press origin, counted (main.c:469) and by design not decoded (main.c:373, :1011); the first KEY record -> origin is 6.426 / 6.744 / 6.360 s, the difference at the measured tap rate 6.424 / 6.742 / 6.357 s
+stores and memory     EVENTS 22 070 / 20 726 / 21 195 of 38 315, FRAMECAP 21 874 / 21 898 / 21 872 of 29 100, no store full; ENVMEM arena1_free 6 742 016 B (the first ENVMEM on this chassis)
+CARTDECL              idx 1 / 2 / 3 (FLASHCART_DELIVERED / ORIGINAL / UNOFFICIAL), entered=pad_selection_after_session -- an OPERATOR DECLARATION, not a machine reading
+```
+
+**What it establishes.** FACT (the readings, one boot per title): the play image ran its whole plan on three GBA titles of three forms with the service and transport gate passing; the native audio chain, cold-started at T256 A1 (a cold start at 4 096 had never run before), underran once per run, at the hand-off right after the DMA start's own, and not once after the start-up; the drain's loss sat in the band in every phase; no store filled. **CORROBORATED, NOT FACT: no capture loss inside the phases.** (here "capture loss" means a tap counted and not decoded; the drain's block loss against the nominal rate, 0.174-0.179 % per phase, is a separate figure and is not what this statement covers) The per-phase equality, the decoder's zero-loss counters and the transfer aggregate (`AUDIOAGG` completed = attempted = selected, failures 0) agree; the per-phase comparison can fail (the same two counters differ by the pre-origin window over the session); but the frozen reader's capture check, which compares the whole session, DECLINES, and a declining frozen check blocks FACT. The same whole-session inequality is in every archived V28-chassis log with a `V28TAPS` line (RUN 54-58), and RUN 58's G4 was scored on the per-phase form (`HARDWARE_TESTS.md` §V28.33, HOLDS). The reader's repair is Issue #156's and acts forward only.
+
+**The fallback rule (Issue #142).** Its only input, `after_startup`, is 0 in all three runs: **the central session (the Orchestrator seat) records that no rung moves and T256 A1 stands** (Issue #155). That call is the central session's; this entry records it and makes none.
+
+**What it does not establish.** (1) The start-up underrun's mechanism: timed at ordinal 2, 0 ms after the DMA start, it is CONSISTENT with §V31.3's HYPOTHESIS (the start's own hand-off takes the one ready chunk at AHEAD 1) and does not isolate it. (2) What the television showed and what the audio sounded like: the records count frames, blocks and hand-offs. (3) Whether the controls did what each game expected (the KEY record holds 1 289 / 1 281 / 1 055 key changes, none failed; read raw, not judged). (4) The startup profile and Policy A of these runs (not read). (5) Any other title, play past 300 s, saves (E6), GB/GBC, rumble. (6) Why the loss sits where it does: it is in the range of RUN 54's label-off, step-64 cell (0.16-0.20 %, `GBP-HW-364`) and below RUN 55's 0.31-0.36 % (`GBP-HW-367`), but the vehicle removed the label and the research handlers together, so `U-GBP-050`'s open residual is not separated (no status moves).
+
+**PROCEDURAL DEVIATION (recorded four ways in §V31.10; nothing voided).** The Operator copied and renamed the three logs himself where the frozen request had the Orchestrator archive each one between titles; there was no Gecko capture (`gecko=0` in each header, the console's own boot-time probe); the power cycle before and after is declared ("Ciclo de energia SIM", once, for the three titles). Mitigation: three complete, distinct files, each with its own `CARTDECL` agreeing with his mapping. Demonstrated consequence on the readings: none. Not concluded: the order beyond his word, the declarations and the rising epochs; the power cycle itself.
+
+**OPERATOR OBSERVATION (verbatim, recorded on #154 before any log was opened; set beside the readings, never substituted for them).** "sobre as respostas, sao as mesmas para os 3 titulos"; "Ciclo de energia SIM"; B, first "ouvi os sons dos jogos normalmente", asked again, "vi os jogos normalmente."; C "mesma coisa da B"; D "controles responderam"; E "nada estranho"; F "nada a declarar". On the procedure: "sim, joguei na ordem.. os logs -1 -2 e -3 se referem na ordem solicitada, respecitivamente... eu que renomeei dessa forma... e nao teve gecko".
+
+**Status.** FACT for the readings (one boot per title); CORROBORATED for no capture loss inside the phases; HYPOTHESIS for the start-up mechanism. This entry promotes nothing into `docs/hardware/` or `docs/protocol/`; no runtime constant changed.
+
+### GBP-HW-383 — GBP-HW-272's CLAIM 1 recomputed over 74 logs (RUN 61, RUN 62 and RUN 63 add three cartridge-present logs, all `0x92`): 13 at `0x90`, 61 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-381`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 61 (`vehicle-0001-run61`), RUN 62 (`vehicle-0001-run62`) and RUN 63 (`vehicle-0001-run63`) (Issue #155, Hardware Issue #154; the GBA play image on three GBA cartridges: the EZ-Flash Omega DE NOR, an original and an unofficial one) each record `orig=92`, as the split predicts. Before them the population was 71 logs, 13 at `0x90` and 58 at `0x92`; after them it is **74: 13 at `0x90` and 61 at `0x92`**. CLAIM 1 stays FACT and gains three logs; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     61 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number -- never inside `GBP-HW-272` or any earlier continuation again.

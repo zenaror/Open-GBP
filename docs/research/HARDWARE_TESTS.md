@@ -41229,3 +41229,191 @@ stale      no file named GBP-PLAY-002* or *vehicle-0001* anywhere on the card be
 ```
 
 The Orchestrator re-checks the card and clears the run on #154 before the Operator is told; nothing here starts a run.
+
+
+### V31.10 RUN 61 / RUN 62 / RUN 63 EXECUTED AND INGESTED — GBP-BREADTH-001 on `vehicle-0001`, three GBA titles, one boot each: the service and transport gate PASSES in all three, every session ran its 60 s start-up phase and its 300 s play phase to the cap, the loss is 0.174-0.179 % in every phase (inside the 0.10-0.40 % band), each run has exactly one underrun, at hand-off 2 of the start-up, and none after it; the frozen reader prints `CAPTURE: FAIL` on a whole-session comparison that the per-phase records satisfy — 2026-10-05 (Issue #155, Hardware Issue #154)
+
+*Appended. V31.6 (the draft), V31.8 (the build, the frozen Operator text and how a play log is read) and V31.9 (the staging) stand; nothing in them is amended. The Operator's words were posted verbatim on Hardware Issue #154 (comments 5994974585 and 5995019380, 2026-10-05) BEFORE any of the three logs was opened; they are repeated below and set beside the readings only after the readings existed. The archive and the frozen reader's output were posted by the central session on #154 (comment 5995105974); this record re-derives both.*
+
+**Files and integrity.**
+
+```text
+raw drop    logs/run61/GBP-PLAY-002_vehicle-0001-1.log, -2.log, -3.log: the Operator's own copies, renamed by him (the console writes the constant name GBP-PLAY-002_vehicle-0001.log); never edited
+archive     captures/local/GBP-PLAY-002_vehicle-0001-run61.log   258 563 B   sha256 9a8120351db9e129620d53708f190ba3acfdfd0cd23179452f09d775f67ce0cd   (= -1.log, title 1)
+            captures/local/GBP-PLAY-002_vehicle-0001-run62.log   257 213 B   sha256 56575eb5e1573daa25f63574193fc7953c93debe6cde35e3bff7410fb9594b33   (= -2.log, title 2)
+            captures/local/GBP-PLAY-002_vehicle-0001-run63.log   227 619 B   sha256 ddc8381e144072ede3d477c3fadcc262aba4af590594ddf4b1ebea9a212267f2   (= -3.log, title 3)
+            each archive copy re-hashed and compared (cmp) against its raw original for this record: equal
+sidecars    none: the play image writes one file per boot (the EVGAP and READDISAGREEMORE lines' "sidecar" wording is the shared video-state module's, inherited)
+gecko       none (below); every header reads gecko=0, the console's own boot-time probe of the Gecko channel (usb_isgeckoalive, poc/gbp-play-gba/source/main.c), against gecko=1 in the archived
+            logs of RUN 40-43, whose Orchestrator captures are archived (GECKO-LIVE-run40...43), and gecko=0 in RUN 58's, which had none (§V28.33)
+image       vehicle-0001, commit 6396851, slot 28-vehicle, boot.dol a02bcfa3...5d2 (V31.8, V31.9); each log's IDENT reads test=GBP-PLAY-002 app=gbp-play-gba build=vehicle-0001 commit=6396851
+complete    headers lines=1971 / 1963 / 1737, dropped=0 truncated=0, and `# --- end --- dropped=0` in all three
+reader      python3 tools/playread.py <log>, unedited (tools/playread.py at origin/main 18f9eb8, `git diff --quiet origin/main -- tools/playread.py`), on each archived copy
+```
+
+**The Operator's declaration (OPERATOR OBSERVATION, verbatim, posted on #154 before any log was opened).** Asked the order played, how the three files reached `logs/run61`, and whether a Gecko capture ran:
+
+```text
+sim, joguei na ordem.. os logs -1 -2 e -3 se referem na ordem solicitada, respecitivamente... eu que renomeei dessa forma... e nao teve gecko
+```
+
+The frozen questions of V31.8 (he stated the answers are the same for the three titles):
+
+```text
+sobre as respostas, sao as mesmas para os 3 titulos
+Ciclo de energia SIM
+b - ouvi os sons dos jogos normalmente
+C - mesma coisa da B
+D - controles responderam
+E - nada estranho
+f - nada a declarar
+```
+
+Question B asks what he SAW; the answer above speaks of sound. It was not reinterpreted (AGENTS.md §7.2): the underlying question ("O que você viu na TV nos três títulos?") was asked again, and his answer, still before any log was opened, was:
+
+```text
+B - vi os jogos normalmente.
+```
+
+His C ("mesma coisa da B") was given before B was asked again, beside the first B; which of the two it points to is his, not read here.
+
+**The frozen reader's output, verbatim, one block per run (`tools/playread.py`, unedited; identical byte for byte to the blocks posted on #154).**
+
+RUN 61, title 1:
+
+```text
+PLAYREAD  test=GBP-PLAY-002 build=vehicle-0001 commit=6396851
+  PLAYCFG: target=4096 ahead=1 step=64 k=64 play_bound_s=300 cap=420 wall=485 cold_start=set_target mode=GBA
+SERVICE/TRANSPORT: PASS  (status=ok_session_ended stop=session_end restore=ok errors=0 transport_ok=1)
+CAPTURE: FAIL
+  - V28TAPS taps=1498246 != blocks_in=1471980
+  phase 0 (navigate): ended, reason=cap
+  phase 1 (play): ended, reason=cap
+LOSS p0 (navigate): 0.179 % over 60.0 s
+LOSS p1 (play): 0.174 % over 300.0 s
+UNDERRUNS: V28C total=1, by phase p0=1, p1=0
+  PLAYSTARTUP: t_dma=797a55770732fa k=64 ring_at_dma=4097 ready_at_dma=1
+  PLAYUND n=0 handed=2 since_dma_ms=0
+  PLAYUNDER: startup=1 after_startup=0 post_feed=0 first_after_handed=- unrecorded=0 total=1 k=64
+  THE FALLBACK RULE'S ONLY INPUT (Issue #142): after_startup=0 (post_feed, the silence of a teardown whose feed had stopped, is NOT in it and is not a finding about the setting). This tool does not apply the rule; one rung per evidence is the Orchestrator's call, and the Operator's report of picotes is recorded beside the count, never substituted for it.
+CARTDECL (an OPERATOR DECLARATION, not a machine reading): idx=1 title="Yoshi's Island (SMA3) on the EZ-Flash Omega DE NOR" form=FLASHCART_DELIVERED mode=GBA entered=pad_selection_after_session
+ENVMEM: arena1_free=6742016 (the floor of GBP-HW-262 is 1650688) frames_bytes=5587200 events_bytes=2452160 corr_bytes=37830
+SURVIVE, not recomputed here (their own readers): the startup profile; Policy A; the KEY record; the CONTROL record (orig=92; a GBA cartridge: the bit 0x01 guard is not exercised)
+VOID IN A PLAY LOG (no record exists; NOT reported as passed): fill at the target and READY at AHEAD - 1 or AHEAD per confirm (V28_NULLM); the chunk-start mean of 3b (V28_3BM); the sweep's landings (V28_SWEEP*)
+```
+
+RUN 62, title 2:
+
+```text
+PLAYREAD  test=GBP-PLAY-002 build=vehicle-0001 commit=6396851
+  PLAYCFG: target=4096 ahead=1 step=64 k=64 play_bound_s=300 cap=420 wall=485 cold_start=set_target mode=GBA
+SERVICE/TRANSPORT: PASS  (status=ok_session_ended stop=session_end restore=ok errors=0 transport_ok=1)
+CAPTURE: FAIL
+  - V28TAPS taps=1499549 != blocks_in=1471982
+  phase 0 (navigate): ended, reason=cap
+  phase 1 (play): ended, reason=cap
+LOSS p0 (navigate): 0.176 % over 60.0 s
+LOSS p1 (play): 0.175 % over 300.0 s
+UNDERRUNS: V28C total=1, by phase p0=1, p1=0
+  PLAYSTARTUP: t_dma=797a5ba020dd8d k=64 ring_at_dma=4097 ready_at_dma=1
+  PLAYUND n=0 handed=2 since_dma_ms=0
+  PLAYUNDER: startup=1 after_startup=0 post_feed=0 first_after_handed=- unrecorded=0 total=1 k=64
+  THE FALLBACK RULE'S ONLY INPUT (Issue #142): after_startup=0 (post_feed, the silence of a teardown whose feed had stopped, is NOT in it and is not a finding about the setting). This tool does not apply the rule; one rung per evidence is the Orchestrator's call, and the Operator's report of picotes is recorded beside the count, never substituted for it.
+CARTDECL (an OPERATOR DECLARATION, not a machine reading): idx=2 title="Kingdom Hearts: Chain of Memories (JP)" form=ORIGINAL mode=GBA entered=pad_selection_after_session
+ENVMEM: arena1_free=6742016 (the floor of GBP-HW-262 is 1650688) frames_bytes=5587200 events_bytes=2452160 corr_bytes=37830
+SURVIVE, not recomputed here (their own readers): the startup profile; Policy A; the KEY record; the CONTROL record (orig=92; a GBA cartridge: the bit 0x01 guard is not exercised)
+VOID IN A PLAY LOG (no record exists; NOT reported as passed): fill at the target and READY at AHEAD - 1 or AHEAD per confirm (V28_NULLM); the chunk-start mean of 3b (V28_3BM); the sweep's landings (V28_SWEEP*)
+```
+
+RUN 63, title 3:
+
+```text
+PLAYREAD  test=GBP-PLAY-002 build=vehicle-0001 commit=6396851
+  PLAYCFG: target=4096 ahead=1 step=64 k=64 play_bound_s=300 cap=420 wall=485 cold_start=set_target mode=GBA
+SERVICE/TRANSPORT: PASS  (status=ok_session_ended stop=session_end restore=ok errors=0 transport_ok=1)
+CAPTURE: FAIL
+  - V28TAPS taps=1497970 != blocks_in=1471976
+  phase 0 (navigate): ended, reason=cap
+  phase 1 (play): ended, reason=cap
+LOSS p0 (navigate): 0.174 % over 60.0 s
+LOSS p1 (play): 0.176 % over 300.0 s
+UNDERRUNS: V28C total=1, by phase p0=1, p1=0
+  PLAYSTARTUP: t_dma=797a75670b6cef k=64 ring_at_dma=4097 ready_at_dma=1
+  PLAYUND n=0 handed=2 since_dma_ms=0
+  PLAYUNDER: startup=1 after_startup=0 post_feed=0 first_after_handed=- unrecorded=0 total=1 k=64
+  THE FALLBACK RULE'S ONLY INPUT (Issue #142): after_startup=0 (post_feed, the silence of a teardown whose feed had stopped, is NOT in it and is not a finding about the setting). This tool does not apply the rule; one rung per evidence is the Orchestrator's call, and the Operator's report of picotes is recorded beside the count, never substituted for it.
+CARTDECL (an OPERATOR DECLARATION, not a machine reading): idx=3 title="The Simpsons: Road Rage (paralelo)" form=UNOFFICIAL mode=GBA entered=pad_selection_after_session
+ENVMEM: arena1_free=6742016 (the floor of GBP-HW-262 is 1650688) frames_bytes=5587200 events_bytes=2452160 corr_bytes=37830
+SURVIVE, not recomputed here (their own readers): the startup profile; Policy A; the KEY record; the CONTROL record (orig=92; a GBA cartridge: the bit 0x01 guard is not exercised)
+VOID IN A PLAY LOG (no record exists; NOT reported as passed): fill at the target and READY at AHEAD - 1 or AHEAD per confirm (V28_NULLM); the chunk-start mean of 3b (V28_3BM); the sweep's landings (V28_SWEEP*)
+```
+
+**What the `CAPTURE: FAIL` line is, checked against the code at `18f9eb8` and against the logs (the classification follows).**
+
+1. **The reader's comparison.** `tools/playread.py:105` compares the WHOLE-SESSION `V28TAPS taps` with `V28TAPS blocks_in`. The two counters do not count over the same span: `live_taps++` (`poc/gbp-play-gba/source/main.c:469`) is the first statement of every tap callback, from the first tap of the capture, while `blocks_in` grows only when a block is pushed into the decoder, which starts at the press ORIGIN: the first A press plus `GAME_ORIGIN_DELAY_MS` (1000 ms, `main.c:373`), set by `gbp_alive_use_press_origin(&live, GAME_ORIGIN_DELAY_MS)` (`main.c:1011`). Before the origin the taps are counted and, by design, not decoded.
+2. **The figures, from the logs.**
+
+```text
+                                                   RUN 61          RUN 62          RUN 63
+V28TAPS taps (whole session)                       1 498 246       1 499 549       1 497 970
+V28TAPS blocks_in (whole session)                  1 471 980       1 471 982       1 471 976
+taps - blocks_in                                   26 266          27 567          25 994
+  at the nominal 4 096 blocks a second             6.413 s         6.730 s         6.346 s
+  at the session's measured tap rate (*)           6.424 s         6.742 s         6.357 s
+first KEY record -> the origin (V28PHC p0 t0)      6.426 s         6.744 s         6.360 s
+  the gap to the measured-rate figure              2.5 ms          1.9 ms          2.6 ms     (13.8 / 13.8 / 13.9 ms at the nominal rate)
+the first A press (KEY n=2) -> the origin          1.000 s         1.000 s         1.000 s    (GAME_ORIGIN_DELAY_MS)
+V28PHC p0 (navigate)  taps = blocks_in             245 321         245 329         245 333    failed 0, wrong 0
+V28PHC p1 (play)      taps = blocks_in             1 226 658       1 226 652       1 226 642  failed 0, wrong 0
+whole-session blocks_in - the two phases' sum      1               1               1          (taps outside the phases: 26 267 / 27 568 / 25 995)
+V28C2 lost / syncpe_lost / lines_lost              0 / 0 / 0       0 / 0 / 0       0 / 0 / 0
+V28TAPS taps_failed / wrong_len                    0 / 0           0 / 0           0 / 0
+AUDIOAGG selected = attempted = completed          = taps          = taps          = taps     failures 0
+V28CORR overflow                                   0               0               0
+(*) AUDIOAGG completed / CLOCKSEC capture_s: 1 498 246 / 366.429 s, 1 499 549 / 366.747 s, 1 497 970 / 366.363 s (about 4 088.8 a second in each)
+```
+
+   The single block counted outside the two phase windows is in every V28-chassis log with phase records (RUN 55-58 too); which block it is (the origin block, decoded before the phase's first snapshot, is the likely one) is an INFERENCE from the code, not a record.
+3. **The same whole-session inequality is in every archived V28-chassis log that carries a `V28TAPS` line**, re-read for this record: RUN 54 (1 420 855 against 1 381 475; no phase records), RUN 55 (1 041 086 / 1 010 655), RUN 56 (974 084 / 946 661), RUN 57 (948 445 / 913 232) and RUN 58 (1 160 993 / 1 111 498), with `taps == blocks_in`, 0 failed and 0 wrong in every phase record of RUN 55-58. **RUN 58's G4 used the per-phase form** (§V28.33's scoring table: "980 005 = 980 005", HOLDS) while its whole-session line was unequal. The inequality is a property of the chassis' two counters, new only to this reader's check; `tests/host/test_playread.py`'s synthetic logs make `taps == blocks_in` over the whole session (no pre-origin window), so the reader's tests never met it.
+4. **What the frozen text registered.** §V31.6 lists "`taps == blocks_in` (V28PHC, V28TAPS)" among the gates that SURVIVE, without saying per phase or per session; §V31.8's reader implemented the session form.
+
+**Classification of the capture gate (forward only; nothing above is re-labelled).** The frozen reader's capture check DECLINES (it printed `CAPTURE: FAIL`, and that line is the record of what the frozen instrument said). A declining frozen check blocks FACT. **"No capture loss inside the phases" is CORROBORATED, NOT FACT:** (here "capture loss" means a tap counted and not decoded; the drain's block loss against the nominal rate, 0.174-0.179 % per phase, is a separate figure and is not what this statement covers) the per-phase equality (`taps == blocks_in` in p0 and p1 of each run, 0 failed, 0 wrong), the decoder's own counters (`V28C2 lost 0`, `syncpe_lost 0`, `lines_lost 0`) and the transfer aggregate (`AUDIOAGG` completed = selected = attempted, failures 0) agree, and the per-phase comparison is not a zero by construction: the same two counters differ by 26 266 / 27 567 / 25 994 over the session, so a tap that was counted and not decoded does show in them. The repair of the reader is Issue #156's, and it acts FORWARD only: it does not re-judge RUN 61-63.
+
+**Scored against the gates that survive in a play log (V31.6; the reader's own lines, as printed).**
+
+| | registered | measured (RUN 61 / RUN 62 / RUN 63) | |
+|---|---|---|---|
+| identity | build `vehicle-0001`, commit `6396851`, not `-dirty` | all three; `PLAYCFG target=4096 ahead=1 step=64 k=64 play_bound_s=300 cap=420 wall=485 cold_start=set_target mode=GBA` | PASS |
+| service and transport | `VSTATE end` status, `errors 0`, `transport_ok 1`, restore ok | `ok_session_ended`, stop `session_end`, restore ok, errors 0, transport_ok 1 in all three; deliveries = acks = re-arms = unmasks (2 230 182 / 2 233 700 / 2 231 650) | PASS |
+| session | up to 6 minutes from the A, or Z | both phases ended `reason=cap` in all three (no Z: `SESSION requested=0`); capture 366.429 / 366.747 / 366.363 s | ran to the cap |
+| capture | `taps == blocks_in` (V28PHC, V28TAPS) | per phase: equal, 0 failed, 0 wrong (all six phases); whole session (the reader's form): unequal by the pre-origin window | the frozen check DECLINES; per phase HOLDS (above) |
+| loss per phase | 0.10-0.40 % | p0 0.179 / 0.176 / 0.174 %; p1 0.174 / 0.175 / 0.176 % | IN BAND, all six |
+| underruns | per phase (V28PHC) and split at K = 64 (V31.3) | V28C total 1 in each; p0 1, p1 0; `PLAYUNDER startup=1 after_startup=0 post_feed=0 unrecorded=0`; the one `PLAYUND` at hand-off 2, `since_dma_ms=0` | start-up only |
+| start-up | `PLAYSTARTUP` | `ring_at_dma=4097 ready_at_dma=1 k=64` in all three: the DMA started on a ring filled to the target (4 096) | recorded |
+| stores | a full store is a ROW | `EVENTS n=` 22 070 / 20 726 / 21 195 of 38 315 (57.6 % at most; 60.2 / 56.5 / 57.9 a second over the capture against the 79 a second guard), `store_full=0`; `FRAMECAP` 21 874 / 21 898 / 21 872 of 29 100, `store_full=0`; no store-cap stop | no store filled |
+| memory | `ENVMEM` (V31.7) | `arena1_free=6742016` in all three (frames 5 587 200 B, events 2 452 160 B, chunk corrections 37 830 B), against GBP-HW-262's floor of 1 650 688 B | measured, the first on this chassis |
+| KEY / input | the KEY record survives (its own reader) | read raw only: `KEYLOG lost=0 truncated=0` (1 290 / 1 282 / 1 056 records), `INPUT failed=0` | not judged here |
+| CONTROL | `orig=92`, the bit `0x01` guard not exercised | `orig=92 exp=8e`, restore read-back 92 `ok=1` in all three | as registered |
+| startup profile, Policy A | survive, their own readers | NOT READ in this ingestion (#155 does not list them, and no reader of them was run on a sidecar-less play log) | owed, not passed |
+
+**The fallback rule (Issue #142) — THE CENTRAL SESSION'S CALL (the Orchestrator seat), recorded as such, not this record's.** Its only input is `after_startup`; it is 0 in RUN 61, RUN 62 and RUN 63 (`post_feed` 0 in each as well). **No rung moves: T256 A1 stands** for the next vehicle build. The library default (`GBP_APLAY2_TARGET`) is untouched, as V31.1 left it.
+
+**The start-up underrun, timed for the first time.** In all three runs the one underrun is the hand-off right after the DMA start's own (ordinal 2), 0 ms after it, with the ring at 4 097 samples and one ready chunk at the start. That is what V31.3's HYPOTHESIS (the single ready chunk at AHEAD 1 is consumed by the start's own first hand-off, and the refill misses the next) predicts; it is CONSISTENT with it and does not isolate it, so it stays a HYPOTHESIS.
+
+**The Operator's words beside the machine readings (neither substituted for the other, neither reconciled toward the other).** His B ("vi os jogos normalmente") and C ("mesma coisa da B", given beside his first B, "ouvi os sons dos jogos normalmente") stand beside: video delivered for the whole session in each run (`FRAMECAP` 21 755 / 21 768 / 21 770 complete frames; `MATRIX frame_capture=ok`) and the audio chain's records above (loss in band, no underrun after the start-up). The machine records say nothing about what the television showed or what the audio sounded like; his words say nothing about counts. His D ("controles responderam") stands beside the KEY record's 1 289 / 1 281 / 1 055 key changes with no failed write; whether each press did what he expected in the game is his, not the record's. His E ("nada estranho") stands beside one start-up underrun per run (one silent hand-off, `V28C silences=1`, a hand-off period being about 31.2 ms (V31.3), at the DMA start, 93.4 / 93.6 / 93.4 ms after the origin): the record does not time it against his listening, and his words do not say whether he heard it. F: "nada a declarar". **`CARTDECL` is an OPERATOR DECLARATION, not a machine reading:** idx 1 / 2 / 3 (Yoshi's Island on the EZ-Flash Omega DE NOR, FLASHCART_DELIVERED; Kingdom Hearts: Chain of Memories (JP), ORIGINAL; The Simpsons: Road Rage, UNOFFICIAL), each `entered=pad_selection_after_session`, agreeing with his mapping of `-1` / `-2` / `-3` to titles 1 / 2 / 3. Whether a save was made on the original Kingdom Hearts cartridge is in neither his words nor the log. The attribution caveat of PHASE7_ENTRY §7.2 item 1 rides RUN 61 (the NOR flashcart) and the unofficial form rides RUN 63, as V31.6 registered.
+
+**PROCEDURAL DEVIATION — recorded four ways; nothing is voided by it.**
+
+- **Fact.** (1) The Operator copied the three logs off the card and renamed them himself (`-1` / `-2` / `-3` = titles 1 / 2 / 3, his words); the frozen request had the Orchestrator archive each one between titles (V31.8, "Between titles" and step 1). (2) There was no Gecko capture (his words: "nao teve gecko"); the frozen text had him announce each title before power-on so the Orchestrator could open it (step 2). Hardware Issue #154 carries no pre-boot announcement and no per-title report; his declaration came as one message for the three titles on 2026-10-05, the files' dates being 2026-10-02 (as recorded on #154). (3) The power cycle is DECLARED: "Ciclo de energia SIM", answering the frozen "ciclo de energia ANTES e DEPOIS -- sim / não", once, for the three titles.
+- **Mitigation.** Each file is complete (header `dropped=0 truncated=0`, the end marker, its own IDENT) and the three are distinct (three different hashes, three different `CARTDECL` lines), so no boot's log was overwritten by the next; each file carries its own `CARTDECL` line, entered at the console, agreeing with his file-to-title mapping; the CLOCKS epochs rise in the declared order (797a5567..., 797a5b8f..., 797a7557...), consistent with it (whether the time base is continuous across a power cycle is not established here, so this is consistency, not proof); `gecko=0` in each header is the console's own reading of an absent Gecko, consistent with his "nao teve gecko"; his answers were recorded before any figure was computed or shown; the archive copies were hashed against his originals.
+- **Demonstrated consequence.** None on the machine readings: every figure above comes from the complete SD logs, which is the record a play log is read from (V31.8); the Gecko capture would have added a live console trace, not a gate. What is lost is the per-title timing of his answers (one answer for three titles) and any console-side text a Gecko would have carried.
+- **Not concluded.** That the boots ran in the declared order beyond his word, the `CARTDECL` lines and the rising epochs; that the power cycle before and after each title happened (a declaration; `power_cycle_required=1` in the header is what the image asks, not proof that it was done); any per-title difference in what he saw, heard or felt (his answers are stated to be the same for the three); whether the deviation affected anything the records do not carry.
+
+**What this run establishes, and what it does not.**
+
+1. **Established (FACT, the readings; one boot per title, one console, one Game Boy Player).** `vehicle-0001` ran its whole plan (60 s start-up phase, 300 s play phase, both to the cap) on three GBA titles of three forms with the service and transport gate passing; the native audio chain, cold-started at T256 A1 (the first cold start at 4 096 ever run), underran exactly once in each run, at hand-off 2 of the start-up, and never after it; the loss sat at 0.174-0.179 % in every phase, inside the band; no store filled; `ENVMEM` reads 6 742 016 B free in arena 1.
+2. **CORROBORATED, not FACT:** no capture loss inside the phases (the frozen capture check declines; above).
+3. **HYPOTHESIS, unchanged:** the start-up underrun's mechanism (V31.3), now timed and consistent with it.
+4. **Not established.** What the television showed and what the audio sounded like beyond his words; whether the controls did what each game expected; anything past 300 s of play, any other title, a save (E6); the startup profile and Policy A of these runs (not read here). The loss is in the range of RUN 54's (label off, step 64) cell, 0.16-0.20 % (`GBP-HW-364`), and below RUN 55's 0.31-0.36 % (`GBP-HW-367`); the vehicle removed the label and the research handlers together, so this does not separate `U-GBP-050`'s open residual candidates (no status moves there).
+
+**Cross-reference (forward only; V31.3 is not edited).** V31.3's sentence "RUN 55-58 each show exactly one, in `navigate` (p0)" is right per phase (p0 = 1 in each) but not per session: RUN 55, 56 and 57 record `V28C underruns=2` (V28PHC p0 1 and p1 1; GBP-HW-367 already reads RUN 55 so), RUN 58 records 1 (p0). Nothing in this record rests on that sentence.
