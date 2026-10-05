@@ -150,7 +150,10 @@ class Records(unittest.TestCase):
         h = read(HANDOFF)
         for heading, para in (("## Current blocker / current question\n\n", HANDOFF_BLOCKER), ("## Next safe action\n\n", HANDOFF_NEXT)):
             self.assertEqual(h.count(heading), 1)
-            self.assertTrue(h.split(heading)[1].startswith(para), heading)
+            # amended on top by Issue #158 (a later checkpoint's paragraph may lead the section): #159's paragraph is in the section, once, ahead of #157's
+            sec = h.split(heading)[1].split("\n## ")[0]
+            self.assertEqual(sec.count(para), 1, heading)
+            self.assertLess(sec.index(para), sec.index("Issue #157), on top:"), heading)
         self.assertIn("ba9cd72a4bd0", h)
         self.assertIn(DIGEST, h)
 
