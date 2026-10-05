@@ -4,7 +4,7 @@
 **Question answered:** does the autonomous development loop work end to end?
 
 ```text
-source → Docker (devkitPPC 16.1.0 + libogc2 r2442) → ELF → DOL → Dolphin → (physical GameCube)
+source → container, rootless Podman (devkitPPC 16.1.0 + libogc2 r2442) → ELF → DOL → Dolphin → (physical GameCube)
 ```
 
 The program touches only generic GameCube facilities: video framebuffer
@@ -49,7 +49,7 @@ never accesses Game Boy Player / HSP hardware.
 From the repository root, on the host:
 
 ```bash
-make build          # docker compose run --rm -T dev make -C poc/smoke-test
+make build          # podman compose run --rm -T dev make -C poc/smoke-test
 ```
 
 Outputs (`build/poc/smoke-test/`, ignored by Git):

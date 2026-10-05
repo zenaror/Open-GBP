@@ -3,7 +3,7 @@
 #
 # Run from inside the project container, e.g. from the repository root:
 #
-#     make build            # top-level wrapper (docker compose)
+#     make build            # top-level wrapper (podman compose)
 #
 # or directly inside the container:
 #

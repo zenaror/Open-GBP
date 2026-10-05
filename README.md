@@ -164,7 +164,7 @@ build/               Generated build outputs
 
 ## Development environment
 
-GameCube software is built in Docker using a pinned libogc2/devkitPPC environment.
+GameCube software is built in a container under rootless Podman (`make` drives `podman compose`; see `COMPOSE` in the Makefile and `systemctl --user start podman.socket`) using a pinned libogc2/devkitPPC environment.
 
 Current base image:
 

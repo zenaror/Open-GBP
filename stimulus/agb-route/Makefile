@@ -10,7 +10,7 @@
 #
 # Run from inside the project container, e.g. from the repository root:
 #
-#     make stimulus-route            # top-level wrapper (docker compose)
+#     make stimulus-route            # top-level wrapper (podman compose)
 #
 # or directly inside the container:
 #

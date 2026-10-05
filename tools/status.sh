@@ -53,7 +53,7 @@ fi
 if [ -n "${STATUS_PS:-}" ]; then ps_out=$(cat "$STATUS_PS"); else ps_out=$(ps -eo etimes=,args= 2>/dev/null); fi
 running=$(printf '%s\n' "$ps_out" | awk -v self="$$" '
     /tools\/status\.sh/ { next }
-    /make( --no-print-directory)? test-python|make -C tests\/unit|pytest|docker compose run|analyzeHeadless|dolphin-emu|make stimulus|make build|make swiss/ {
+    /make( --no-print-directory)? test-python|make -C tests\/unit|pytest|docker compose run|docker-compose run|podman compose run|analyzeHeadless|dolphin-emu|make stimulus|make build|make swiss/ {
         s = $1; $1 = ""; sub(/^ /, "")
         key = substr($0, 1, 60)
         if (key in seen) next

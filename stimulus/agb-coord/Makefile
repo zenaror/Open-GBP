@@ -3,7 +3,7 @@
 #
 # Run from inside the project container, e.g. from the repository root:
 #
-#     make stimulus-coord            # top-level wrapper (docker compose)
+#     make stimulus-coord            # top-level wrapper (podman compose)
 #
 # or directly inside the container:
 #

@@ -527,6 +527,8 @@ a dirty build (`AGENTS.md` §12; formerly `CLAUDE.md` §18).
 
 ## Current blocker / current question
 
+**2026-10-05 (Issue #159), on top: the build environment is rootless Podman, not Docker** (`docs/research/DEVLOG.md`, the entry of Issue #159; the Docker engine was purged on 2026-10-02). `make` runs `podman compose` (`COMPOSE ?=`, overridable; `LOCAL_USERNS ?= keep-id`), needs `systemctl --user start podman.socket` active, and uses the base image `ghcr.io/extremscorner/libogc2:20260805` (image ID `ba9cd72a4bd0`, digest `sha256:13bb658d3f18903816617223f5d7c6f776d3db3ea806aae67f8d35a7a69d4c85`). **The reproduction gate passed first try:** `vehicle-0001` rebuilt from `git archive 6396851` is `a02bcfa3…5d2` (the `28-vehicle` pin) and `27-gbmode` from `4d6fe06` is `e33115e3…a497` (its pin), so a Podman build is "the project's build" for these images; two of the 17 frozen slots were tried, not all. `AGENTS.md` §16 still names Docker; its replacement text awaits the Operator's authorization. **No blocker.**
+
 **2026-10-05 (Issue #157), on top: the startup profile and Policy A of RUN 61-63 are NOT READABLE IN THESE LOGS** (`HARDWARE_TESTS.md` §V31.12, `docs/research/EVIDENCE.md` `GBP-HW-384`): the vehicle's log carries no record of either (0 `STARTUP` / `STARTUPT` / `STARTUPV` / `STREAMINV` / `DISPSRC` records, no `OGBPDISP2` sidecar, no format string in the image's sources); the debt §V31.10 records as "owed, not passed" is closed as NO RECORD, not as passed, and §V31.6's / §V31.8's "records the vehicle keeps" is corrected forward for those two (they survive as code). Their run-level readings are UNKNOWN; no evidence status moved. **No blocker.**
 
 **2026-10-05 (Issue #156), on top: the play-log reader's capture gate is repaired** (`tools/playread.py` reads `V28PHC` per phase; `HARDWARE_TESTS.md` §V31.11): the open item "the reader's forward-only repair" of the paragraph below is done. It prints `CAPTURE: PASS` on RUN 61 / 62 / 63 (a reading of the repaired reader; what the frozen reader printed stays recorded in §V31.10 and no evidence status moved). **No blocker.**
@@ -648,6 +650,8 @@ yielding 24.95 % / 25.01 %, pre-streaming window median **42.8** µs, p25
 still does not measure the margin.
 
 ## Next safe action
+
+**2026-10-05 (Issue #159), on top: Issue #159 is done (DEVLOG, Issue #159); the next safe action is Issue #158 (build the play image `vehicle-0002`), now buildable under Podman; the old Docker commands in the older paragraphs below and in the records are history.** No physical run is pending.
 
 **2026-10-05 (Issue #157), on top: Issue #157 is done (`HARDWARE_TESTS.md` §V31.12); the next safe action is Issue #158 (build the play image vehicle-0002, which also writes the startup profile and the Policy A invariants to its SD log; the Operator approved the direction on 2026-10-05); no physical run is pending.**
 
