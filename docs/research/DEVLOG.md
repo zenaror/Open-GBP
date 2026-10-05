@@ -19881,3 +19881,15 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Result.** Reproduced first: the reader of `5d653da` fails a realistic synthetic log (window 26 266, equal per-phase counts) with `CAPTURE: FAIL` and passes it with the window removed; the repaired reader passes it. On the archived RUN 61 / 62 / 63 the repaired reader prints `CAPTURE: PASS` (phases equal, 0 failed, 0 wrong; windows 26 266 / 27 567 / 25 994 as information). What the frozen reader printed for those runs stays as recorded; no status moves.
 
 **Next.** The next breadth titles as the Orchestrator orders them; the vehicle stays at T256 A1.
+
+## 2026-10-05 — Issue #157: the startup profile and Policy A of RUN 61 / RUN 62 / RUN 63 are NOT READABLE IN THESE LOGS (the vehicle's log carries no record of either; forward only)
+
+**Goal.** Settle the debt §V31.10 recorded as "owed, not passed": were the startup profile and Policy A of the three breadth runs readable from the logs, as §V31.6 and §V31.8 said ("records the vehicle keeps")?
+
+**Changes.** `HARDWARE_TESTS.md` §V31.12 (the census, the source check, the correction, the UNKNOWNs, the Dolphin ceiling, a recommendation not built); `EVIDENCE.md` `GBP-HW-384`; `tools/playread.py` (the two names leave the SURVIVE line and are printed on a line of their own naming the reason: informational, no gate moves); `tests/host/test_e5_startup_policy_a_no_record.py` and `tests/host/test_playread.py`; `docs/HANDOFF.md` on top.
+
+**Result.** The three archived logs hold 0 `STARTUP` / `STARTUPT` / `STARTUPV` / `STREAMINV` / `DISPSRC` records (record lines = header `lines=`: 1971 / 1963 / 1737) and no `OGBPDISP2` sidecar; the same counters find four of the five tags in each of seven logs of images that had the gates (the four `play-0001` logs and RUN 41 / 43 / 44). The one bare-substring hit per vehicle log is `PLAYSTARTUP`, the play image's own record, a different tag. The 35 sources and 79 files the vehicle links (includes resolved the compiler's way, `../` ones included; the executed DOL's `strings` agree: no `STREAMINV` / `DISPSRC` / `OGBPDISP`, only the two `PLAYSTARTUP` formats) carry no format string for any of them, at `6396851` and at `f98a11b`. What the vehicle keeps of the two gates is code (`gbp_startup_profile` at `main.c:970`, NORMAL by the build recipe; the display path's no-writable-XFB decision), not records. The debt is closed as NO RECORD, not as passed; the run-level readings (first hand-off time, `have_first`, `presented_synthetic`, Policy A's counts, the stream invariants) are UNKNOWN for RUN 61-63. No status moves.
+
+**Not done (not authorised).** No build, pin, staging or hardware; no reader that derives a hand-off time or a display figure from other records; the KEY record's reading; any edit of §V31.6 / §V31.8 / §V31.10 / `GBP-HW-382`.
+
+**Next.** Issue #158: the play image `vehicle-0002`, which also writes the startup profile and the Policy A invariants to its SD log (the Operator approved the direction on 2026-10-05); no physical run is pending. The `OGBPDISP2` caps for a 420 s plan stay a recommendation in §V31.12.
