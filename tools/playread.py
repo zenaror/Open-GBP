@@ -12,6 +12,8 @@ WHAT IT REFUSES TO SAY. (1) A `-dirty` commit is printed as NOT A CANDIDATE. (2)
 is reported as UNEXPECTED, not read. (3) The gates that read them (fill at the target and READY per confirm, the 3b chunk-start mean, the sweep's landings) are VOID, by name. (4) A store-cap stop
 is a ROW that says so (the status reads ok_no_change_inconclusive), not a failed run. (5) The Operator's observation and the CARTDECL line are DECLARATIONS, never machine readings.
 
+THE CAPTURE GATE IS PER PHASE (V28PHC: taps == blocks_in, failed 0, wrong 0 in every phase; Issue #156, HARDWARE_TESTS.md V31.11); the whole-session taps - blocks_in is printed as information (the pre-origin window).
+
 Standard library only. The per-phase loss is tools/v28verdict.py's own phase_loss() (Issue #138), unchanged.
 """
 import os
@@ -102,11 +104,32 @@ def analyse(text):
     if taps is None:
         cap.append("no V28TAPS record")
     else:
-        if taps.get("taps") != taps.get("blocks_in"):
-            cap.append("V28TAPS taps=%s != blocks_in=%s" % (taps.get("taps"), taps.get("blocks_in")))
         for f in ("taps_failed", "wrong_len"):
             if int(taps.get(f, "0")) != 0:
                 cap.append("V28TAPS %s=%s (nonzero)" % (f, taps[f]))
+    # THE TAP GATE IS PER PHASE (V28PHC), as P6 / G4 always read it (Issue #156, HARDWARE_TESTS.md V31.11). The whole-session V28TAPS counters do not count over the same span: taps
+    # count from the first tap, blocks_in from the press origin (main.c: live_taps++ in the tap callback; gbp_alive_use_press_origin), so their difference is the PRE-ORIGIN
+    # window of every healthy play log, a figure to print, never a verdict.
+    phc = every(recs, "V28PHC")
+    syncph_phases = set(kv_.get("phase") for kv_ in every(recs, "SYNCPH"))
+    phase_cap = []
+    for x in phc:
+        row = {"p": x["p"], "taps": int(x["taps"]), "blocks_in": int(x["blocks_in"]), "failed": int(x["failed"]), "wrong": int(x["wrong"])}
+        phase_cap.append(row)
+        if row["taps"] != row["blocks_in"]:
+            cap.append("V28PHC p=%s taps=%d != blocks_in=%d" % (row["p"], row["taps"], row["blocks_in"]))
+        if row["failed"] != 0:
+            cap.append("V28PHC p=%s failed=%d (nonzero)" % (row["p"], row["failed"]))
+        if row["wrong"] != 0:
+            cap.append("V28PHC p=%s wrong=%d (nonzero)" % (row["p"], row["wrong"]))
+    if not phc:
+        cap.append("no V28PHC record (the tap gate is per phase)")
+    for ph in sorted(syncph_phases - set(r["p"] for r in phase_cap)):
+        cap.append("phase %s has a SYNCPH record and no V28PHC record: its tap gate cannot be read" % ph)
+    out["phase_capture"] = phase_cap
+    out["pre_origin"] = None
+    if taps is not None and taps.get("taps", "").isdigit() and taps.get("blocks_in", "").isdigit():
+        out["pre_origin"] = {"taps": int(taps["taps"]), "blocks_in": int(taps["blocks_in"]), "diff": int(taps["taps"]) - int(taps["blocks_in"])}
     kl = last(recs, "KEYLOG")
     out["keylog"] = kl
     if kl is not None and (int(kl.get("lost", "0")) or int(kl.get("truncated", "0"))):
@@ -199,6 +222,12 @@ def render(out):
     L.append("CAPTURE: %s" % ("PASS" if out["capture"]["pass"] else "FAIL"))
     for p in out["capture"]["problems"]:
         L.append("  - %s" % p)
+    for r in out["phase_capture"]:
+        L.append("  tap gate, phase %s (V28PHC): taps=%d blocks_in=%d failed=%d wrong=%d" % (r["p"], r["taps"], r["blocks_in"], r["failed"], r["wrong"]))
+    po = out["pre_origin"]
+    if po:
+        L.append("  INFORMATION, not a verdict: whole-session V28TAPS taps=%d blocks_in=%d, taps - blocks_in = %d (taps count from the first tap, blocks_in from the press origin: the pre-origin window)" % (
+            po["taps"], po["blocks_in"], po["diff"]))
     for ph in out["phases"]:
         L.append("  phase %d (%s): %s, reason=%s" % (ph["phase"], ph["name"], "ended" if ph["ended"] else "not ended", ph["reason"]))
     for r in out["loss"]:
