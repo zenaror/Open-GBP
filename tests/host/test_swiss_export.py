@@ -394,9 +394,12 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # Issue #153 / Hardware Issue #154 (2026-09-30): the GBA play image (vehicle-0001), built at 6396851 clean and reproduced identically across two from-scratch Docker
         # rebuilds (HARDWARE_TESTS section V31.8); pinned and staged for GBP-BREADTH-001; its make target is `vehicle`.
         self.assertEqual(rows["28-vehicle"], "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2")
+        # Hardware Issue #161 (2026-10-05): the GBA play image with the startup profile and the Policy A invariants (vehicle-0002), built at 7d2f58f clean and reproduced identically
+        # across two from-scratch rebuilds (HARDWARE_TESTS section V31.13); pinned and staged for the second breadth session (V32 / V32.12); its make target is `vehicle2`.
+        self.assertEqual(rows["29-vehicle2"], "02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace", "19-split",
-                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p", "27-gbmode", "28-vehicle"])
+                          "20-game", "21-game2", "22-sync", "23-v28v", "24-v28d", "25-v28l", "26-v28p", "27-gbmode", "28-vehicle", "29-vehicle2"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid

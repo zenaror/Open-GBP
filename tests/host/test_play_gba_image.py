@@ -265,7 +265,9 @@ class TheIdentityAndTheBuild(unittest.TestCase):
         row carries exactly the hash HARDWARE_TESTS V31.8 records. Nothing else in the manifest moved (tests/host/test_swiss_export.py pins the frozen set)."""
         tsv = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
         rows = [l.split("\t") for l in tsv.split("\n") if l and not l.startswith("#")]
-        mine = [r for r in rows if "gbp-play-gba" in "\t".join(r)]
+        # amended on top again (Hardware Issue #161, 2026-10-05): the substring "gbp-play-gba" also names vehicle-0002's POC (slot 29, its own test pins that row), so this test selects
+        # vehicle-0001's rows by the POC column and still requires the one row of slot 28, unchanged
+        mine = [r for r in rows if r[2] == "gbp-play-gba"]
         self.assertEqual(mine, [["28", "vehicle", "gbp-play-gba", "gbp-play-gba.dol", "gbp-play-gba", "vehicle", "1", "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2"]])
         self.assertIn("a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2", read(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")))
 

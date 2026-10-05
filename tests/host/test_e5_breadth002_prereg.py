@@ -194,9 +194,14 @@ class TheEarlierRecordsAreOnTopUnchanged(unittest.TestCase):
 
     def test_the_reader_is_the_reader_of_base_and_the_slot_is_not_pinned(self):
         self.assertEqual(read("tools/playread.py"), base("tools/playread.py"))
-        tsv = read("tools/swiss-layout.tsv")
-        self.assertFalse([l for l in tsv.splitlines() if l.startswith("29")], "a row 29 in tools/swiss-layout.tsv: the pin is the hardware Issue's, amend this test on top then")
-        self.assertNotIn("vehicle2", tsv)
+        # AMENDED ON TOP (Hardware Issue #161, 2026-10-05): "no row 29" is a claim about BASE (the tree this pre-registration was written on); it is asserted THERE, and the
+        # manifest now carries exactly the one row the hardware Issue pinned (the hash of V31.13 and of the DOL line of V32.10)
+        then = base("tools/swiss-layout.tsv")
+        self.assertFalse([l for l in then.splitlines() if l.startswith("29")], "a row 29 in tools/swiss-layout.tsv at BASE")
+        self.assertNotIn("vehicle2", then)
+        rows = [l.split("\t") for l in read("tools/swiss-layout.tsv").split("\n") if l and not l.startswith("#")]
+        self.assertEqual([r for r in rows if r[0] == "29"],
+                         [["29", "vehicle2", "gbp-play-gba2", "gbp-play-gba2.dol", "gbp-play-gba2", "vehicle2", "1", "02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8"]])
 
 
 class TheSection(unittest.TestCase):

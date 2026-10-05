@@ -169,7 +169,10 @@ class ThePocIsNotEdited(unittest.TestCase):
         # amended on top (Issue #153 / Hardware Issue #154): slot 28 is now the GBA play image, pinned to the hash HARDWARE_TESTS V31.8 records; slot 29 is unassigned
         row28 = [r for r in rows if r[0] == "28"]
         self.assertEqual(row28, [["28", "vehicle", "gbp-play-gba", "gbp-play-gba.dol", "gbp-play-gba", "vehicle", "1", "a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2"]])
-        self.assertIsNone(re.search(r"^29\t", layout, re.M))
+        # amended on top again (Hardware Issue #161, 2026-10-05): slot 29 is now the vehicle-0002 play image, pinned to the hash HARDWARE_TESTS V31.13 records; slot 30 is unassigned
+        row29 = [r for r in rows if r[0] == "29"]
+        self.assertEqual(row29, [["29", "vehicle2", "gbp-play-gba2", "gbp-play-gba2.dol", "gbp-play-gba2", "vehicle2", "1", "02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8"]])
+        self.assertIsNone(re.search(r"^30\t", layout, re.M))
 
 
 class TheDriftInventory(unittest.TestCase):
