@@ -125,9 +125,14 @@ class TheNewSection(unittest.TestCase):
                     "V28MARK 0, V28DMA 0, -dirty 0", "the two DOLs byte-identical (cmp)", "--require-aligned: ok", "bc97ba3", "d8f8603", "f462c67", "d2fb332"):
             self.assertIn(tok, s, tok)
         self.assertIn("29-vehicle2 is RESERVED here and nowhere else", s)
-        tsv = read("tools/swiss-layout.tsv")
-        self.assertNotIn("vehicle2", tsv)
-        self.assertNotIn("gbp-play-gba2", tsv)
+        # AMENDED ON TOP (Hardware Issue #161, 2026-10-05): "nowhere in the manifest" is a claim about BASE (the commit these records were written on); it is asserted THERE, and the
+        # manifest now carries exactly the one row the hardware Issue pinned
+        then = base("tools/swiss-layout.tsv")
+        self.assertNotIn("vehicle2", then)
+        self.assertNotIn("gbp-play-gba2", then)
+        rows = [l.split("\t") for l in read("tools/swiss-layout.tsv").split("\n") if l and not l.startswith("#")]
+        self.assertEqual([r for r in rows if r[0] == "29"],
+                         [["29", "vehicle2", "gbp-play-gba2", "gbp-play-gba2.dol", "gbp-play-gba2", "vehicle2", "1", "02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8"]])
 
     def test_the_gate_output_is_verbatim_and_passes(self):
         s = section(read(HT), SEC)

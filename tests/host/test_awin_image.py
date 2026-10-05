@@ -453,7 +453,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["27"][1], rows["27"][2]), ("gbmode", "gbp-video-stream-probe"))
         # Issue #153 / Hardware Issue #154 (2026-09-30): the GBA play image (vehicle-0001) took the next number, frozen before its export (§V31.8 / V31.9); nothing renumbered
         self.assertEqual((rows["28"][1], rows["28"][2]), ("vehicle", "gbp-play-gba"))
-        self.assertNotIn("29", rows)
+        # Hardware Issue #161 (2026-10-05): the GBA play image with the startup profile (vehicle-0002) took the next number, frozen before its export (§V31.13 / V32.12); nothing renumbered
+        self.assertEqual((rows["29"][1], rows["29"][2]), ("vehicle2", "gbp-play-gba2"))
+        self.assertNotIn("30", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own

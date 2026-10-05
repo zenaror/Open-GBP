@@ -63,4 +63,5 @@
 26	v28p	gbp-audio-v28	gbp-audio-v28-perceptual_no_phase1.dol	gbp-audio-v28-perceptual_no_phase1	build	1	4a700dfe55ac48cde085217b489540976aa9ebb3a751b8ed26c94c5b0a37d4d3
 27	gbmode	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe-gbmode	gbmode-session	1	e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497
 28	vehicle	gbp-play-gba	gbp-play-gba.dol	gbp-play-gba	vehicle	1	a02bcfa3b84ccd363d7bad54c8e72411d9f2e9a49595963903d1feeac4acf5d2
+29	vehicle2	gbp-play-gba2	gbp-play-gba2.dol	gbp-play-gba2	vehicle2	1	02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-

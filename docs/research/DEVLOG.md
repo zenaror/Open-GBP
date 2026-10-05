@@ -19965,3 +19965,18 @@ Both are the first and only builds (no retry, no override of anything but the id
 **Not done (not authorised).** No pin, export or card write (`29-vehicle2` is reserved in the record only); no run; no evidence id; no change to any code, image, POC, reader or Makefile; no rebuild; §V31 and every earlier record untouched.
 
 **Next.** The hardware Issue #161 (staging, pin and slot, then the run), as #153 → #154.
+
+
+## 2026-10-05 — Hardware Issue #161: `vehicle-0002` pinned as `29-vehicle2` and staged on the card (Part 0); the card differs from before only by `29-vehicle2/boot.dol`; no run, no log read
+
+**Goal.** Part 0 of Hardware Issue #161: pin and stage the candidate of `HARDWARE_TESTS.md` §V31.13 for the session pre-registered in §V32, as Hardware Issue #154 staged `28-vehicle` (§V31.9). BASE = HEAD = `origin/main` = `36c69d5` (§V32 present).
+
+**Changes.** `tools/swiss-layout.tsv` row 29 (`vehicle2`, hash 02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8); the tests that pinned slot 29's absence or the frozen set amended on top (list in §V32.12); `HARDWARE_TESTS.md` §V32.12; this entry; the two HANDOFF paragraphs. The candidate's hash was recomputed before the pin (equal, 512 224 B; not rebuilt). `python3 tools/swiss_export.py --root . --only 29-vehicle2` exported one slot (28 carried over) and the export equals the pin. On the card: 30 files before, 31 after, the one difference the new file; `INDEX.txt` untouched; the 18 pinned slots equal their pins; no `GBP-PLAY-002*`, `*vehicle-0002*` or `*.log` file on the card.
+
+**Judgement at a boundary.** The earlier records said "no row 29" / "29-vehicle2 reserved in the record only" and are not edited; the tests that pin those sentences now assert the absence at the commit each record was written on, and the manifest's presence now. That is a change of the test's time reference, not of what the record claims.
+
+**Tests.** Full results of the staged tree in the report of the checkpoint; nothing was run on hardware.
+
+**Not done.** Part 1 (the Operator's run) and Part 2; any log opened; any evidence id; any code, image or reader change.
+
+**Next.** The central session re-checks the card and clears the run on Hardware Issue #161; the Operator is told only after that comment.

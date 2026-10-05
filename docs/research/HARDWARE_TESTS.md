@@ -41811,3 +41811,22 @@ Question answered:        V32.1 QA-QD
 ### V32.11 What this pre-registration does not do
 
 No pin, export or card write; no run; no evidence id; no reader or image change; T256 A1 unchanged; §V31 and every earlier record untouched. No expected value is added to any gate or to the Operator's text.
+
+### V32.12 The candidate PINNED as `29-vehicle2` and STAGED — 2026-10-05 (Hardware Issue #161, GBP-BREADTH-002; staging delegated by the central session once the card was connected)
+
+*Appended. V32.1-V32.11 above said "not staged, not pinned" when they were written and are not edited (V32.11 says it in as many words). This record is a staging act, not evidence about the hardware; no evidence id is allocated. The staging delegation follows V31.9 (28-vehicle).*
+
+```text
+candidate  vehicle-0002 at 7d2f58f, DOL 02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8 (512 224 B), `build/poc/gbp-play-gba2/gbp-play-gba2.dol`, recomputed here before the pin (sha256sum and stat) and equal to V31.13's (two from-scratch rebuilds cmp-identical, recorded there before this pin); NOT rebuilt here
+layout     tools/swiss-layout.tsv row 29, appended after row 28 and before row 80: 29 vehicle2 gbp-play-gba2 gbp-play-gba2.dol gbp-play-gba2 vehicle2 1 02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8 (tab separated; frozen at the hash of V31.13; the make target is `vehicle2`; nothing renumbered)
+exemption  none: 29-vehicle2 is the play-2 POC's own program under its own directory name (out_dir == source_poc), so by test_swiss_export.py's rule it belongs in the canonical range 01-69
+tests      amended on top, nothing else changed: test_swiss_export.py (the row's hash and the frozen set, 17 -> 18 slots), test_awin_image.py and test_play_image.py (the slot numbers 01-29, no slot 30), test_gbmode_image.py and test_gbmode_e4_prereg.py (slot 29 is vehicle-0002's, slot 30 unassigned),
+           test_play_gba_image.py (its row selection now by the POC column: the substring "gbp-play-gba" also names vehicle-0002's POC), test_play_gba2_image.py, test_e5_vehicle2_build_record.py and test_e5_breadth002_prereg.py (the absence of row 29 / "vehicle2" is now asserted AT THE COMMIT the earlier record was written on, 7d2f58f / BASE e1c063e, through guards.show, and the manifest NOW carries exactly the one pinned row); no record text edited
+export     python3 tools/swiss_export.py --root . --only 29-vehicle2  -> build/swiss/29-vehicle2/boot.dol (sha256 02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8; 512 224 B; 1 exported, 0 missing, 28 carried over; never `make swiss`); the tool's RULE 1 compares the bytes with the pin before writing
+card       /media/rafael/SD_GC/Open-GBP/29-vehicle2/boot.dol written (mkdir + cp), `sync`, read back: cmp equal to the build's export, sha256 equal to the pin. A sha256 of EVERY file under Open-GBP/ was taken before the write and after it (`find . -type f -print0 | sort -z | xargs -0 sha256sum`):
+           the ONLY difference is the new line for 29-vehicle2/boot.dol (30 files before, 31 after); INDEX.txt untouched (md5 e66e409d1522581f9b878b2e9858636f before and after); aout/ and the 28 earlier slot files byte-identical to before (diff of the two listings with the new line removed: empty)
+verified   all 18 pinned slots on the card read back equal to their pins in tools/swiss-layout.tsv (12-stream ... 29-vehicle2)
+stale      no file named GBP-PLAY-002* or *vehicle-0002*, and no *.log file at all, anywhere on the card before the first boot (checked after the write, over the whole tree)
+```
+
+What this staging does not do: no run (Part 1 of Hardware Issue #161 is the Operator's, after the central session's clearance); no log was opened or read; no evidence id; no change to the image, the reader, a POC or a Makefile; T256 A1 unchanged; the Operator's frozen text (V32.9) is unchanged. The central session re-checks the card and clears the run on #161 before the Operator is told; nothing here starts a run.

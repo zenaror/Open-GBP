@@ -520,10 +520,18 @@ class TheIdentityAndTheBuild(unittest.TestCase):
         self.assertIn("git -C \"$(CURDIR)\" status --porcelain --untracked-files=normal -- ../../src ../../poc/gbp-play-gba2 ../../tools", read(MAKEFILE))
 
     def test_no_swiss_row_no_pin_no_export(self):
+        """AMENDED ON TOP (Hardware Issue #161, 2026-10-05): the build half's claim was that the manifest had no row for this image; that is a claim about the tree at the build half's
+        commit, so it is asserted there (7d2f58f, which still holds the manifest the build half left), and the manifest NOW carries exactly the one row the hardware Issue pinned."""
+        import guards
+        b = guards.show("7d2f58fb60f0993e6a5d30b12bdc516dff9700de", "tools/swiss-layout.tsv")
+        b = b.decode("utf-8") if isinstance(b, bytes) else b
+        self.assertNotIn("gbp-play-gba2", b)
+        self.assertNotIn("vehicle2", b)
+        self.assertNotRegex(b, r"(?m)^29\t")
         tsv = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
-        self.assertNotIn("gbp-play-gba2", tsv)
-        self.assertNotIn("vehicle2", tsv)
-        self.assertNotRegex(tsv, r"(?m)^29\t")
+        rows = [l.split("\t") for l in tsv.split("\n") if l and not l.startswith("#")]
+        self.assertEqual([r for r in rows if r[2] == "gbp-play-gba2" or r[0] == "29"],
+                         [["29", "vehicle2", "gbp-play-gba2", "gbp-play-gba2.dol", "gbp-play-gba2", "vehicle2", "1", "02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8"]])
 
 
 class TheMakefileTargets(unittest.TestCase):
