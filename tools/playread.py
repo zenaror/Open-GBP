@@ -14,6 +14,12 @@ is a ROW that says so (the status reads ok_no_change_inconclusive), not a failed
 
 THE CAPTURE GATE IS PER PHASE (V28PHC: taps == blocks_in, failed 0, wrong 0 in every phase; Issue #156, HARDWARE_TESTS.md V31.11); the whole-session taps - blocks_in is printed as information (the pre-origin window).
 
+WHICH IMAGE (Issue #158) is decided by IDENT `build=`, cross-checked with `app=` (vehicle-0001 <-> gbp-play-gba, vehicle-0002 <-> gbp-play-gba2), NEVER by which records are present: deciding by
+presence would turn a vehicle-0002 log that lost its records into the harmless "no record in this image" line, a failure path that could never fire. vehicle-0001: the Issue #157 line, unchanged,
+and any of the five startup / Policy A tags in such a log is a problem. vehicle-0002: the startup block -- the HARDWARE_TESTS.md V5.53.2 checklist rows, each MET / NOT MET / MISSING with its
+source, thresholds as written there and in V5.52.15-17 (none new); a missing record is MISSING, never passed. Any other build id: a problem, and neither block. The reader prints ROWS: whether a
+NOT MET row fails a session is that session's hardware Issue's pre-registration, never this tool's.
+
 Standard library only. The per-phase loss is tools/v28verdict.py's own phase_loss() (Issue #138), unchanged.
 """
 import os
@@ -37,6 +43,10 @@ SURVIVING_NOT_RECOMPUTED = ("the KEY record", "the CONTROL record (orig=92; a GB
 # Issue #157 (HARDWARE_TESTS.md V31.12): V31.6 / V31.8 listed these two among the records the vehicle keeps. It keeps them as CODE; its log carries no record of either (no STARTUP / STARTUPT /
 # STARTUPV / STREAMINV record, no OGBPDISP2 sidecar). Printed apart, as information: no gate, threshold or verdict reads this tuple.
 NO_RECORD_IN_THIS_IMAGE_LOG = ("the startup profile", "Policy A")
+# Issue #158: the image is the IDENT build id, cross-checked with the app name; the five records vehicle-0002 writes at teardown (src/gbp/gbp_startrec)
+IMAGES = {"vehicle-0001": "gbp-play-gba", "vehicle-0002": "gbp-play-gba2"}
+STARTREC_TAGS = ("STARTUP", "STARTUPT", "STARTUPV", "STREAMINV", "STREAMSELFTEST")
+FIRST_HANDOFF_BOUND_MS = 400          # HARDWARE_TESTS.md V5.52.15 (frozen), V5.53.2 / V5.57.8 "< 400 ms": the strict form, compared in integers
 
 
 def kv(rest):
@@ -202,7 +212,97 @@ def analyse(text):
     out["envmem"] = last(recs, "ENVMEM")
     env = last(recs, "ENVSTORE")
     out["envstore"] = env
+    # Issue #158: which image, by the IDENT build id (cross-checked with app=), never by record presence
+    image = None
+    if ident is not None:
+        build, app = ident.get("build"), ident.get("app")
+        if build in IMAGES:
+            image = build
+            if app != IMAGES[build]:
+                out["problems"].append("IDENT app=%s does not match build=%s (expected app=%s)" % (app, build, IMAGES[build]))
+        else:
+            out["problems"].append("unknown build id %s: no record expectation" % build)
+    out["image"] = image
+    out["startrec"] = None
+    if image == "vehicle-0001":
+        for tag in STARTREC_TAGS:
+            if any(t == tag for t, _ in recs):
+                out["problems"].append("a vehicle-0001 log cannot carry %s" % tag)
+    elif image == "vehicle-0002":
+        out["startrec"] = startup_block(recs)
+        for tag in STARTREC_TAGS:
+            n = sum(1 for t, _ in recs if t == tag)
+            if n > 1:
+                out["problems"].append("%d %s records (one expected)" % (n, tag))
     return out
+
+
+def _int(d, key):
+    v = d.get(key) if d is not None else None
+    return int(v) if v is not None and re.fullmatch(r"\d+", v) else None
+
+
+def startup_block(recs):
+    """vehicle-0002's startup block: the V5.53.2 checklist rows, each (row, status, source) with status MET / NOT MET / MISSING, plus the information lines. No verdict."""
+    su, st, sv, inv, sft = (last(recs, t) for t in STARTREC_TAGS)
+    rows = []
+
+    def row(name, need, ok, source):
+        if any(r is None for r in need):
+            rows.append((name, "MISSING", source + " -- record missing, NOT passed"))
+        else:
+            rows.append((name, "MET" if ok() else "NOT MET", source))
+
+    def field(rec, tag, key):
+        return "%s %s=%s" % (tag, key, rec.get(key, "<absent>") if rec is not None else "<no record>")
+
+    row("mode normal", [su], lambda: su.get("mode") == "normal", field(su, "STARTUP", "mode"))
+    row("visible synthetic = 0", [su], lambda: su.get("normal_clean") == "1" and su.get("presented_synthetic") == "0",
+        "%s, %s" % (field(su, "STARTUP", "normal_clean"), field(su, "STARTUP", "presented_synthetic")))
+    row("pre-handler wait = 0", [su], lambda: su.get("prehandler_wait_ms") == "0", field(su, "STARTUP", "prehandler_wait_ms"))
+    row("black framebuffer initialisation", [su], lambda: su.get("clear_fb") == "1", field(su, "STARTUP", "clear_fb"))
+    row("first real hand-off observed", [sv], lambda: sv.get("have_first") == "1", field(sv, "STARTUPV", "have_first"))
+    ticks, tb = _int(sv, "ticks_control_to_first_handoff"), _int(st, "tb_hz")
+    src = "%s, %s" % (field(sv, "STARTUPV", "ticks_control_to_first_handoff"), field(st, "STARTUPT", "tb_hz"))
+    if ticks is not None and tb:
+        src += " (%.3f ms, information only; the comparison is ticks x 1000 < %d x tb_hz = %d ticks)" % (ticks * 1000.0 / tb, FIRST_HANDOFF_BOUND_MS, FIRST_HANDOFF_BOUND_MS * tb // 1000)
+    # a hand-off that never happened has ticks 0, which would be under any bound: the row needs have_first=1 (a zero that could not be otherwise is not a pass)
+    row("first real hand-off < 400 ms from CONTROL", [sv, st], lambda: (sv.get("have_first") == "1" and ticks is not None and tb is not None and tb > 0
+                                                                       and ticks * 1000 < FIRST_HANDOFF_BOUND_MS * tb), src)
+    rows.append(("no transport failure", "SEE SERVICE/TRANSPORT", "the reader's own service and transport gate above (V5.53.2's transport row)"))
+    chk, fail = _int(inv, "checks"), _int(inv, "failures")
+    split = None
+    if inv is not None:
+        m1 = re.fullmatch(r"(\d+)/(\d+)", inv.get("main", ""))
+        m2 = re.fullmatch(r"(\d+)/(\d+)", inv.get("isr", ""))
+        if m1 and m2:
+            split = (int(m1.group(1)), int(m1.group(2)), int(m2.group(1)), int(m2.group(2)))     # main failures, main checks, isr failures, isr checks
+    inv_src = "STREAMINV checks=%s failures=%s main=%s isr=%s (main= and isr= are failures/checks)" % (
+        (inv or {}).get("checks", "<absent>"), (inv or {}).get("failures", "<absent>"), (inv or {}).get("main", "<absent>"), (inv or {}).get("isr", "<absent>")) if inv is not None else "STREAMINV <no record>"
+    why = []
+    if inv is not None:
+        if chk is None or fail is None or split is None:
+            why.append("a field is absent or unreadable")
+        else:
+            if fail != 0:
+                why.append("failures=%d" % fail)
+            if chk == 0:
+                why.append("checks=0: a zero that could not be otherwise is not clean")
+            if chk != split[1] + split[3]:
+                why.append("checks=%d != main %d + isr %d" % (chk, split[1], split[3]))
+            if fail != split[0] + split[2]:
+                why.append("failures=%d != main %d + isr %d" % (fail, split[0], split[2]))
+    row("Policy A invariants clean", [inv], lambda: not why, inv_src + ("" if not why else " -- " + "; ".join(why)))
+    info = []
+    if sft is None:
+        info.append("STREAMSELFTEST: MISSING (NOT passed)")
+    else:
+        info.append("STREAMSELFTEST (information): ok=%s converted=%s released=%s own_presents=%s own_repeats=%s sci_clean=%s" % tuple(
+            sft.get(k, "<absent>") for k in ("ok", "converted", "released", "own_presents", "own_repeats", "sci_clean")))
+    if inv is not None:
+        info.append("STREAMINV consistent_at_end=%s (information)" % inv.get("consistent_at_end", "<absent>"))
+    missing = [t for t, r in zip(STARTREC_TAGS, (su, st, sv, inv, sft)) if r is None]
+    return {"rows": rows, "info": info, "missing": missing}
 
 
 def render(out):
@@ -252,7 +352,18 @@ def render(out):
         L.append("ENVMEM: arena1_free=%s (the floor of GBP-HW-262 is 1650688) frames_bytes=%s events_bytes=%s corr_bytes=%s" % (
             out["envmem"].get("arena1_free"), out["envmem"].get("frames_bytes"), out["envmem"].get("events_bytes"), out["envmem"].get("corr_bytes")))
     L.append("SURVIVE, not recomputed here (their own readers): %s" % "; ".join(SURVIVING_NOT_RECOMPUTED))
-    L.append("NO RECORD IN THIS IMAGE'S LOG, NOT READABLE HERE and NOT reported as passed (HARDWARE_TESTS.md V31.12): %s -- the vehicle keeps them as code; its log carries no STARTUP / STARTUPT / STARTUPV / STREAMINV record and no OGBPDISP2 sidecar" % "; ".join(NO_RECORD_IN_THIS_IMAGE_LOG))
+    if out.get("image") == "vehicle-0001":
+        L.append("NO RECORD IN THIS IMAGE'S LOG, NOT READABLE HERE and NOT reported as passed (HARDWARE_TESTS.md V31.12): %s -- the vehicle keeps them as code; its log carries no STARTUP / STARTUPT / STARTUPV / STREAMINV record and no OGBPDISP2 sidecar" % "; ".join(NO_RECORD_IN_THIS_IMAGE_LOG))
+    elif out.get("image") == "vehicle-0002":
+        sr = out["startrec"]
+        L.append("STARTUP PROFILE (vehicle-0002; the HARDWARE_TESTS.md V5.53.2 checklist rows, thresholds of V5.52.15-17; ROWS, not a session verdict -- that is the session's own pre-registration):")
+        for t in sr["missing"]:
+            L.append("  %s record: MISSING (NOT passed)" % t)
+        for name, status, source in sr["rows"]:
+            L.append("  [%s] %s: %s" % (status, name, source))
+        for x in sr["info"]:
+            L.append("  %s" % x)
+        L.append("  Policy A's drops / supersessions / reorder / depth / latency: NO RECORD (no OGBPDISP2; not built). Never reported as passed.")
     L.append("VOID IN A PLAY LOG (no record exists; NOT reported as passed): %s" % "; ".join(VOID_GATES))
     if out["unexpected"]:
         L.append("UNEXPECTED research record(s) in a play log, not read: %s" % ", ".join(out["unexpected"]))
