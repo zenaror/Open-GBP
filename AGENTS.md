@@ -639,13 +639,29 @@ This is required to tie hardware observations to exact source.
 
 # 16. Development environment
 
-GameCube software is built through Docker.
+GameCube software is built in a container under rootless Podman (the Docker
+engine is no longer installed on the development host; Issue #159). `make`
+drives it through `$(COMPOSE)`, default `podman compose` (a shim over the
+external `docker-compose` provider, which it points at Podman's own user
+socket); the user socket must be active:
+`systemctl --user start podman.socket`. The `Dockerfile` and `compose.yaml`
+keep their Docker-compatible format.
 
 Current base image:
 
 ```text
 ghcr.io/extremscorner/libogc2:20260805
 ```
+
+Verified on 2026-10-05 with Podman 4.9.3: image ID
+`ba9cd72a4bd027736197633b7510d269e07a2bf2894ef95018a2f2606d32b859`, manifest
+digest
+`sha256:13bb658d3f18903816617223f5d7c6f776d3db3ea806aae67f8d35a7a69d4c85`.
+A Podman build is "the project's build" because it reproduced
+`vehicle-0001` (`a02bcfa3…5d2`, built at `6396851`) and `27-gbmode`
+(`e33115e3…a497`, built at `4d6fe06`) byte for byte (`docs/research/DEVLOG.md`,
+Issue #159); a divergence from a pinned image means the environment is not
+equivalent, never that the pin is wrong.
 
 Expected environment:
 
@@ -673,7 +689,9 @@ make
 
 Do not install devkitPPC directly on the host unless explicitly requested.
 
-Do not use `sudo` to modify the host development environment.
+Do not use `sudo` to modify the host development environment. Container
+commands are `podman compose run --rm -T dev ...` (what `make` runs); do not
+reinstall Docker.
 
 The repository resides on a filesystem mounted through `fuseblk` and does not
 preserve normal POSIX executable permission semantics.
