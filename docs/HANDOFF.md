@@ -527,6 +527,8 @@ a dirty build (`AGENTS.md` §12; formerly `CLAUDE.md` §18).
 
 ## Current blocker / current question
 
+**2026-10-05 (Issue #155), on top: the newest state is Phase 7's E5, and the paragraphs below it are older history.** This file's state sections were last brought forward around Phase 5; Phases 6 and 7 since then live in `docs/research/HARDWARE_TESTS.md` (§V8 onward, §V28-§V31), `docs/research/EVIDENCE.md` (to `GBP-HW-383`), `docs/research/PHASE7_ENTRY.md` and `docs/research/DEVLOG.md`, which win over anything older below. **E5's first breadth session (Hardware Issue #154) ran and is ingested (`HARDWARE_TESTS.md` §V31.10; `GBP-HW-382`, recount `GBP-HW-383`):** RUN 61 / RUN 62 / RUN 63, the GBA play image `vehicle-0001` (`6396851`, slot `28-vehicle`, `a02bcfa3…5d2`) on Yoshi's Island (NOR), Kingdom Hearts: Chain of Memories (JP, original) and The Simpsons: Road Rage (unofficial): service and transport PASS, both phases to the cap, loss 0.174-0.179 % in every phase, one start-up underrun per run (hand-off 2) and `after_startup = 0`, so the fallback rule (Issue #142) moves no rung and **T256 A1 stands** (the central session's call). The frozen reader `tools/playread.py` prints `CAPTURE: FAIL` because it compares the whole session's taps with `blocks_in`, which starts at the press origin; per phase they are equal, so no capture loss inside the phases is CORROBORATED, not FACT. **No blocker.** Open items: the reader's forward-only repair (Issue #156); the startup profile and Policy A of these runs were not read; a procedural deviation is recorded (the Operator archived the files himself, no Gecko).
+
 **Phase 5's first physical runs are done and ingested (Issue #24,
 `HARDWARE_TESTS.md` §V7.2):** RUN 14 and RUN 15 of the unchanged `stream-0014`
 (`0ff8355`, SHA-256 `ef76a170…`) with the Enhanced Control Checker read
@@ -642,6 +644,8 @@ yielding 24.95 % / 25.01 %, pre-streaming window median **42.8** µs, p25
 still does not measure the margin.
 
 ## Next safe action
+
+**2026-10-05 (Issue #155), on top: the next safe action is Issue #156**, the forward-only repair of `tools/playread.py`'s capture gate to the per-phase form the V28 chassis' gates have always used (`HARDWARE_TESTS.md` §V31.10; it does not re-judge RUN 61-63). Issue #156 was opened with #155 and authorised by the Operator on 2026-10-05 (Hardware Issue #154's last comment). What follows it (more E5 titles, `docs/research/PHASE7_ENTRY.md` §6) is the Orchestrator's to order; the vehicle stays at T256 A1 unless a later `after_startup` moves the rung. The paragraphs below are older history.
 
 **Issue #41 (2026-09-21) PRE-REGISTERED RUN 21 and RUN 22
 (`HARDWARE_TESTS.md` §V7.6, GBP-INPUT-004): `play-0001`'s first runs, the

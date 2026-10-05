@@ -19855,3 +19855,18 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Goal.** Stage the vehicle-0001 image on the card for the first breadth session, as the Orchestrator delegated on #154, touching nothing else.
 
 **Changes.** `tools/swiss-layout.tsv` row 28 (frozen at `a02bcfa3…5d2`); the slot tests amended on top; `HARDWARE_TESTS.md` §V31.9. **Result.** `build/swiss/28-vehicle/boot.dol` exported; the card's `Open-GBP/28-vehicle/boot.dol` written and read back equal; a before/after sha256 of every file on the card differs only by that line; all 17 pinned slots on the card equal their pins; no stale `GBP-PLAY-002*` file. **Not done.** No run; the Orchestrator re-checks the card and clears the run.
+
+
+## 2026-10-05 — Issue #155: RUN 61 / RUN 62 / RUN 63 (GBP-BREADTH-001, E5) ingested; the chain held after the start-up on three GBA titles, and the frozen reader's capture line is a whole-session comparison
+
+**Goal.** Ingest the first breadth session (Hardware Issue #154: `vehicle-0001` on Yoshi's Island (NOR), Kingdom Hearts: Chain of Memories (JP, original) and The Simpsons: Road Rage (unofficial), one boot each) as §V31.6 / §V31.8 registered it, the Operator's words first.
+
+**Changes.** `HARDWARE_TESTS.md` §V31.10 (the archive re-hashed against the raw originals, the Operator's words, the frozen reader's output verbatim with its `CAPTURE: FAIL`, the capture mechanism, the scoring, the fallback rule as the central session's call, the procedural deviation four ways); `EVIDENCE.md` `GBP-HW-382` (the runs) and `GBP-HW-383` (the recount: 74 logs, 13 at `0x90`, 61 at `0x92`); `docs/HANDOFF.md` brought forward for E5; `tests/host/test_e5_breadth_run61_ingest.py` re-derives every figure from the hash-pinned archive and runs the reader as it stood at `18f9eb8`; the recount tests carry the three new logs.
+
+**Result.** Service and transport PASS in all three; each session ran 60 s + 300 s to the cap; loss 0.174-0.179 % in every phase (in band); one underrun per run, at hand-off 2 of the start-up (0 ms after the DMA start), `after_startup = 0`; no store filled; `ENVMEM` 6 742 016 B free. The reader's `CAPTURE: FAIL` compares the whole-session `V28TAPS` taps (counted from the first tap) with `blocks_in` (counted from the press origin): the 26 266 / 27 567 / 25 994 difference is the pre-origin window (first KEY -> origin within 1.9-2.6 ms at the measured tap rate), per phase taps = blocks_in, 0 failed, 0 wrong, and the same inequality is in RUN 54-58 (RUN 58's G4 used the per-phase form). No capture loss inside the phases is CORROBORATED, not FACT; the reader's repair is #156's, forward only. The fallback rule (#142): no rung moves, T256 A1 stands — the central session's call.
+
+**Operator.** One set of answers for the three titles: "vi os jogos normalmente", "ouvi os sons dos jogos normalmente", "controles responderam", "nada estranho"; he copied and renamed the files himself and ran no Gecko (a procedural deviation, nothing voided).
+
+**Not established.** The start-up underrun's mechanism (consistent with V31.3's HYPOTHESIS, not isolated); the startup profile and Policy A of these runs (not read); picture and audio beyond his words; other titles, longer play, saves.
+
+**Next.** Issue #156: the forward-only repair of `tools/playread.py`'s capture gate (per phase), then the next breadth titles as the Orchestrator orders them.

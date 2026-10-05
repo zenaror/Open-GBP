@@ -237,7 +237,10 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #147 (2026-09-30): RUN 59, gbmode-0001, a Game Boy Color cartridge (Pokemon Crystal)
                  "GBP-VIDEO-004_gbmode-0001-run59.log": "92",
                  # Issue #152 (2026-09-30): RUN 60, gbmode-0001 again (E4, the L / R stretch), the same Game Boy Color cartridge
-                 "GBP-VIDEO-004_gbmode-0001-run60.log": "92"}
+                 "GBP-VIDEO-004_gbmode-0001-run60.log": "92",
+                 # Issue #155 (2026-10-05): RUN 61 / 62 / 63, the GBA play image vehicle-0001 on three GBA cartridges
+                 "GBP-PLAY-002_vehicle-0001-run61.log": "92", "GBP-PLAY-002_vehicle-0001-run62.log": "92",
+                 "GBP-PLAY-002_vehicle-0001-run63.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -292,8 +295,11 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # Issue #147: RUN 59 (gbmode-0001) is the stream POC under its own build id; named apart
         gbmode = {f for f in cart if "gbmode-0001" in f}
         self.assertEqual(len(gbmode), 2, sorted(gbmode))     # RUN 59 and RUN 60 (Issue #152): the same image, two boots
+        # Issue #155: RUN 61-63 (vehicle-0001) are the GBA play image, the V28 chassis' copy under its own build id; named apart
+        vehicle = {f for f in cart if "vehicle-0001" in f}
+        self.assertEqual(len(vehicle), 3, sorted(vehicle))
         self.assertTrue(all(re.search(r"(color|stream)", f)
-                            for f in cart - play - drain - live - trace - split - game - game2 - sync - v28 - gbmode))
+                            for f in cart - play - drain - live - trace - split - game - game2 - sync - v28 - gbmode - vehicle))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))
