@@ -806,3 +806,19 @@ THE OPEN      toggle against set / clear (an unlisted reading predicts the same 
               stream POC reacts to L or R); the interpolation kernel; a vertical change; the audio; DMG against CGB; a second title; the GBI / Disc divergence (GBP-KEY-011).
 THE TIMELINE  the intro's four legible windows recurred frame for frame at the second boot: one more observation that the schedule's premise holds.
 ```
+
+## Amendment — 2026-10-05 (Issue #160): E7's first observation rides E5's second session on `vehicle-0002`; E7 begins before E6
+
+The committed text and the earlier amendments are unchanged. `HARDWARE_TESTS.md` §V32 pre-registers E5's second breadth session on `vehicle-0002` (not run, not staged, not pinned): three boots, in this order, Yoshi's Island on the EZ-Flash Omega DE NOR (the known control, compared with RUN 61), WarioWare: Twisted (US), WarioWare: Twisted (JP). The Operator's declaration of 2026-10-05 (§V32.3, verbatim) accepts rotating the GameCube + Game Boy Player carefully, or playing with the buttons only, and that the game may write to the cartridge's save.
+
+```text
+E7'S ORDER      §6 lists E7 after E5 and E6 and says it depends only on E5's vehicle. E7's FIRST observation (does the slot pass WarioWare: Twisted's gyroscope and the cartridge's rumble motor, GBATEK "GBA Cart
+                Rumble", §1) now rides E5's second session: E7 begins BEFORE E6 (the save / load probe), which this session does not run (title 1: the Operator is told not to save on purpose; the two Twisted titles: a save the game makes by
+                itself is accepted and allowed to finish, a new game is allowed only if the cartridge has no save, and an existing save is neither deleted nor overwritten on purpose; whatever the game
+                writes is recorded as what happened, never as E6).
+THE STATUS      the observation is an OPERATOR OBSERVATION: a positive (the game reacted to the rotation; a vibration from the cartridge felt or heard) shows the line worked in that boot, as he observed it, and
+                is never FACT or CORROBORATED from this run (no machine record carries it). A negative or "não reparei" does NOT discriminate: the slot not passing the line, a rotation too small, a microgame that
+                does not use the gyroscope, a calibration not done, a motor the game did not drive, or not noticing, are all still open. §6's "a 'did nothing' is a finding" stands as a finding about the
+                observation, not as evidence that the slot does not pass the line (UNKNOWN for the slot question).
+THE NOT-DECIDED the cartridge's GPIO lines themselves; Drill Dozer (§7.2 item 2 stays open; GBP rumble needs Phase 10, §4.4); saves as a question (E6); the two regions' difference beyond what the Operator reports.
+```

@@ -41642,3 +41642,172 @@ The closure is the same nine functions on both sides (`draw_quad`, `gbp_v28_step
 **Host tests at the commits.** `make test-python` 3984 passed, 9 skipped (each with its registered reason), 0 failed; `make -C tests/unit` green (75 binaries, `test_gbp_startrec: 19 checks, 0 failures`), on the staged tree before the commits.
 
 **Not decided here.** Whether `vehicle-0002` is staged and which image the next physical session uses; a pin and the slot `29-vehicle2` (they come with that session's hardware Issue, as #153 → #154); layer B (`DISPSRC`, `OGBPDISP2` and its caps); any library default. No physical run, no Operator text, no pre-registration.
+
+## V32 — PHASE 7's E5 second breadth session and E7's first cartridge-hardware observation on `vehicle-0002`: `GBP-BREADTH-002`, RUN 64-66 (provisional numbers) — PRE-REGISTERED, NOT RUN, NOT STAGED, NOT PINNED — **2026-10-05 (GitHub Issue #160)**
+
+*Appended. §V31 and every earlier record stand as written; nothing in them is amended. This is a pre-registration: it states the questions, the rival readings and the gates BEFORE any data, and freezes the Operator's text. It is not evidence about the hardware and no evidence id is allocated (no run, no `EVIDENCE.md` entry). BASE of this checkpoint: `origin/main` = `e1c063e` (Issue #158's §V31.13 on it; no `## V32` heading existed). The numbers RUN 64-66 are provisional: no `RUN 64` appears in `docs/`, `tools/` or `tests/` at BASE and `logs/` ends at `run61`; they are confirmed as the next free numbers at ingestion.*
+
+### V32.1 The questions
+
+```text
+QA  Do the five teardown records of vehicle-0002 (STARTUP, STARTUPT, STARTUPV, STREAMINV, STREAMSELFTEST) reach the SD log of a physical session?
+QB  Does the startup profile hold on the V28 chassis (its first reading there: the V5.53.2 rows, with the thresholds of V5.52.15-17)?
+QC  The E5 rows of two new ORIGINAL titles (WarioWare: Twisted, US and JP), and the control boot (Yoshi's Island, NOR) compared with RUN 61.
+QD  (E7) Does the Game Boy Player's slot pass WarioWare: Twisted's cartridge hardware: the gyroscope, and the cartridge's rumble motor
+    (GBATEK "GBA Cart Rumble", PHASE7_ENTRY.md §1)?
+```
+
+Why now: `docs/HANDOFF.md`'s "Next safe action" after Issue #158 names the next physical Phase 7 session, on `vehicle-0002`, pre-registered by its own hardware Issue. `docs/research/PHASE7_ENTRY.md` §6 (L515-528 at `e1c063e`): E5 is the GBA breadth session on the vehicle; E7 (cartridge hardware: RTC / tilt-gyro / cartridge rumble; "WarioWare: Twisted is recorded as owned"; "a 'did nothing' is a finding") depends only on E5's vehicle. §5.1 (L453-456): WarioWare: Twisted (JP and US), original per HARDWARE_TESTS 7.6.4, was rejected in Issue #37 ONLY as an input instrument (§V7.5: played by physically rotating the console). The declared GBA inventory has no plain E5 title left unrun: Yoshi's Island (NOR), Kingdom Hearts: Chain of Memories (JP) and The Simpsons: Road Rage ran as RUN 61-63 (§V31.10); Drill Dozer's facts are open (§7.2 item 2) and its GBP rumble needs Phase 10 (§4.4: the silence would not discriminate). Twisted is the next title, and playing it is E7's observation. `vehicle-0002` is a new variable (new teardown records; the hot-path identity gate reads SAME, but timing identity is NOT established, §V31.13), so boot 1 is the known control title, compared with RUN 61; the title variable enters at boot 2.
+
+### V32.2 Identity
+
+```text
+image         vehicle-0002 (poc/gbp-play-gba2), TEST_ID GBP-PLAY-002, commit 7d2f58f (§V31.13)
+DOL           02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8   (512 224 B)
+slot          29-vehicle2: still RESERVED in the record only (no row in tools/swiss-layout.tsv, no pin, no export, no card write); the pin and the staging are the hardware Issue's
+log name      GBP-PLAY-002_vehicle-0002.log -- a CONSTANT: src/platform/sdlog.c:24-25 at 7d2f58f builds "sd:/open-gbp/%s_%s.log" from the test id and the build id and opens it with
+              fopen(path, "w"), so every boot truncates it and a second title destroys the first title's log unless it is moved or renamed first (V32.9 has the Operator rename it per title)
+```
+
+The hash is the one §V31.13 records; the image is NOT physically validated by this pre-registration (AGENTS.md §5): "physically tested" applies only after a run whose artifact hash equals it.
+
+### V32.3 Titles, order, reasons, and the Operator's declaration
+
+Variant T, one boot per title, in this order:
+
+```text
+1  Yoshi's Island on the EZ-Flash Omega DE NOR     the known control (RUN 61 is the same title on vehicle-0001). Form FLASHCART_DELIVERED (CARTDECL idx 1, src/gbp/gbp_cartdecl.c:9 at 7d2f58f);
+                                                   the attribution caveat of PHASE7_ENTRY §7.2 item 1 rides it.
+2  WarioWare: Twisted (US)                         ORIGINAL (CARTDECL idx 5, gbp_cartdecl.c:13). E7's first observation (the gyroscope; a rumble cartridge).
+3  WarioWare: Twisted (JP)                         ORIGINAL (CARTDECL idx 4, gbp_cartdecl.c:12). The regional comparison PHASE7_ENTRY §1 leaves to Phase 7.
+```
+
+**The Operator's declaration of 2026-10-05, verbatim, answering the central session's three questions.** Questions: (1) are the EZ-Flash Omega DE (Yoshi's Island on the NOR), WarioWare: Twisted (US) and WarioWare: Twisted (JP) on hand today; (2) for the two Twisted cartridges, does he accept rotating the GameCube + Game Boy Player carefully (or playing with the buttons only), and that the game may write to the cartridge's save (whether it saves by itself is not recorded in this project); (3) can the SD2SP2 card stay connected for the staging of slot 29-vehicle2.
+
+```text
+1 - sim
+2 - sim
+3 - sim
+```
+
+These are OPERATOR DECLARATIONS; they are cited, not interpreted. They select variant T.
+
+**Variant R, recorded as an alternative NOT USED:** boot 1 Yoshi's Island as in T; 2 Kingdom Hearts: Chain of Memories (JP), original, NO save; 3 The Simpsons: Road Rage, unofficial: a second boot per title on the new image. It is not used because the Operator's declaration accepts variant T's two conditions (rotation or buttons only; a possible save by the game), and variant R alone would be the dedicated replication round the `vehicle-0002` decision declined (no dedicated hardware round; the image debuts in a session that has to happen anyway).
+
+**Not in this session:** Kingdom Hearts: Chain of Memories, The Simpsons: Road Rage, Drill Dozer (§7.2 item 2 open; GBP rumble needs Phase 10, PHASE7_ENTRY §4.4), and saves as a question (E6).
+
+### V32.4 The rival readings, written before the data
+
+```text
+QA  (a) the five records present and parseable; (b) a record MISSING in a COMPLETE log (header dropped=0 truncated=0): the teardown block did not write it; (c) the log INCOMPLETE (ring full or
+    truncated): QA cannot be separated on that boot. The reader prints MISSING, NOT MET and MET differently, and the header's dropped= separates (c).
+QB  (a) every row MET; (b) a row NOT MET (a finding about the chassis on that boot); (c) a row MISSING (QA's failure, not QB's).
+    The 400 ms row measures the first real frame's XFB hand-off, never the time until the picture is on the television: poc/gbp-play-gba2/source/main.c at 7d2f58f stamps first_real in submit_ready
+    (:836-875), whether or not the A has been pressed; the recorded instant (STARTUPV t_decision, gbp_startrec.c:31) is t_dec = gettime() at main.c:842, at the start of the submit that hands over
+    the first real frame, not gbp_vpresent_xfb_handed (:866) itself. VIDEO_SetNextFramebuffer (:863) is gated by live.phase (:861-862) and so runs only after the A
+    (the prompt, :618: "PRESS A within 45 s: the game appears"). No expected value is stated.
+QC  per gate, the reader's lines (V32.6).
+QD  A POSITIVE (the game reacted to the rotation; a vibration from the cartridge felt or heard) shows the line worked in that boot, as the Operator observed it. A NEGATIVE or "não reparei" has rivals
+    this instrument cannot separate: the slot does not pass the line; the rotation was too small; the microgame does not use the gyroscope; a calibration was not done; the game did not drive the
+    motor; it was not noticed. It is therefore NOT evidence that the slot does not pass it. The video is content-blind and decides nothing about QD.
+```
+
+### V32.5 The reader
+
+`tools/playread.py` as at this Issue's commit (its content at BASE, `e1c063e`, identical to its content at `7d2f58f`), unedited. At ingestion: `git diff --quiet <this Issue's commit> -- tools/playread.py` and `git diff --quiet origin/main -- tools/playread.py` (both exit 0), and the full output pasted per log, never a filtered one. Facts of the reader at `7d2f58f`: `LOSS_BAND` 0.10-0.40 % per phase (L35); `STARTUP_K_DEFAULT` 64 (L34); `FIRST_HANDOFF_BOUND_MS` 400, compared in integers (`ticks * 1000 < 400 * tb_hz`, `have_first == 1` required; L49, L270); the image decided by IDENT `build=` cross-checked with `app=` (L46-47, L222-238); the startup block's rows MET / NOT MET / MISSING (L245-300, L357-366); and, in its own words, "whether a NOT MET row fails a session is that session's hardware Issue's pre-registration, never this tool's" (L20-21): V32.6 is that pre-registration. The reader's positive and negative controls are Issue #158's (`tests/host/test_playread.py`). The KEY record is read raw (`KEYLOG lost= truncated=`), as in §V31.10. The header line `lines= dropped= truncated=` (`src/platform/sdlog.c:34-35` at `7d2f58f`) is read raw: the reader does not print it.
+
+### V32.6 The gates, decided before the run
+
+Per boot:
+
+```text
+G1 identity — IDENT `test=GBP-PLAY-002 app=gbp-play-gba2 build=vehicle-0002 commit=7d2f58f`, no `-dirty`; the card's `29-vehicle2/boot.dol` equal to the pin (verified at staging).
+G2 `SERVICE/TRANSPORT: PASS` (a store-cap stop is a ROW, as the reader prints).
+G3 `CAPTURE: PASS` (the per-phase form, Issue #156).
+G4 every phase's `LOSS` inside 0.10-0.40 % (a LOSS of `n/a` is not inside).
+G5 the reader's line `THE FALLBACK RULE'S ONLY INPUT (Issue #142): after_startup=0` and no `PROBLEM: underrun record` or `PROBLEM: no PLAYUNDER record` line.
+G6 the five records present exactly once (no `record: MISSING`, no `N <tag> records (one expected)`), header `dropped=0 truncated=0`, and the seven computed startup rows MET (the transport row refers to G2).
+G7 one `CARTDECL` line with `entered=pad_selection_after_session` (an OPERATOR DECLARATION; a disagreement with the order is recorded, not resolved).
+```
+
+**Classification.**
+
+- **INVALID** (the boot is not counted) — G1 fails, a log was overwritten by the next boot (the constant name), or a log was lost by a procedural cause the Operator reports. A log missing because the image did not reach the final screen or the screen did not confirm the save is NOT INVALID: it is a ROW, recorded with the Operator's words and photograph; QA is INCONCLUSIVE on that boot, and vehicle-0002 is not used again before a diagnosis checkpoint (the teardown block has never run outside host tests, §V31.13).
+- **QA** — a log is COMPLETE when its header reads `dropped=0 truncated=0`. FAIL if any complete log has a MISSING or duplicated record: an image defect, and vehicle-0002 is not used again before a diagnosis checkpoint. PASS if at least one log is complete and no complete log has a MISSING or duplicated record. INCONCLUSIVE on a boot whose log is incomplete or missing, and for the session if no log is complete. The five records are written unconditionally at teardown (`poc/gbp-play-gba2/source/main.c:1163-1184` at `7d2f58f`, before `if (sync_started)`), so `PLAYSTARTUP t_dma` does not condition QA.
+- **QB** — a boot with every row MET: the startup gate PASSES on that boot and the readings are FACT for that boot. **A NOT MET row does NOT fail the boot and does NOT by itself block vehicle-0002's use in E6 / E7; it requires, BEFORE the next physical session with vehicle-0002, a diagnosis on paper in a checkpoint of its own.** Policy A's drops / supersessions / reorder / depth / latency: NO RECORD (no `OGBPDISP2`; not built), never "passed".
+- **QC** — each title is a ROW; a failing G2-G5 is a row that says so, not a failed run. The control boot is compared with RUN 61 on G2-G5 only, RUN 61 as read by this same reader (`CAPTURE: PASS` per §V31.11), not the frozen reader's `CAPTURE: FAIL` of §V31.10; a difference is recorded, and since the hot-path identity is code identity and timing identity is NOT established (§V31.13), with one boot of each it is at most a HYPOTHESIS (image or day); boots 2-3's rows then carry that caveat.
+- **QD** — a positive is an OPERATOR OBSERVATION that the line worked in that boot; it is never FACT or CORROBORATED from this run (no machine record carries it). A negative or "não reparei" is UNKNOWN for the slot question (V32.4's rivals).
+- **G7 outcome** — a missing line, `entered=none`, or a title other than the frozen order's is recorded; that boot's title is settled by asking the Operator which cartridge was in the slot (AGENTS.md §7.2), never inferred; it does not by itself make the boot INVALID.
+
+### V32.7 The fallback rule and what follows a NOT MET
+
+Issue #142's rule reads `after_startup` only (`post_feed` excluded): any `after_startup > 0` in any boot moves the NEXT vehicle build one rung deeper (T256 A2), the central session's call, one rung per evidence, never back without new evidence; the Operator's report of picotes is recorded beside the count, never substituted for it. Any startup row NOT MET in any boot: before the next physical session with `vehicle-0002`, a diagnosis on paper (the logs and the code) in its own checkpoint; no audio rung moves for it; it does not by itself block E6 / E7 on `vehicle-0002` once that checkpoint is done.
+
+### V32.8 Recorded, not judged
+
+The Operator's words verbatim (posted before any log is opened); `CARTDECL`; `ENVMEM`; `EVENTS` / `FRAMECAP` counts and `store_full`; `KEYLOG` raw; `STREAMSELFTEST`; `STREAMINV consistent_at_end`; the pre-origin difference; the start-up `PLAYUND` timing; every `PROBLEM:`, `note:` or `UNEXPECTED` line that no gate names is recorded verbatim and explained; none is read as passed. Procedural deviations are recorded four ways (fact / mitigation / demonstrated consequence / not concluded), never "irrelevant", never an automatic void. A joint answer for several titles is admissible when the Operator says for which titles it holds.
+
+### V32.9 The Operator's procedure and questions — FROZEN, in Portuguese, before the run
+
+Verbatim below; no expected result is stated anywhere in it.
+
+```text
+GBP-BREADTH-002 — três títulos, um boot cada, NESTA ORDEM:
+  1) Yoshi's Island (EZ-Flash Omega DE, NOR)   2) WarioWare: Twisted (US)   3) WarioWare: Twisted (JP)
+Sem Gecko: não precisa avisar antes de ligar.
+
+ANTES DE CADA TÍTULO
+ 1. Console DESLIGADO POR COMPLETO (ciclo de energia). Cartucho do título no Game Boy Player. Nada no Link Port. Controle GENÉRICO na porta 1.
+ 2. Cartão SD2SP2: na pasta Open-GBP do cartão NÃO pode existir o arquivo  GBP-PLAY-002_vehicle-0002.log  (sem número no fim).
+    Se existir, ele é do título anterior: renomeie como no passo 9 ANTES de continuar. Cartão no console.
+ 3. Ligue e abra pelo Swiss:  Open-GBP / 29-vehicle2 / boot.dol    Confira na tela:  vehicle-0002   7d2f58f.   Se estiver diferente, PARE e avise.
+DURANTE
+ 4. Espere o aviso  PRESS A within 45 s  (cerca de 5 segundos) e aperte  A  ×1.  O jogo aparece; jogue normalmente. O teste termina sozinho em até 6 minutos.
+ 5. Título 1 (Yoshi, na NOR): NÃO salve o jogo de propósito. Títulos 2 e 3 (WarioWare: Twisted): você aceitou que o jogo possa gravar sozinho no cartucho. Se o cartucho NÃO tiver nenhum save, você pode começar um jogo novo para poder jogar; se JÁ tiver um save, continue nele e NÃO apague nem sobrescreva um save existente de propósito. Em nenhum título use as opções de salvar ou de apagar dados por conta própria. Se o jogo gravar, deixe terminar: não desligue nem segure Z durante uma gravação.
+ 6. Só nos WarioWare: Twisted (títulos 2 e 3): este jogo se joga girando o aparelho. Se achar seguro, gire o conjunto GameCube + Game Boy Player devagar e com cuidado,
+    sem puxar cabos nem mexer no cartão ou no cartucho. Se não achar seguro, NÃO gire: jogue só com os botões. As duas escolhas valem; depois só diga qual fez.
+ 7. Para terminar antes:  Z  (segure 1/4 de segundo).
+DEPOIS
+ 8. Quando o jogo sair da tela, SOLTE todos os botões e espere (até 5 segundos; depois a tela ignora os botões por 1 segundo).
+    Tela final: direcional  ESQUERDA / DIREITA  escolhe o título (o nome aparece na tela);  A  ×1  confirma.
+    X  ×1  grava; espere a tela confirmar a gravação. Se a tela NÃO confirmar, NÃO aperte START/PAUSE: fotografe a tela e avise.
+    Gravou: START/PAUSE  ×1.  DESLIGUE o console POR COMPLETO.
+ 9. Cartão no PC. Na pasta Open-GBP do cartão, renomeie  GBP-PLAY-002_vehicle-0002.log  para:
+       título 1 ->  GBP-PLAY-002_vehicle-0002-1.log
+       título 2 ->  GBP-PLAY-002_vehicle-0002-2.log
+       título 3 ->  GBP-PLAY-002_vehicle-0002-3.log
+    Só renomeie: não abra e não edite o arquivo.
+NO FIM DOS TRÊS
+10. Copie os três arquivos -1, -2 e -3, sem abrir, para a pasta  logs/run64/  do projeto. Deixe o cartão conectado ao PC.
+11. Responda na Issue ANTES de qualquer pessoa abrir os logs. Responda por título; se a resposta for igual para mais de um, diga para quais.
+    Ciclo de energia ANTES e DEPOIS de cada título: sim / não.
+    B. (IMAGEM) O que você viu na TV?
+    C. (SOM) O que você ouviu?
+    D. (CONTROLES) Os controles responderam como você esperava?
+    E. Aconteceu algo estranho (travou, cortou, estalou, ficou lento)? Quando?
+    F. Qualquer outra coisa.
+    Só nos títulos 2 e 3:
+    G. Você girou o aparelho? (sim / não). Se girou: o jogo reagiu ao giro? (sim / não / não sei dizer)
+    H. Você sentiu ou ouviu alguma vibração vinda do cartucho ou do Game Boy Player? (sim / não / não reparei). Se sim, quando?
+```
+
+### V32.10 The hardware test request, in `AGENTS.md` §14's format
+
+Verbatim below.
+
+```text
+Test ID:                  GBP-BREADTH-002 (RUN 64 / 65 / 66, provisional: confirmed as the next free numbers at ingestion), log test_id=GBP-PLAY-002
+Build ID:                 vehicle-0002, commit 7d2f58f
+DOL:                      build/swiss/29-vehicle2/boot.dol, sha256 02f89ccd1b07b10165d6d7b4287bf1b056a2a673661c89ad8e5b506fe56c55d8 (512 224 B); exported and staged by the hardware Issue, not here
+Required cartridge:       1 Yoshi's Island on the EZ-Flash Omega DE NOR; 2 WarioWare: Twisted (US), original; 3 WarioWare: Twisted (JP), original
+Physical Link Port state: nothing connected
+BBA state:                the standing declaration (present, no cable)
+Steps:                    V32.9, frozen (power cycle before and after each title; slot 29-vehicle2; A ×1; play up to 6 minutes or Z; the title choice; X; the log renamed on the card per title)
+Expected result/log:      three SD logs GBP-PLAY-002_vehicle-0002-{1,2,3}.log (renamed by the Operator) carrying IDENT, PLAYCFG, ENVMEM, the V28 records, PLAYSTARTUP / PLAYUND / PLAYUNDER,
+                          STARTUP / STARTUPT / STARTUPV / STREAMINV / STREAMSELFTEST and CARTDECL; no Gecko capture; the Operator's words. NO prediction of any value.
+Question answered:        V32.1 QA-QD
+```
+
+### V32.11 What this pre-registration does not do
+
+No pin, export or card write; no run; no evidence id; no reader or image change; T256 A1 unchanged; §V31 and every earlier record untouched. No expected value is added to any gate or to the Operator's text.
