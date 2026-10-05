@@ -379,5 +379,203 @@ class TheStartupProfileAndPolicyAAreNotReportedAsSurvivingRecords(unittest.TestC
         self.assertLess(j, k)
 
 
+
+# ---------------------------------------------------------------------------------------------------------------- Issue #158: vehicle-0002's startup block
+import hashlib  # noqa: E402
+import re  # noqa: E402
+import subprocess  # noqa: E402
+import tempfile  # noqa: E402
+
+sys.path.insert(0, HERE)
+import guards  # noqa: E402
+
+UNIT_TEST = os.path.join(ROOT, "tests", "unit", "test_gbp_startrec.c")
+LOCAL = os.path.join(ROOT, "captures", "local")
+STARTREC_BASE = "bc97ba36713779dcbe0310902d195f019d6839ff"     # origin/main when #158 was resumed: the reader as it stood before the vehicle-0002 block
+VEHICLE1_LOGS = {61: ("GBP-PLAY-002_vehicle-0001-run61.log", "9a8120351db9e129620d53708f190ba3acfdfd0cd23179452f09d775f67ce0cd"),
+                 62: ("GBP-PLAY-002_vehicle-0001-run62.log", "56575eb5e1573daa25f63574193fc7953c93debe6cde35e3bff7410fb9594b33"),
+                 63: ("GBP-PLAY-002_vehicle-0001-run63.log", "ddc8381e144072ede3d477c3fadcc262aba4af590594ddf4b1ebea9a212267f2")}
+RUN17_LOG = ("GBP-VIDEO-004_stream-0015-run17.log", "85d8963752cb9fed95d9842d0109c56ce87e2951d94cca0ef666cb646184dc83")   # HARDWARE_TESTS.md:23416
+
+
+def unit_expected():
+    """The five lines the C unit test expects the writer to produce: ONE source of truth for writer and reader."""
+    with open(UNIT_TEST, encoding="utf-8") as f:
+        src = f.read()
+    got = dict(re.findall(r'static const char \*const EXPECT_(\w+) = "([^"]*)";', src))
+    return {"STARTUP": got["STARTUP"], "STARTUPT": got["STARTUPT"], "STARTUPV": got["STARTUPV"], "STREAMINV": got["STREAMINV"], "STREAMSELFTEST": got["STREAMSELFTEST"]}
+
+
+def v2log(edit=None, drop_tags=(), ident=("gbp-play-gba2", "vehicle-0002"), **kw):
+    """the synthetic play log above, as a vehicle-0002 log: IDENT names the image, and the five records are the unit test's lines (`edit`: {tag: (old, new)})"""
+    recs = unit_expected()
+    for tag, (old, new) in (edit or {}).items():
+        assert old in recs[tag], (tag, old)
+        recs[tag] = recs[tag].replace(old, new)
+    lines = tuple(recs[t] for t in playread.STARTREC_TAGS if t not in drop_tags)
+    text = log(extra=lines, **kw)
+    return text.replace("app=gbp-play-gba build=vehicle-0001", "app=%s build=%s" % ident)
+
+
+def rows(text):
+    o = playread.analyse(text)
+    return o, dict((name, status) for name, status, _src in o["startrec"]["rows"]) if o["startrec"] else None
+
+
+def sha256(p):
+    with open(p, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+class TheVehicle2StartupBlock(unittest.TestCase):
+    """Issue #158: the image is decided by IDENT build= (cross-checked with app=), never by record presence; vehicle-0002's block prints the V5.53.2 checklist rows MET / NOT MET / MISSING;
+    no session verdict. Each control is judged per case."""
+
+    ROWS = ("mode normal", "visible synthetic = 0", "pre-handler wait = 0", "black framebuffer initialisation", "first real hand-off observed",
+            "first real hand-off < 400 ms from CONTROL", "Policy A invariants clean")
+
+    def test_the_unit_tests_lines_read_every_row_met(self):
+        text = v2log()
+        o, r = rows(text)
+        self.assertEqual(o["problems"], [])
+        self.assertEqual(o["image"], "vehicle-0002")
+        for name in self.ROWS:
+            self.assertEqual(r[name], "MET", name)
+        self.assertEqual(r["no transport failure"], "SEE SERVICE/TRANSPORT")
+        out = playread.render(o)
+        self.assertNotIn("NO RECORD IN THIS IMAGE'S LOG", out, "the vehicle-0001 line is not printed for a vehicle-0002 log")
+        self.assertIn("Policy A's drops / supersessions / reorder / depth / latency: NO RECORD (no OGBPDISP2; not built)", out)
+        self.assertNotIn("Policy A passed", out)
+        self.assertIn("165.336 ms, information only", out)
+        self.assertIn("STREAMSELFTEST (information): ok=1 converted=1 released=1 own_presents=0 own_repeats=0 sci_clean=1", out)
+        self.assertIn("STREAMINV consistent_at_end=1 (information)", out)
+        block = out[out.index("STARTUP PROFILE (vehicle-0002"):out.index("VOID IN A PLAY LOG")]
+        self.assertNotRegex(block, r"\b(PASS|FAIL)\b", "rows, never a session verdict")
+
+    def test_one_negative_per_row(self):
+        cases = [
+            ("mode normal", {"STARTUP": ("mode=normal", "mode=diagnostic")}),
+            ("visible synthetic = 0", {"STARTUP": ("normal_clean=1", "normal_clean=0")}),
+            ("visible synthetic = 0", {"STARTUP": ("presented_synthetic=0", "presented_synthetic=1")}),
+            ("pre-handler wait = 0", {"STARTUP": ("prehandler_wait_ms=0", "prehandler_wait_ms=5000")}),
+            ("black framebuffer initialisation", {"STARTUP": ("clear_fb=1", "clear_fb=0")}),
+            ("first real hand-off observed", {"STARTUPV": ("have_first=1", "have_first=0")}),
+            ("first real hand-off < 400 ms from CONTROL", {"STARTUPV": ("ticks_control_to_first_handoff=6696114", "ticks_control_to_first_handoff=16200000")}),
+            ("Policy A invariants clean", {"STREAMINV": ("failures=0 main=0/186880", "failures=1 main=1/186880")}),
+            ("Policy A invariants clean", {"STREAMINV": ("checks=189258 failures=0 main=0/186880 isr=0/2378", "checks=0 failures=0 main=0/0 isr=0/0")}),
+            ("Policy A invariants clean", {"STREAMINV": ("isr=0/2378", "isr=0/2377")}),
+            ("Policy A invariants clean", {"STREAMINV": ("main=0/186880", "main=1/186880")}),
+        ]
+        for name, edit in cases:
+            o, r = rows(v2log(edit=edit))
+            self.assertEqual(r[name], "NOT MET", (name, edit))
+            for other in self.ROWS:
+                if other != name and not (name == "first real hand-off observed" and other == "first real hand-off < 400 ms from CONTROL"):
+                    self.assertEqual(r[other], "MET", (other, edit))
+
+    def test_no_first_hand_off_fails_the_400_ms_row_too_although_its_ticks_would_be_under_any_bound(self):
+        o, r = rows(v2log(edit={"STARTUPV": ("have_first=1", "have_first=0")}))
+        self.assertEqual(r["first real hand-off < 400 ms from CONTROL"], "NOT MET")
+        o, r = rows(v2log(edit={"STARTUPV": ("have_first=1 first_frame_index=3 t_take=c8a1b2 t_convert_done=c9b2c3 t_decision=cac3d4 ticks_control_to_first_handoff=6696114",
+                                             "have_first=0 first_frame_index=0 t_take=0 t_convert_done=0 t_decision=0 ticks_control_to_first_handoff=0")}))
+        self.assertEqual(r["first real hand-off < 400 ms from CONTROL"], "NOT MET", "the writer's own have_first=0 line: ticks 0, which a bare comparison would pass")
+
+    def test_the_400_ms_bound_is_strict_and_in_integers(self):
+        _o, r = rows(v2log(edit={"STARTUPV": ("=6696114", "=16199999")}))
+        self.assertEqual(r["first real hand-off < 400 ms from CONTROL"], "MET")
+        _o, r = rows(v2log(edit={"STARTUPV": ("=6696114", "=16200000")}))
+        self.assertEqual(r["first real hand-off < 400 ms from CONTROL"], "NOT MET", "exactly 400 ms at 40 500 000 Hz: the strict form of V5.53.2 / V5.57.8")
+        self.assertEqual(playread.FIRST_HANDOFF_BOUND_MS * 40500000 // 1000, 16200000)
+
+    def test_each_record_missing_reads_missing(self):
+        depends = {"STARTUP": ("mode normal", "visible synthetic = 0", "pre-handler wait = 0", "black framebuffer initialisation"),
+                   "STARTUPT": ("first real hand-off < 400 ms from CONTROL",),
+                   "STARTUPV": ("first real hand-off observed", "first real hand-off < 400 ms from CONTROL"),
+                   "STREAMINV": ("Policy A invariants clean",), "STREAMSELFTEST": ()}
+        for tag, rowsdep in depends.items():
+            text = v2log(drop_tags=(tag,))
+            o, r = rows(text)
+            out = playread.render(o)
+            self.assertIn("  %s record: MISSING (NOT passed)" % tag, out, tag)
+            for name in self.ROWS:
+                self.assertEqual(r[name], "MISSING" if name in rowsdep else "MET", (tag, name))
+            if tag == "STREAMSELFTEST":
+                self.assertIn("STREAMSELFTEST: MISSING (NOT passed)", out)
+        o, r = rows(v2log(drop_tags=playread.STARTREC_TAGS))
+        self.assertEqual(set(r[n] for n in self.ROWS), {"MISSING"}, "a vehicle-0002 log that lost every record is MISSING throughout, never the vehicle-0001 line")
+        self.assertNotIn("NO RECORD IN THIS IMAGE'S LOG", playread.render(o))
+
+    def test_a_vehicle_0001_log_cannot_carry_the_records(self):
+        recs = unit_expected()
+        for tag in playread.STARTREC_TAGS:
+            o = playread.analyse(log(extra=(recs[tag],)))
+            self.assertIn("a vehicle-0001 log cannot carry %s" % tag, o["problems"])
+            out = playread.render(o)
+            self.assertIn("NO RECORD IN THIS IMAGE'S LOG", out)
+            self.assertNotIn("STARTUP PROFILE (vehicle-0002", out)
+
+    def test_an_unknown_build_id_is_refused_and_neither_block_is_printed(self):
+        o = playread.analyse(v2log(ident=("gbp-play-gba2", "vehicle-0003")))
+        self.assertIn("unknown build id vehicle-0003: no record expectation", o["problems"])
+        out = playread.render(o)
+        self.assertNotIn("NO RECORD IN THIS IMAGE'S LOG", out)
+        self.assertNotIn("STARTUP PROFILE", out)
+
+    def test_the_app_name_is_cross_checked(self):
+        o = playread.analyse(v2log(ident=("gbp-play-gba", "vehicle-0002")))
+        self.assertIn("IDENT app=gbp-play-gba does not match build=vehicle-0002 (expected app=gbp-play-gba2)", o["problems"])
+        o = playread.analyse(log().replace("app=gbp-play-gba build=", "app=gbp-play-gba2 build="))
+        self.assertIn("IDENT app=gbp-play-gba2 does not match build=vehicle-0001 (expected app=gbp-play-gba)", o["problems"])
+
+    def test_a_duplicated_record_is_a_problem(self):
+        recs = unit_expected()
+        o = playread.analyse(v2log().replace("\n", "\n", 1) + "999999 %s\n" % recs["STARTUPV"])
+        self.assertIn("2 STARTUPV records (one expected)", o["problems"])
+
+
+class TheParserOnRealData(unittest.TestCase):
+    """RUN 17 (GBP-VIDEO-004, stream-0015): its STARTUPV has the stream probe's t_drawdone shape, so this also shows the parser reads by key."""
+
+    def test_run17(self):
+        p = os.path.join(LOCAL, RUN17_LOG[0])
+        if not os.path.isfile(p):
+            self.skipTest("no local archive on this host (captures/local is ignored)")
+        self.assertEqual(sha256(p), RUN17_LOG[1], "the archived RUN 17 log is not the recorded one (a defect, never a skip)")
+        with open(p, encoding="utf-8", errors="replace") as f:
+            recs = playread.records(f.read())
+        b = playread.startup_block(recs)
+        r = dict((n, (s, src)) for n, s, src in b["rows"])
+        self.assertEqual(b["missing"], [])
+        self.assertIn("ticks_control_to_first_handoff=6696114", r["first real hand-off < 400 ms from CONTROL"][1])   # HARDWARE_TESTS.md:23470
+        self.assertEqual(r["first real hand-off < 400 ms from CONTROL"][0], "MET")
+        self.assertIn("STREAMINV checks=189258 failures=0 ", r["Policy A invariants clean"][1])                        # HARDWARE_TESTS.md:24706
+        self.assertEqual(r["Policy A invariants clean"][0], "MET")
+        for name in TheVehicle2StartupBlock.ROWS:
+            self.assertEqual(r[name][0], "MET", name)
+
+
+class TheVehicle1ReadingIsByteIdentical(unittest.TestCase):
+    """Issue #158: for the three archived vehicle-0001 logs, the reader's FULL output is the base reader's, byte for byte (the base extracted with git archive)."""
+
+    def test_full_output_identity(self):
+        paths = dict((r, os.path.join(LOCAL, f)) for r, (f, _h) in VEHICLE1_LOGS.items())
+        if not all(os.path.isfile(p) for p in paths.values()):
+            self.skipTest("no local archive on this host (captures/local is ignored)")
+        for r, p in paths.items():
+            self.assertEqual(sha256(p), VEHICLE1_LOGS[r][1], "RUN %d's archive is not the recorded one (a defect, never a skip)" % r)
+        if not guards.base_available(STARTREC_BASE):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % STARTREC_BASE)
+        with tempfile.TemporaryDirectory() as tmp:
+            arch = subprocess.run(["git", "archive", STARTREC_BASE, "tools"], cwd=ROOT, capture_output=True, check=True).stdout
+            subprocess.run(["tar", "-x", "-C", tmp], input=arch, check=True)
+            for r, p in sorted(paths.items()):
+                old = subprocess.run([sys.executable, os.path.join(tmp, "tools", "playread.py"), p], capture_output=True)
+                new = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "playread.py"), p], capture_output=True)
+                self.assertEqual(old.returncode, 0, old.stderr)
+                self.assertEqual(new.returncode, 0, new.stderr)
+                self.assertEqual(new.stdout, old.stdout, "RUN %d: the reader's output on a vehicle-0001 log moved" % r)
+                self.assertIn(b"NO RECORD IN THIS IMAGE'S LOG", new.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
