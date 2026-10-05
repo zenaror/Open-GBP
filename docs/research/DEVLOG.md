@@ -19870,3 +19870,14 @@ The Operator's direction quoted verbatim; the four items kept apart (the observa
 **Not established.** The start-up underrun's mechanism (consistent with V31.3's HYPOTHESIS, not isolated); the startup profile and Policy A of these runs (not read); picture and audio beyond his words; other titles, longer play, saves.
 
 **Next.** Issue #156: the forward-only repair of `tools/playread.py`'s capture gate (per phase), then the next breadth titles as the Orchestrator orders them.
+
+
+## 2026-10-05 — Issue #156: `tools/playread.py`'s capture gate repaired to the per-phase form (forward only)
+
+**Goal.** Make the play-log reader's capture gate read what the V28 chassis' tap gate has always read — `taps == blocks_in`, `failed 0`, `wrong 0` in every `V28PHC` phase — instead of the whole-session `V28TAPS` counters, whose difference is the pre-origin window of every healthy log (§V31.10).
+
+**Changes.** `tools/playread.py` (per-phase gate; a log with no `V28PHC`, or a `SYNCPH` phase without one, fails; the whole-session `taps - blocks_in` is printed as information; `V28TAPS` `taps_failed` / `wrong_len`, `V28C2`, `V28CORR` kept); `tests/host/test_playread.py` (the synthetic log now has a pre-origin window; the reproduction on the old reader; per-phase mismatch, `failed` and `wrong` negatives; the repaired reader on the archived RUN 61-63); `HARDWARE_TESTS.md` §V31.11.
+
+**Result.** Reproduced first: the reader of `5d653da` fails a realistic synthetic log (window 26 266, equal per-phase counts) with `CAPTURE: FAIL` and passes it with the window removed; the repaired reader passes it. On the archived RUN 61 / 62 / 63 the repaired reader prints `CAPTURE: PASS` (phases equal, 0 failed, 0 wrong; windows 26 266 / 27 567 / 25 994 as information). What the frozen reader printed for those runs stays as recorded; no status moves.
+
+**Next.** The next breadth titles as the Orchestrator orders them; the vehicle stays at T256 A1.
