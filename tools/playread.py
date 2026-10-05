@@ -33,7 +33,10 @@ RESEARCH_ONLY = ("V28_3A", "V28_3B", "V28_3BM", "V28ANCHOR", "V28_SWEEP", "V28_S
 VOID_GATES = ("fill at the target and READY at AHEAD - 1 or AHEAD per confirm (V28_NULLM)",
               "the chunk-start mean of 3b (V28_3BM)",
               "the sweep's landings (V28_SWEEP*)")
-SURVIVING_NOT_RECOMPUTED = ("the startup profile", "Policy A", "the KEY record", "the CONTROL record (orig=92; a GBA cartridge: the bit 0x01 guard is not exercised)")
+SURVIVING_NOT_RECOMPUTED = ("the KEY record", "the CONTROL record (orig=92; a GBA cartridge: the bit 0x01 guard is not exercised)")
+# Issue #157 (HARDWARE_TESTS.md V31.12): V31.6 / V31.8 listed these two among the records the vehicle keeps. It keeps them as CODE; its log carries no record of either (no STARTUP / STARTUPT /
+# STARTUPV / STREAMINV record, no OGBPDISP2 sidecar). Printed apart, as information: no gate, threshold or verdict reads this tuple.
+NO_RECORD_IN_THIS_IMAGE_LOG = ("the startup profile", "Policy A")
 
 
 def kv(rest):
@@ -249,6 +252,7 @@ def render(out):
         L.append("ENVMEM: arena1_free=%s (the floor of GBP-HW-262 is 1650688) frames_bytes=%s events_bytes=%s corr_bytes=%s" % (
             out["envmem"].get("arena1_free"), out["envmem"].get("frames_bytes"), out["envmem"].get("events_bytes"), out["envmem"].get("corr_bytes")))
     L.append("SURVIVE, not recomputed here (their own readers): %s" % "; ".join(SURVIVING_NOT_RECOMPUTED))
+    L.append("NO RECORD IN THIS IMAGE'S LOG, NOT READABLE HERE and NOT reported as passed (HARDWARE_TESTS.md V31.12): %s -- the vehicle keeps them as code; its log carries no STARTUP / STARTUPT / STARTUPV / STREAMINV record and no OGBPDISP2 sidecar" % "; ".join(NO_RECORD_IN_THIS_IMAGE_LOG))
     L.append("VOID IN A PLAY LOG (no record exists; NOT reported as passed): %s" % "; ".join(VOID_GATES))
     if out["unexpected"]:
         L.append("UNEXPECTED research record(s) in a play log, not read: %s" % ", ".join(out["unexpected"]))

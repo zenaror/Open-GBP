@@ -328,5 +328,56 @@ class TheRepairedReaderOnTheArchivedPlayLogs(unittest.TestCase):
                              [(phases[r][0], phases[r][0], 0, 0), (phases[r][1], phases[r][1], 0, 0)], r)
 
 
+class TheStartupProfileAndPolicyAAreNotReportedAsSurvivingRecords(unittest.TestCase):
+    """Issue #157 (HARDWARE_TESTS.md V31.12). V31.6 / V31.8 and the reader listed 'the startup profile' and 'Policy A' among the records the vehicle keeps; its log carries no record of
+    either. The reader prints them on a line of their own, naming the reason; the SURVIVE line keeps the KEY and the CONTROL records. An informational line: it decides nothing, and every
+    gate's reading of a synthetic log is what it was."""
+
+    NAMES = ("the startup profile", "Policy A")
+
+    def lines(self, text):
+        return text.split("\n")
+
+    def test_the_survive_line_no_longer_names_the_two_gates_and_the_new_line_does(self):
+        text = playread.render(playread.analyse(log()))
+        survive = [l for l in self.lines(text) if l.startswith("SURVIVE, not recomputed here")]
+        self.assertEqual(len(survive), 1)
+        for n in self.NAMES:
+            self.assertNotIn(n, survive[0])
+        self.assertIn("the KEY record", survive[0])
+        self.assertIn("the CONTROL record (orig=92", survive[0])
+        norec = [l for l in self.lines(text) if l.startswith("NO RECORD IN THIS IMAGE'S LOG")]
+        self.assertEqual(len(norec), 1)
+        for n in self.NAMES:
+            self.assertIn(n, norec[0])
+        for token in ("HARDWARE_TESTS.md V31.12", "NOT reported as passed", "STARTUP / STARTUPT / STARTUPV / STREAMINV", "OGBPDISP2"):
+            self.assertIn(token, norec[0])
+        self.assertEqual([l for l in self.lines(text) if "the startup profile" in l or "Policy A" in l], norec, "the two names appear on that one line and nowhere else")
+
+    def test_the_line_is_the_same_whatever_the_log_says_and_changes_no_gate(self):
+        """Informational: a clean log, a log with an after-start-up underrun and a -dirty one print the same line; the gate fields of analyse() carry nothing of it."""
+        want = [l for l in self.lines(playread.render(playread.analyse(log()))) if l.startswith("NO RECORD IN THIS IMAGE'S LOG")]
+        for text in (log(underruns=[(500, 15625)]), log(commit="abc1234-dirty"), log(loss_blocks=(4096 * 55, 4096 * 300 * 98 // 100))):
+            got = [l for l in self.lines(playread.render(playread.analyse(text))) if l.startswith("NO RECORD IN THIS IMAGE'S LOG")]
+            self.assertEqual(got, want)
+        o = playread.analyse(log())
+        self.assertEqual(o["problems"], [])
+        for key, val in o.items():
+            self.assertNotIn("Policy A", repr(val), key)
+            self.assertNotIn("startup profile", repr(val), key)
+
+    def test_the_constants_say_it(self):
+        self.assertEqual(playread.NO_RECORD_IN_THIS_IMAGE_LOG, self.NAMES)
+        for n in self.NAMES:
+            self.assertNotIn(n, playread.SURVIVING_NOT_RECOMPUTED)
+        self.assertEqual(len(playread.SURVIVING_NOT_RECOMPUTED), 2)
+
+    def test_the_whole_line_order_is_survive_then_the_new_line_then_void(self):
+        text = playread.render(playread.analyse(log()))
+        i, j, k = (text.index(x) for x in ("SURVIVE, not recomputed", "NO RECORD IN THIS IMAGE'S LOG", "VOID IN A PLAY LOG"))
+        self.assertLess(i, j)
+        self.assertLess(j, k)
+
+
 if __name__ == "__main__":
     unittest.main()
