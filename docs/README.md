@@ -1,6 +1,7 @@
 # Open-GBP Documentation
 
 ```text
+ONBOARDING.md           where a new agent starts: orientation and pointers, not policy or evidence
 ROADMAP.md              phases and acceptance criteria
 RESEARCH_METHOD.md      evidence classes and promotion rules
 
