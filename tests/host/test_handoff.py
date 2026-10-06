@@ -238,7 +238,7 @@ class AgentsFile(unittest.TestCase):
         # the section map in docs/HANDOFF.md was built against exactly N sections: an edit that adds or removes one means the map needs revisiting
         self.assertIn("%d sections" % n, read(HANDOFF), "AGENTS.md now has %d sections; docs/HANDOFF.md's section map was built for a different count" % n)
         for title in ("Normal physical Link Port behavior is a permanent requirement", "Mobile Adapter is late-stage work", "Hardware research safety", "Dolphin",
-                      "Commit discipline", "GitHub operational coordination", "Shared checkout rules", "Local RAG", "Core decision rule"):
+                      "Commit discipline", "GitHub operational coordination", "Shared checkout rules", "Locating history", "Core decision rule"):
             self.assertTrue(any(title in t for _, t in heads), "no section titled like %r" % title)
 
     def test_it_stays_a_policy_file_and_not_a_log(self):
@@ -294,7 +294,7 @@ class SectionMap(unittest.TestCase):
         "17": {17: "smoke-test"}, "18": {12: "Hardware research safety"}, "19": {23: "Internal SIO"}, "20": {24: "Network"}, "21": {43: "GBI-class"}, "22": {32: "Source organization"},
         "23": {32: "Source organization"}, "24": {36: "Commit discipline"}, "25": {34: "Development log"}, "26": {35: "Phase gates"}, "27": {44: "First-session"},
         "28": {47: "Core decision rule"}, "29": {45: "Current-state files"}, "30": {37: "GitHub operational coordination"},
-        "31": {39: "Local RAG", 40: "RAG and dirty", 41: "RAG retrieval", 42: "excluded from the RAG", 38: "Shared checkout"},
+        "31": {39: "Locating history", 40: "dirty working trees", 41: "Retrieval procedure", 42: "excluded from the OMM", 38: "Shared checkout"},   # amended on top by Issue #163 (was Local RAG / RAG and dirty / RAG retrieval / excluded from the RAG)
     }
 
     def _rows(self):

@@ -28,7 +28,7 @@ import guards  # noqa: E402
 
 BASE = "5383653b1c280c24a0f5aa4f7cd37d560dc359e8"   # origin/main when Issue #162 was dispatched
 PAGE = "docs/ONBOARDING.md"
-HIGHEST_ISSUE = 162
+HIGHEST_ISSUE = 163   # amended on top by Issue #163 (was 162): the page's known-stale section now cites it
 OPENING = "**This page is orientation, not authority.**"
 HANDOFF_NOTE = "**2026-10-06 (Issue #162), on top: a new agent starts at `docs/ONBOARDING.md`**"
 PREV_BLOCKER = "**2026-10-05 (Hardware Issue #161), on top: `vehicle-0002` is PINNED as `29-vehicle2` and STAGED on the SD2SP2 card; no run has happened**"
@@ -131,13 +131,14 @@ class WhatItCites(unittest.TestCase):
         self.assertEqual(sorted(i for i in cited if i not in defined and i not in hw), [])
 
     def test_known_stale_names_what_only_the_operator_can_authorise(self):
+        """Amended on top by Issue #163: the three AGENTS.md items (sections 37, 39-42 and 17) were authorised by the Operator on 2026-10-06 and are
+        recorded as resolved; what stays pending is the HANDOFF role table (the one remaining "(Operator)" item)."""
         s = flat(section(read(PAGE), "## 5. Known stale"))
         self.assertIn("his authorisation is **pending**", s)
-        for w in ("`AGENTS.md` §37", "`AGENTS.md` §39–§42", "`AGENTS.md` §17", "\"Current role assignment\" table", "retired Gitea on 2026-10-06",
-                  "retired it on 2026-10-05"):
+        for w in ("Resolved by Issue #163", "\"Current role assignment\" table", "retired by the Operator on 2026-10-06", "retired on 2026-10-05"):
             self.assertIn(w, s, w)
         items = [l for l in section(read(PAGE), "## 5. Known stale").splitlines() if l.startswith("- **(Operator)**")]
-        self.assertEqual(len(items), 4, "sections 37, 39-42 and 17 of AGENTS.md, and the HANDOFF role table")
+        self.assertEqual(len(items), 1, "only the HANDOFF role table remains pending since Issue #163")
 
 
 class TheCorrections(unittest.TestCase):

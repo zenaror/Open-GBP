@@ -19994,3 +19994,15 @@ Both are the first and only builds (no retry, no override of anything but the id
 **Not done (not authorised).** No `AGENTS.md` edit; no existing record text, HANDOFF row or table, frozen section, image, slot or reader changed; no code; no run; no evidence id; the OMM is not cited as a source of authority anywhere.
 
 **Next.** Hardware Issue #161's run, as before; the Operator's decision on the pending `AGENTS.md` edits.
+
+## 2026-10-06 — Issue #163: `AGENTS.md` aligned with the Gitea retirement, the local RAG retirement and the Podman build (the Operator's "autorizo"); no section renumbered, no rule changed
+
+**Goal.** `AGENTS.md`, the single normative source a new agent reads first, still told it to keep a Gitea archive remote (§37), to query a local RAG (§39–§42, the pt-BR OMM section's item 5, §1, §31) and to verify a Docker build environment (§17, §44). The Operator authorised exactly those facts on 2026-10-06 ("autorizo", quoted in Issue #163); §16 had been changed under Issue #159 and is untouched.
+
+**Changes.** `AGENTS.md`: (1) §37 — the Gitea paragraph, its URL and the `gitea-archive` line replaced by one historical sentence (the archive existed until the Operator retired it on 2026-10-06; GitHub is the only remote; `origin` fetch/push), and "The Orchestrator moves workflow labels" now says the Orchestrator seat does, which is the central session in the current topology; (2) §39–§42 — retitled and re-expressed for the OMM and `git grep` on `origin/main` (the principle that a hit is a pointer and never authority, the stale-copy warning with `git diff --stat <commit> origin/main`, the dirty-tree rule as "never build a derived index, or record unpushed text as canonical, from a dirty working tree", the retrieval procedure without the old tool's options, the exclusion list as what must not enter the OMM); the local paths, the `rag_*.py` commands and "if the RAG exists, use it" removed; (3) the pt-BR item 5 ("A OMM e o `git grep`"), §1 ("a search hit") and §31 ("must not enter the OMM"); (4) §17 and §44 — "container (rootless Podman, §16)". `docs/ONBOARDING.md` §5 — the three items are recorded as resolved; the HANDOFF role table remains stale. `docs/HANDOFF.md` — one dated note on top.
+
+**Tests.** `tests/host/test_agents_md_alignment.py` (new): the 47 sections exist once, in order, with the titles of the BASE except §39–§42; none of the old strings remains; §16 and every section outside the changed ones are byte-identical to the BASE; the changed lines of §1, §17, §31, §37, §44 and of the pt-BR section are exactly the listed sentences; the checks read `AGENTS.md` as of the commit that added the test, so a later authorised edit does not turn it red. Amended on top: `test_handoff.py` (the title pin "Local RAG" now "Locating history"), `test_onboarding.py` (the known-stale section now names one pending item; `HIGHEST_ISSUE` 163).
+
+**Not done (not authorised).** No other `AGENTS.md` change; no historical record edited; no code, image, slot or run; no evidence id.
+
+**Next.** Hardware Issue #161's run, as before.
