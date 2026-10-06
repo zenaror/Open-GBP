@@ -99,17 +99,17 @@ Hardware Issue closes only after the ingestion is published.
 The records are huge and append-only (HARDWARE_TESTS 41 832 lines, DEVLOG 19 982, EVIDENCE 12 350,
 UNKNOWNS 2 918): read them by heading (`grep -n '^## '`) and line ranges, never whole.
 
-## 5. Known stale (at `5383653`)
+## 5. Known stale (at `5383653`, amended by Issue #163)
 
 Only the Operator can authorise the edits marked **(Operator)**; his authorisation is **pending**.
 
-- **(Operator)** `AGENTS.md` §37 still describes the Gitea archive and a `gitea-archive` remote. The
-  Operator retired Gitea on 2026-10-06; GitHub is the only remote (Issue #162; `git remote -v` lists
-  `origin` only). §37's "The Orchestrator moves workflow labels" is, under P2, the central session.
-- **(Operator)** `AGENTS.md` §39–§42 still prescribe the local RAG (`~/Open-GBP-RAG`). The Operator
-  retired it on 2026-10-05: locate history with the OMM (`search`, `search_sources`, `read_source`) and
-  `git grep`. No repository file records the retirement yet; the OMM roles do.
-- **(Operator)** `AGENTS.md` §17 lists "Docker compilation"; the build is rootless Podman (§16, Issue #159).
+- **Resolved by Issue #163** (the Operator's "autorizo" of 2026-10-06; `AGENTS.md` otherwise unchanged,
+  no section renumbered, no rule changed): §37 no longer describes the Gitea archive (retired by the
+  Operator on 2026-10-06; GitHub is the only remote, `origin` fetch/push) and says the Orchestrator
+  *seat* moves the workflow labels, which in the current topology is the central session; §39–§42 no
+  longer prescribe the local RAG (retired on 2026-10-05): history is located with the OMM (`search`,
+  `search_sources`, `read_source`) and `git grep` on `origin/main`, and a search hit is a pointer, never
+  authority; §17 and §44 say "container (rootless Podman, §16)" instead of "Docker".
 - **(Operator)** HANDOFF's "Current role assignment" table names "Claude Fable 5.1" and an external
   orchestrator. It is a snapshot; it is corrected by a dated note, and its rows are not edited.
 - HANDOFF's "Operational coordination" block and the `remote` row of its Issue log still show `gitea-archive`
