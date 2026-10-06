@@ -177,7 +177,7 @@ The host does not need a separate devkitPPC installation.
 ## Repository and workflow
 
 The canonical repository is <https://github.com/zenaror/Open-GBP>. The former
-Gitea remote is kept as a non-canonical archive. Work is coordinated through
+Gitea archive was retired on 2026-10-06; GitHub is the only remote. Work is coordinated through
 GitHub Issues (one bounded checkpoint each), milestones that mirror
 [`docs/ROADMAP.md`](docs/ROADMAP.md) phases, `stage:*` / `area:*` / `type:*`
 labels and the "Open-GBP Development" Project; the roles behind them are
