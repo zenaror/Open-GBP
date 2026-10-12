@@ -242,10 +242,6 @@ live in [`AGENTS.md`](AGENTS.md); the current assignment is in
 
 ## AI Notice
 
-AI tools such as Claude were used in this project.
-
-They were used for research, analysis of captured hardware evidence, documentation
-and code. Every hardware claim in `docs/` is classified (FACT, CORROBORATED,
-HYPOTHESIS, UNKNOWN) and traceable to a physical log or a named reference, and the
-physical logs under `logs/` and the fixtures under `captures/fixtures/` come from
-the real console, not from a model.
+Parts of this project were developed with assistance from AI tools, including
+code generation, research, analysis and documentation. Existing human credits
+and the evidence classifications in the research records remain applicable.

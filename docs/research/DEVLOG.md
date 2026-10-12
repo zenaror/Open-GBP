@@ -20006,3 +20006,20 @@ Both are the first and only builds (no retry, no override of anything but the id
 **Not done (not authorised).** No other `AGENTS.md` change; no historical record edited; no code, image, slot or run; no evidence id.
 
 **Next.** Hardware Issue #161's run, as before.
+
+
+## 2026-10-12 — Issue #164: automatic AI coauthor history maintenance
+
+The Operator explicitly authorized isolated removal of automatic Claude/Anthropic
+coauthor trailers and publication after validation, including a one-time exception
+to AGENTS.md sections 36/37 and its future-trailer instruction. All 624 historical
+commits were transformed; 587 trailer lines removed. Every tree and non-target
+message/metadata byte was checked; parent topology mapped. Historical scientific
+citations, binary identities and artifact hashes remain ORIGINAL, not remapped.
+No runtime change, hardware run, log reading, evidence id or evidence promotion.
+README now states AI code generation explicitly; human credits remain. Inventory:
+only main on origin, no tags, signed commits, gitlinks, PRs or forks. Durable private
+bundle, full map and audited recovery preserve historical objects; the public
+map and `tools/history_recover.py` let fresh clones restore citations locally
+without moving refs. Details and clone migration: `docs/maintenance/HISTORY_MIGRATION.md`.
+Validation and publication results are recorded in Issue #164's report.
