@@ -1571,7 +1571,6 @@ Do not automatically add Claude/Anthropic or other AI tools as Co-authored-by
 trailers. Preserve legitimate human authorship and coauthor credits. Disclose
 AI assistance in the README instead.
 
-
 A GitHub Issue may explicitly delegate commit/push authority for its bounded
 checkpoint.
 

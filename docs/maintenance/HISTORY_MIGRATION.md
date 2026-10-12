@@ -43,3 +43,11 @@ for shared checkouts. Open PRs: none at the inventory; new PRs must use the new 
 
 The physical session of Issue #161 remains cleared on its ORIGINAL build identity.
 Its frozen procedure and binary hashes are unchanged.
+
+## Freeze-test compatibility
+
+Issue #164 changes only the hash lookup in `tests/host/frozen.py`: mapped hits
+are checked for identical trees and translated to ORIGINAL commit identities.
+BASES keys and hashes remain byte-identical. Duplicate message hits still fail;
+a wrong unmapped identity still fails. Recovery is required before this check.
+The first post-rewrite suite demonstrated the identity mismatch before the repair.

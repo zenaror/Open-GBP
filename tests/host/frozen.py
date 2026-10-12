@@ -22,6 +22,8 @@ Adding an entry is deliberate: a checkpoint that freezes a new module records
 its own hash here, in the commit that does the freezing.
 """
 import subprocess
+import json
+from pathlib import Path
 import unittest
 
 import guards
@@ -119,7 +121,22 @@ BASES = {
 def _matches(phrase):
     r = subprocess.run(["git", "-C", guards.ROOT, "log", "--format=%H", "--grep", phrase],
                        capture_output=True, text=True)
-    return [h for h in r.stdout.split() if h] if r.returncode == 0 else []
+    hits = [h for h in r.stdout.split() if h] if r.returncode == 0 else []
+    # Issue #164: retain ORIGINAL freeze identities after the authorized message-only
+    # history migration. Never change BASES; preserve duplicate hits and verify trees.
+    manifest = Path(guards.ROOT) / "docs/maintenance/ai-coauthor-2026-10-12.json"
+    if not manifest.exists():
+        return hits
+    reverse = {row["new"]: row["old"] for row in json.loads(manifest.read_text())["mapping"]}
+    result = []
+    for hit in hits:
+        original = reverse.get(hit, hit)
+        if original != hit:
+            trees = [subprocess.check_output(["git", "-C", guards.ROOT, "rev-parse",
+                      commit + "^{tree}"]).strip() for commit in (original, hit)]
+            assert trees[0] == trees[1], "history mapping changed a frozen tree"
+        result.append(original)
+    return result
 
 
 def base(phrase):

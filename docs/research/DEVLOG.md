@@ -20023,3 +20023,9 @@ bundle, full map and audited recovery preserve historical objects; the public
 map and `tools/history_recover.py` let fresh clones restore citations locally
 without moving refs. Details and clone migration: `docs/maintenance/HISTORY_MIGRATION.md`.
 Validation and publication results are recorded in Issue #164's report.
+
+The first post-rewrite host gate exposed frozen.py's expected original-identity
+mismatch. Fixed forward only in the lookup: BASES unchanged, mapped tree equality
+required, duplicate hits and wrong identities still rejected. Recovery and these
+negative controls are checked by test_history_migration.py. No scientific freeze
+is redefined; historical objects still supply the comparison bytes.
