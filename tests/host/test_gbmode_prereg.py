@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import unittest
+import history_identity
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -139,7 +140,7 @@ class TheCandidateOfRecord(unittest.TestCase):
         c = m.group(1)
         if subprocess.run(["git", "-C", ROOT, "cat-file", "-e", c + "^{commit}"], capture_output=True).returncode != 0:
             self.skipTest("the base commit is not in this checkout")
-        self.assertEqual(subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", c, "HEAD"]).returncode, 0)
+        self.assertTrue(history_identity.is_ancestor(c))
         mk = subprocess.run(["git", "-C", ROOT, "show", c + ":Makefile"], capture_output=True, text=True).stdout
         self.assertIn("gbmode-session:", mk)
         self.assertIn("GBMODE_BUILD_ID ?= gbmode-0001", mk)

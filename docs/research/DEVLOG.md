@@ -20029,3 +20029,10 @@ mismatch. Fixed forward only in the lookup: BASES unchanged, mapped tree equalit
 required, duplicate hits and wrong identities still rejected. Recovery and these
 negative controls are checked by test_history_migration.py. No scientific freeze
 is redefined; historical objects still supply the comparison bytes.
+
+The complete post-rewrite suite also exposed direct original-SHA ancestry and
+last-path-change guards. Issue #164 repaired these test queries forward through
+a tree-checked identity map, preserving their original pins and false/collision
+rejection. The frozen v28 reader remains unchanged: its ancestry-only regression
+uses the recovered original build tip, checks mapped ancestry, and checks the
+current POC source equals that original tip. It makes no new build or run claim.

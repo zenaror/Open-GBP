@@ -6,6 +6,7 @@ from unittest.mock import patch
 import unittest
 import frozen
 import guards
+import history_identity
 
 class HistoryMigration(unittest.TestCase):
     def test_all_recorded_trees_and_recovery_are_exact(self):
@@ -27,3 +28,14 @@ class HistoryMigration(unittest.TestCase):
         with patch.object(frozen, "_matches", return_value=["0" * 40]):
             with self.assertRaisesRegex(AssertionError, "but this module pins"):
                 frozen.base(phrase)
+
+    def test_mapped_ancestry_last_change_and_tree_rejection(self):
+        data = json.loads(history_identity.MANIFEST.read_text())
+        rows = data['mapping']
+        self.assertTrue(history_identity.is_ancestor(rows[0]['old']))
+        self.assertFalse(history_identity.is_ancestor(rows[-1]['old'], rows[0]['new']))
+        self.assertEqual(history_identity.last_original_change('tools/vcolor.py'),
+                         history_identity.git('rev-parse', 'bfbca70^{commit}'))
+        with patch.object(history_identity, 'git', side_effect=[rows[-1]['new'], 'treeA', 'treeB']):
+            with self.assertRaisesRegex(AssertionError, 'changed a tree'):
+                history_identity.translate(rows[-1]['new'], 'original')

@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import unittest
+import history_identity
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -68,11 +69,17 @@ class TheNoteFollowsTheBuild(unittest.TestCase):
 
     def test_a_log_from_a_descendant_of_the_wiring_commit_is_live_by_ancestry_alone(self):
         try:
-            ok = subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", "4a3c003", "HEAD"], capture_output=True).returncode == 0
+            ok = history_identity.is_ancestor("4a3c003")
         except OSError:
             ok = False
         self.assertTrue(ok, "this checkout must carry 4a3c003 in its history (a shallow clone cannot run this test)")
-        head = subprocess.check_output(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"]).decode().strip()
+        # The frozen reader remains byte-identical and reads ORIGINAL build identities.
+        # Issue #164 does not extend its ancestry-only inference to new builds.
+        import json
+        head = json.loads(history_identity.MANIFEST.read_text())["old_head"]
+        self.assertTrue(history_identity.is_ancestor(head))
+        self.assertEqual(history_identity.git("show", head + ":poc/gbp-video-stream-probe/source/main.c"),
+                         history_identity.git("show", "HEAD:poc/gbp-video-stream-probe/source/main.c"))
         live, why = v28verdict.hooks_live(log_with([], commit=head))
         self.assertTrue(live)
         self.assertIn("descends from 4a3c003", why)

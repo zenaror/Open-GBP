@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import unittest
+import history_identity
 import unittest.mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -312,9 +313,8 @@ class HypothesisContract(unittest.TestCase):
         self.assertEqual([n for n, _, _ in vcolor.HYPOTHESES],
                          ["H2_identity", "H1_outer_group_swap", "H3_byte_swap",
                           "H4_intra_group_reversal", "H5_complement", "H1_H4", "H1_H3"])
-        r = subprocess.run(["git", "log", "--oneline", "-1", "--", "tools/vcolor.py"],
-                           cwd=ROOT, capture_output=True, text=True)
-        self.assertIn("bfbca70", r.stdout, "tools/vcolor.py changed; the freeze claim is void")
+        self.assertEqual(history_identity.last_original_change("tools/vcolor.py"),
+                         history_identity.git("rev-parse", "bfbca70^{commit}"), "tools/vcolor.py changed; the freeze claim is void")
 
 
 class FrozenFormat(unittest.TestCase):
@@ -334,9 +334,8 @@ class FrozenFormat(unittest.TestCase):
             self.assertIn(key, a)
 
     def test_the_frozen_header_was_not_edited(self):
-        r = subprocess.run(["git", "log", "--oneline", "-1", "--", "src/gbp/gbp_vcoldump.h"],
-                           cwd=ROOT, capture_output=True, text=True)
-        self.assertIn("e10423c", r.stdout, "the frozen OGBPCOL1 v1 header changed")
+        self.assertEqual(history_identity.last_original_change("src/gbp/gbp_vcoldump.h"),
+                         history_identity.git("rev-parse", "e10423c^{commit}"), "the frozen OGBPCOL1 v1 header changed")
 
 
 class RuntimeParity(unittest.TestCase):

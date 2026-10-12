@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import unittest
+import history_identity
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 AGENTS = os.path.join(ROOT, "AGENTS.md")
@@ -198,8 +199,7 @@ class Baseline(unittest.TestCase):
         sha = m.group(1)
         r = subprocess.run(["git", "cat-file", "-e", sha + "^{commit}"], cwd=ROOT)
         self.assertEqual(r.returncode, 0, "%s is not a commit in this repository" % sha)
-        r = subprocess.run(["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=ROOT)
-        self.assertEqual(r.returncode, 0, "%s is not an ancestor of HEAD" % sha)
+        self.assertTrue(history_identity.is_ancestor(sha), "%s is not an ancestor of HEAD through the audited map" % sha)
 
     def test_the_staleness_check_is_documented(self):
         text = read(HANDOFF)

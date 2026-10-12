@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import unittest
+import history_identity
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, "src", "gbp")
@@ -197,9 +198,8 @@ class HistoricalProbesAreUnchanged(unittest.TestCase):
         for path, commit in (("src/gbp/gbp_vcoldump.h", "e10423c"),
                              ("tools/vcolor.py", "bfbca70"),
                              ("tools/vcolor2.py", "a86b079")):
-            r = subprocess.run(["git", "log", "--oneline", "-1", "--", path],
-                               cwd=ROOT, capture_output=True, text=True)
-            self.assertIn(commit, r.stdout, "%s changed; it is frozen" % path)
+            self.assertEqual(history_identity.last_original_change(path),
+                             history_identity.git("rev-parse", commit + "^{commit}"), "%s changed; it is frozen" % path)
 
     def test_the_colour_probe_still_builds_the_colour_experiment(self):
         mk = read(os.path.join(ROOT, "poc", "gbp-video-color-probe", "Makefile"))

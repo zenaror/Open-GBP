@@ -51,3 +51,9 @@ are checked for identical trees and translated to ORIGINAL commit identities.
 BASES keys and hashes remain byte-identical. Duplicate message hits still fail;
 a wrong unmapped identity still fails. Recovery is required before this check.
 The first post-rewrite suite demonstrated the identity mismatch before the repair.
+
+Ancestry and last-change test guards use the same tree-checked map; no scientific
+pin is changed. The frozen v28 reader still infers ancestry only for ORIGINAL
+build identities. Its regression uses the recovered original tip and checks
+the current POC bytes are identical. New identities without runtime hook records
+remain unproven by that frozen reader; this maintenance does not extend it.
