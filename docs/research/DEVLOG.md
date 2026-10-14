@@ -20036,3 +20036,30 @@ a tree-checked identity map, preserving their original pins and false/collision
 rejection. The frozen v28 reader remains unchanged: its ancestry-only regression
 uses the recovered original build tip, checks mapped ancestry, and checks the
 current POC source equals that original tip. It makes no new build or run claim.
+
+## 2026-10-14 — Issue #165: portable base and checkpoint retention
+
+The Operator authorized common-base adjustments and normal commit/push. One
+maintained repository was inventoried: Open-GBP. Local third-party reference
+repositories and private inputs are excluded; no tracked submodules were found.
+The README now maps the existing agent entry, technical docs, runtime/POC/stimulus
+sources, validation/tools, planning and continuity, and documents the basic
+recovery/build/host-validation commands. AGENTS points to OMM project-base via
+get_role and keeps its numbered research/safety contracts intact. No directory
+was moved and no parallel policy document was introduced.
+
+The section-38 cleanup/retention policy prepared on 2026-10-13 is included in
+this authorized publication: retain exact images, raw evidence, saves, inputs,
+fixtures, annotated analysis, accepted releases and necessary Git recovery;
+inspect task ownership, active users and durable provenance before deleting
+explicit scratch paths. Top-level make clean removes build/poc and build/tests
+entirely and is not automatic cleanup in the shared checkout. No project data
+was removed. The prior #164 recovery inventory remains a dated inventory.
+
+Validation is documentation review only: existing paths, relative links,
+Makefile command/target definitions, exact changed-file scope and diff whitespace.
+No tests, build or hardware session was added or run, per the Operator's explicit
+instruction for this maintenance. No runtime, frozen contract, pin, fixture,
+hardware procedure, evidence classification or paused development changed.
+Issue #165 records publication/read-back. #161 remains the cleared physical
+session on its ORIGINAL vehicle-0002 identity; #60 remains backlog.

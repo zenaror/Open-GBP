@@ -152,8 +152,11 @@ docs/
     protocol/        Consolidated programming/protocol reference
     research/        Evidence, experiments, unknowns, development log
     mobile-adapter/  Future Mobile Adapter-specific documentation
+    maintenance/     Historical identity migration and recovery procedure
 
+src/                 Shared runtime, transport, logging and audio code
 poc/                 Small GameCube proof-of-concept programs
+stimulus/            Cartridge-side diagnostic/test programs
 tests/               Host-side and synthetic automated tests
 tools/               Development and reverse-engineering utilities
 captures/            Hardware traces and test captures
@@ -161,6 +164,27 @@ input/               Private local binary inputs, never committed
 external/            Local reference repositories, never committed
 build/               Generated build outputs
 ```
+
+Open-GBP maintains this one repository. Repositories under `external/` are local
+third-party references; private inputs under `input/` are not project source.
+Their structure and upstream history are preserved.
+
+The portable project base maps to the existing files:
+
+| Responsibility | Canonical location |
+| --- | --- |
+| Agent entry and local research/safety contracts | [`AGENTS.md`](AGENTS.md); compact orientation in [`docs/ONBOARDING.md`](docs/ONBOARDING.md) |
+| Human introduction, build and organization | This README |
+| Hardware architecture, protocols and evidence | `docs/hardware/`, `docs/protocol/`, `docs/research/`; [`docs/RESEARCH_METHOD.md`](docs/RESEARCH_METHOD.md) defines the method |
+| Runtime and diagnostic code | `src/`, `poc/`, `stimulus/` |
+| Reproducible validation and tools | `tests/`, `tools/`, root `Makefile`; [`tools/README.md`](tools/README.md) describes utilities |
+| Planning and continuity | [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/HANDOFF.md`](docs/HANDOFF.md), research records and bounded GitHub Issues |
+| Shared agent roles and skills | OMM scope `open-gbp`, with `project-base` read through `get_role`; no independent local copies |
+
+The numbered evidence/safety contracts remain together in `AGENTS.md`, a local
+specialization of the common entry responsibility. Cleanup and retention are
+defined in its section 38: build outputs can include exact accepted images, and
+ignored files can be unique evidence. Neither is automatically disposable.
 
 ## Development environment
 
@@ -173,6 +197,29 @@ ghcr.io/extremscorner/libogc2:20260805
 ```
 
 The host does not need a separate devkitPPC installation.
+
+For a fresh clone, first restore the original historical commit objects needed
+by historical builds and freeze guards (see the
+[`history recovery procedure`](docs/maintenance/HISTORY_MIGRATION.md)):
+
+```bash
+python3 tools/history_recover.py
+```
+
+With rootless Podman and its Compose provider available, the basic build is:
+
+```bash
+systemctl --user start podman.socket
+make env-check
+make build
+```
+
+Host validation uses `make test-unit` and `make test-python` (a host C compiler
+and Python, with pytest preferred). `make test` also builds and inspects the
+GameCube programs. These commands are documented here, not a requirement to run
+them for every documentation edit. Build success does not prove hardware behavior;
+preserve exact accepted/pinned images before rebuilding and follow the bounded
+hardware procedure before staging anything on the console.
 
 ## Repository and workflow
 
