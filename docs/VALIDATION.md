@@ -3,10 +3,11 @@
 ## Host and GameCube layers
 
 Start with a full Git clone and `python3 tools/history_recover.py` so original
-commit identities used by old freeze guards are available. Run native C regressions
-with `make test-unit`, then Python/fixture regressions with `make test-python`.
-`make test` additionally builds and inspects the GameCube POCs through the pinned
-container. Dolphin is auxiliary; no emulator result proves physical Player behavior.
+commit identities used by old freeze guards are available. Native C regressions
+can run independently with `make test-unit`. The complete Python/fixture suite
+includes mandatory PowerPC artifact checks: on a fresh clone run `make build inspect`
+through the pinned container before `make test-python`. `make test` runs the build,
+inspection and both host gates in that order. Dolphin is auxiliary; no emulator result proves physical Player behavior.
 
 Private inputs, locally archived captures, analysis outputs and attached SD media
 are optional comparisons. The registered skip ledger classifies those absences;

@@ -25,11 +25,12 @@ Do not change a frozen gate, binary format or evidence interpretation silently.
 
 ```sh
 python3 tools/history_recover.py
-make test-unit
-make test-python
+make test
 ```
 
-A full Git clone is needed for historical regressions. `make build` uses rootless
+A full Git clone is needed for historical regressions. `make test-unit` can run
+independently; the complete Python suite also requires the PowerPC artifacts from
+`make build`. `make build` uses rootless
 Podman and the pinned image; `make test` also builds and inspects GameCube POCs.
 See the development and validation guides before invoking hardware-specific steps.
 

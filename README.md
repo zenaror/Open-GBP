@@ -36,7 +36,8 @@ make env-check
 make build
 ```
 
-A host C compiler, Python 3 and pytest are used for host validation:
+A host C compiler, Python 3 and pytest are used for host validation. The complete
+Python suite also inspects PowerPC artifacts, so run the build above first:
 
 ```sh
 make test-unit
