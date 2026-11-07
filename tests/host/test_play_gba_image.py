@@ -6,6 +6,8 @@ tools' arithmetic; no research handler, transition machine, DMA mark, label or C
 untouched; the DMA starts only through start_ready; the cartridge declaration is reachable only after the session and never from the pump; every record V31.3/V31.2/V31.4 names is written;
 the Makefile, the identity and the reserved slot name.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -27,12 +29,12 @@ V28 = os.path.join(ROOT, "poc", "gbp-audio-v28")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 

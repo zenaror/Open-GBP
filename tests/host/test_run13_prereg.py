@@ -13,6 +13,8 @@ instrumentation semantics; the display chain is topology, Morph 2K is outside;
 fifteen literal steps; and nothing in the runtime, the stimuli, the analyzers,
 the formats or the fixtures moved. Nothing here runs a program.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -41,7 +43,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -124,7 +126,7 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
         self.assertIn("not to be substituted", p)
 
     def test_the_canonical_fixture_carries_the_same_identity(self):
-        with open(os.path.join(FX, "stimulus-coord-0002-canonical.gba"), "rb") as f:
+        with document_archive.open_document(os.path.join(FX, "stimulus-coord-0002-canonical.gba"), "rb") as f:
             data = f.read()
         self.assertEqual((len(data), hashlib.sha256(data).hexdigest()), (3620, CANON2_SHA))
 
@@ -178,7 +180,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
 
     def test_the_ingestion_archived_under_exactly_the_reserved_names(self):
         import json
-        with open(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run13-struct.json")) as f:
+        with document_archive.open_document(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run13-struct.json")) as f:
             raw = json.load(f)["raw"]
         self.assertEqual([raw[k]["archived_as"] for k in ("log", "idxcap", "disp", "full", "vi")], NAMES)
 

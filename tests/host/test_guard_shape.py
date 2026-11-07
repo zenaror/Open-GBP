@@ -26,6 +26,8 @@ enforced here, for EVERY test of the shape and not only the ones that failed:
      static — it reads the reasons out of the sources — so it runs under
      pytest and under `unittest discover` alike.
 """
+
+import archived_documents as document_archive
 import ast
 import os
 import re
@@ -44,7 +46,7 @@ def host_tests():
 
 
 def read(f):
-    with open(os.path.join(HOST, f), encoding="utf-8") as fh:
+    with document_archive.open_document(os.path.join(HOST, f), encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -132,7 +134,7 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
     def test_the_helper_asks_both_halves_and_says_what_it_omits(self):
-        src = open(os.path.join(HOST, "guards.py"), encoding="utf-8").read()
+        src = document_archive.open_document(os.path.join(HOST, "guards.py"), encoding="utf-8").read()
         self.assertIn('"diff", "--name-only"', src)
         self.assertIn('"ls-files", "--others", "--exclude-standard"', src)
         self.assertIn("return tracked_changes(base, paths) | untracked(paths)", src)
@@ -148,7 +150,7 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
         head = "HEAD"
         before = guards.changed_since(head, ["src"])
         try:
-            with open(probe, "w", encoding="utf-8") as f:
+            with document_archive.open_document(probe, "w", encoding="utf-8") as f:
                 f.write("/* Issue #29 probe; removed by the test that wrote it */\n")
             after = guards.changed_since(head, ["src"])
             self.assertEqual(after - before, {"src/__issue29_probe__.c"},
@@ -168,7 +170,7 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
         probe = os.path.join(d, "__issue29_probe__.log")
         self.assertFalse(os.path.exists(probe))
         try:
-            with open(probe, "w", encoding="utf-8") as f:
+            with document_archive.open_document(probe, "w", encoding="utf-8") as f:
                 f.write("probe\n")
             self.assertEqual(guards.untracked(["captures"]), guards.untracked(["captures"]) - {"captures/local/__issue29_probe__.log"})
             self.assertNotIn("captures/local/__issue29_probe__.log", guards.changed_since("HEAD", ["captures"]))
@@ -237,7 +239,7 @@ class TheCheckpointRangesStayClosed(unittest.TestCase):
         self.assertFalse(os.path.exists(probe))
         before = guards.changed_between("aaee492", guards.CHECKPOINTS_CLOSED_AT, ["src"])
         try:
-            with open(probe, "w", encoding="utf-8") as fh:
+            with document_archive.open_document(probe, "w", encoding="utf-8") as fh:
                 fh.write("/* Issue #97 probe; removed by the test that wrote it */\n")
             self.assertEqual(guards.changed_between("aaee492", guards.CHECKPOINTS_CLOSED_AT, ["src"]), before)
             self.assertIn("src/__issue97_probe__.c", guards.untracked(["src"]),
@@ -297,7 +299,7 @@ class EverySkipIsRegisteredWithWhatCoversIt(unittest.TestCase):
         self.assertIn("nothing is staged under build/swiss", staged)
 
     def test_the_runtime_half_exists_and_states_its_limit(self):
-        c = open(os.path.join(HOST, "conftest.py"), encoding="utf-8").read()
+        c = document_archive.open_document(os.path.join(HOST, "conftest.py"), encoding="utf-8").read()
         self.assertIn("pytest_runtest_logreport", c)
         self.assertIn("session.exitstatus = 1", c)
         self.assertIn("a conftest is not loaded and this check does not run", re.sub(r"\s+", " ", c))

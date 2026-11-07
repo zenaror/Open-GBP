@@ -18,6 +18,8 @@ the bytes of 48e5c24; INPUT.md's correction is dated and the routing stays C;
 nothing under src/, poc/, tools/, Makefile, stimulus/ or captures/fixtures
 moved. Nothing here runs a program.
 """
+
+import archived_documents as document_archive
 import glob
 import hashlib
 import json
@@ -46,7 +48,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -131,7 +133,7 @@ class QuestionOneIsAnsweredFromTheCodeAndTheData(unittest.TestCase):
         self.assertRegex(h, r"#define GBP_VFULL_SPACING\s+256u")
         self.assertAlmostEqual(256 / 59.727, 4.286, places=3)
         for run, deltas in ((14, {"R": 2, "A": 3, "B": 2}), (15, {"R": 2, "UP": 3, "DOWN": 2})):
-            with open(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run%d-struct.json" % run), encoding="utf-8") as f:
+            with document_archive.open_document(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run%d-struct.json" % run), encoding="utf-8") as f:
                 smp = json.load(f)["tally_frames"]["samples"]
             v = lambda i: [0 if x == "blank" else int(x) for x in smp[i]["vector_as_read"]]
             d01 = {LABELS[k]: v(1)[k] - v(0)[k] for k in range(10) if v(1)[k] != v(0)[k]}
@@ -164,7 +166,7 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
         # Hardware Issue #32 (2026-09-21) preserved stream-0014 before staging stream-0015 (§V7.3.6 steps 1-3); the archive, when present, is the exact bytes
         arch = os.path.join(ROOT, "build", "archive", "gbp-video-stream-probe-stream-0014-0ff8355.dol")
         artifacts.optional(self, arch, "the preserved stream-0014 archive is not in this checkout")   # Issue #83 (D)
-        self.assertEqual((os.path.getsize(arch), hashlib.sha256(open(arch, "rb").read()).hexdigest()), (513152, PREV_SHA))
+        self.assertEqual((os.path.getsize(arch), hashlib.sha256(document_archive.open_document(arch, "rb").read()).hexdigest()), (513152, PREV_SHA))
 
     def test_the_built_artifact_if_present_is_the_one_named(self):
         info = os.path.join(ROOT, "build", "poc", "gbp-video-stream-probe", "build-info.txt")
@@ -187,7 +189,7 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
         builds, so it is its own test and does not inherit those skips."""
         swiss = os.path.join(ROOT, "build", "swiss", "12-stream", "boot.dol")
         artifacts.optional(self, swiss, "nothing is staged under build/swiss")
-        with open(swiss, "rb") as f:
+        with document_archive.open_document(swiss, "rb") as f:
             self.assertIn(hashlib.sha256(f.read()).hexdigest(), (PREV_SHA, DOL_SHA),
                           "the Swiss slot holds stream-0014 (before Hardware Issue #32) or stream-0015 (staged under it)")
 

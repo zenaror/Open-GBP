@@ -3,6 +3,8 @@
 The numbers HARDWARE_TESTS.md V29.12 and GBP-HW-378 quote are recomputed here from captures/local (ignored by Git, so the test skips, with the registered reason, on a host
 without the archive). The reader is the one frozen at 4d6fe06; the descriptive readings (the counts against the GBA family, the frame-close cadence) are recomputed apart from it.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -27,7 +29,7 @@ HZ = 40500000
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -39,7 +41,7 @@ def episodes(text):
 
 
 def section(path, head):
-    with open(path, encoding="utf-8") as f:
+    with document_archive.open_document(path, encoding="utf-8") as f:
         d = f.read()
     i = d.index(head)
     j = d.find("\n### ", i + 1)
@@ -54,7 +56,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
         for suffix, want in HASHES.items():
             p = RUN59 if suffix == "" else os.path.join(LOCAL, "GBP-VIDEO-004_gbmode-0001-run59" + suffix)
             assert sha(p) == want, "captures/local's RUN 59 archive (%s) is not the recorded one (a defect in the archive, never a skip)" % (suffix or ".log")
-        with open(RUN59, encoding="utf-8", errors="replace") as f:
+        with document_archive.open_document(RUN59, encoding="utf-8", errors="replace") as f:
             cls.text = f.read()
         cls.o = g.read(g.parse(cls.text), build="gbmode-0001", commit="4d6fe06")
 
@@ -93,7 +95,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
             p = os.path.join(LOCAL, "GBP-VIDEO-004_stream-0015-%s.log" % n)
             if not os.path.isfile(p):
                 self.skipTest("no local archive on this host (captures/local is ignored)")
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 tx = f.read()
             m = re.search(r"COUNTERS unmasks=(\d+) deliveries=(\d+) .* audio=(\d+) video=(\d+)/", tx)
             base[n] = tuple(int(x) for x in m.groups())[1:]
@@ -119,7 +121,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
             p = os.path.join(LOCAL, "GBP-VIDEO-004_stream-0015-%s.log" % n)
             if not os.path.isfile(p):
                 self.skipTest("no local archive on this host (captures/local is ignored)")
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 for v in fps(f.read()).values():
                     self.assertTrue(59.727 <= round(v, 3) <= 59.728, v)
 

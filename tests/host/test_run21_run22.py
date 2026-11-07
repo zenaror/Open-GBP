@@ -17,6 +17,8 @@ never edited, and one test asserts that calling them on the real logs still
 returns what the record says it returns — ANOMALOUS for Question T — so that a
 later "fix" to make that read NOMINAL cannot pass unnoticed.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -47,7 +49,7 @@ RB = {21: {"START": 7, "A": 118, "B": 54, "SELECT": 9, "RIGHT": 94, "LEFT": 66,
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -100,7 +102,7 @@ class TheArtifactsAreWhatTheRecordSays(unittest.TestCase):
 
     def test_hashes_and_sizes(self):
         for n, (digest, size) in HASHES.items():
-            raw = open(os.path.join(LOCAL, ALL[n]), "rb").read()
+            raw = document_archive.open_document(os.path.join(LOCAL, ALL[n]), "rb").read()
             self.assertEqual(len(raw), size, n)
             self.assertEqual(hashlib.sha256(raw).hexdigest(), digest, n)
             self.assertIn(digest, section(), "§V7.8 does not carry RUN %d's hash" % n)

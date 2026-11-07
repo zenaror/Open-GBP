@@ -39,7 +39,8 @@ One paragraph: what this checkpoint delivers and why now.
 
 - tests, audits, emulator checks, document consistency;
 - for any physical claim: the gate must already be pre-registered in
-  `docs/research/HARDWARE_TESTS.md` before the hardware is touched.
+  a durable experiment record before the hardware is touched; see
+  `docs/RESEARCH_METHOD.md` and `docs/VALIDATION.md`.
 
 ## Hardware requirement
 

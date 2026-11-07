@@ -9,6 +9,8 @@ the data looks better than the prediction.
 The raws live under captures/local/ and logs/, both ignored, so the
 recomputations skip in a clone; the document checks run everywhere.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import struct
@@ -39,7 +41,7 @@ TB = 40500000.0
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -79,7 +81,7 @@ class TheRawsAreArchivedAndTheIssuesTableWasSwapped(unittest.TestCase):
         # Issue #83 (D): written through the shared helper, so the rule holds with no exceptions
         paths = {os.path.join(ROOT, "logs", run, name): h for (run, name), h in want.items()}
         for p in artifacts.any_of(self, sorted(paths), "the raw drop is not in this checkout (logs/ is ignored)"):
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 self.assertEqual(hashlib.sha256(f.read()).hexdigest(), paths[p], p)
 
     def test_the_swapped_pairing_in_the_issue_is_named(self):
@@ -94,7 +96,7 @@ class ThreeChannelsAgreeOnTheSidecarCRC(unittest.TestCase):
         for p, want in ((B33, 0xD3DBD9A6), (B34, 0x4C45D84F)):
             if not os.path.exists(p):
                 self.skipTest("RUN 33 or RUN 34 is not archived in this checkout")
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 raw = f.read()
             self.assertEqual(raw[-12:-4], b"OGBPAWND")
             self.assertEqual(struct.unpack(">I", raw[-4:])[0], want)

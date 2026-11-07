@@ -10,6 +10,8 @@ Durable, append-only forms (no whole-file equality):
   * tools/playread.py is the reader of BASE, byte for byte; tools/swiss-layout.tsv has no row 29 (to be amended on top by the hardware Issue's pin);
   * the HANDOFF and the DEVLOG carry the state, once, without citing the test id (the BREADTH family is not in TEST_FAMILIES), in HANDOFF and ROADMAP.
 """
+
+import archived_documents as document_archive
 import difflib
 import hashlib
 import os
@@ -113,7 +115,7 @@ STEP5 = (" 5. Título 1 (Yoshi, na NOR): NÃO salve o jogo de propósito. Títul
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 

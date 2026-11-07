@@ -24,6 +24,8 @@ could talk itself out of:
     margin. §V19.9 records the adopted reading; this file pins it, so a future
     reader cannot quietly adopt the other one.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -40,7 +42,7 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

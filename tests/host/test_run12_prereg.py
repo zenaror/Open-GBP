@@ -11,6 +11,8 @@ and not as a pixel claim; the future Morph 2K topologies are outside RUN 12;
 and nothing about the runtime, the stimulus or the analyzers is touched by the
 pre-registration. Nothing here runs a program or reads a raw physical file.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -37,7 +39,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

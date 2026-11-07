@@ -28,6 +28,8 @@ And the negative that keeps the promotion honest: no id was minted, and
 `GBP-CTL-001` keeps the status it had, because what the software does with the
 register and what the device reports are different propositions.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -41,7 +43,7 @@ RUN17 = os.path.join(ROOT, "captures", "local", "GBP-VIDEO-004_stream-0015-run17
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

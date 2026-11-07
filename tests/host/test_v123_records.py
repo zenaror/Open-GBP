@@ -17,6 +17,8 @@ What is held here, each checked, not assumed:
   * THE FIGURES ARE THE TOOLS'. GBP-HW-347's tone columns and GBP-HW-350's budget are formatted from
     tools/v123frame.py's and tools/v123chain.py's own output, so a record that drifted from the data fails here.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -50,7 +52,7 @@ NEW_UN = (("U-GBP-047", "are streams A and B of an AUDIO slice the AGB's two out
 
 
 def now(path):
-    with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, path), encoding="utf-8") as f:
         return f.read()
 
 

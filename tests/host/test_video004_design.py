@@ -8,6 +8,8 @@ implemented or run, and that the two rules the colour work paid for — no
 full-frame work in the service path, and never synthesise pixels — are stated
 rather than assumed.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -19,7 +21,7 @@ HANDOFF = os.path.join(ROOT, "docs", "HANDOFF.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -76,7 +78,7 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         a constant — GBP-VIDEO-004 has since produced GBP-HW-134…137 — so it is
         read from EVIDENCE.md, which is the file that owns the numbering."""
         ev = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
-        with open(ev, encoding="utf-8") as f:
+        with document_archive.open_document(ev, encoding="utf-8") as f:
             allocated = {int(c) for c in re.findall(r"^### GBP-HW-(\d{3})", f.read(), re.M)}
         self.assertTrue(allocated, "EVIDENCE.md allocates no ids at all")
         cited = set(re.findall(r"GBP-HW-(\d{3})", v5()))

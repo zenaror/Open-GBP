@@ -7,6 +7,8 @@ the service path gained exactly one publish and one bounded pump and nothing
 else, that the historical probes still do what they did, and that the conversion
 agrees with a PHYSICAL frame whose colours are already known.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -24,7 +26,7 @@ COLOR0002 = os.path.join(ROOT, "captures", "fixtures",
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -435,7 +437,7 @@ class ConversionAgreesWithAPhysicalFrame(unittest.TestCase):
         import sys
         sys.path.insert(0, os.path.join(ROOT, "tools"))
         import vcolor
-        d = vcolor.parse(open(COLOR0002, "rb").read())
+        d = vcolor.parse(document_archive.open_document(COLOR0002, "rb").read())
         cls.raw = vcolor.raw_frame(d, 0)
 
     @staticmethod
@@ -480,7 +482,7 @@ class ConversionAgreesWithAPhysicalFrame(unittest.TestCase):
         import sys
         sys.path.insert(0, os.path.join(ROOT, "tools"))
         import vcolor
-        d = vcolor.parse(open(COLOR0002, "rb").read())
+        d = vcolor.parse(document_archive.open_document(COLOR0002, "rb").read())
         a, b = vcolor.raw_frame(d, 0), vcolor.raw_frame(d, 1)
         self.assertNotEqual(a, b)                      # the raws differ
         self.assertEqual(a[1::2], b[1::2])             # only in bytes 0 and 2

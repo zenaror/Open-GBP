@@ -6,6 +6,8 @@ set and near 0 for a set with no period. Then every figure the record states is 
 versioned fixtures by tools/u045cadence.py, and the record is checked for saying what the archive
 does NOT establish.
 """
+
+import archived_documents as document_archive
 import os
 import random
 import re
@@ -22,7 +24,7 @@ UNK = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 
 
 def read(p, mode="r"):
-    with open(p, mode, **({} if "b" in mode else {"encoding": "utf-8", "errors": "replace"})) as f:
+    with document_archive.open_document(p, mode, **({} if "b" in mode else {"encoding": "utf-8", "errors": "replace"})) as f:
         return f.read()
 
 

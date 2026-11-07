@@ -19,7 +19,7 @@ last built, and once `make build` works (Issue #87) it moves with HEAD. On
 2026-09-23 eleven of fourteen staged slots (01 to 11) held rebuilds made at
 7d7a6d8 under the build ids of images that had run at other commits. What a
 physical run executed is identified by the SHA-256 and the commit the RECORDS
-carry (EVIDENCE.md, HARDWARE_TESTS.md, HANDOFF.md). A staged slot is those bytes
+carry (immutable historical run records; see docs/VALIDATION.md). A staged slot is those bytes
 only when its manifest row is FROZEN, because only then does this tool verify the
 bytes against the pinned hash. Every other staged row is a copy of whatever
 `build/poc` held at export time: its build id and commit name that build, and it
@@ -294,12 +294,12 @@ def main(argv=None):
         "",
         "Each directory holds one boot.dol, copied byte for byte from build/poc when it was exported.",
         "NEITHER THIS FILE NOR build/poc IS AN AUTHORITY. The bytes a physical run executed are",
-        "identified by the SHA-256 and commit in the records (EVIDENCE.md, HARDWARE_TESTS.md, HANDOFF.md).",
+        "identified by the SHA-256 and commit in the records (immutable; see docs/VALIDATION.md).",
         "A row is those bytes ONLY if its STATUS reads PINNED-VERIFIED: its slot is FROZEN below and its",
         "bytes were checked against the pinned hash when this file was written. A row reading UNPINNED-COPY",
         "is a copy of whatever build/poc held at export time; its BUILD ID and COMMIT name that build, and",
         "it has NO physical status -- booting it does NOT reproduce any executed run. To run such an image",
-        "again, restage it first from its own commit (docs/HANDOFF.md, the per-image recipe) and pin it.",
+        "again, restage it from its own commit and original per-image recipe, then pin it (docs/VALIDATION.md).",
         "Numbers are stable: a new build takes the next free number and nothing is renumbered.",
         "A row whose SOURCE reads \"(not written by this export)\" was already staged and was left alone.",
         "",

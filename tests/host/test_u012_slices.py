@@ -15,6 +15,8 @@ every figure of the record is pinned:
     transitions predict;
   * every Hz figure of the pair and slice decodes is conditional on uniform slices (U-GBP-041).
 """
+
+import archived_documents as document_archive
 import math
 import os
 import sys
@@ -203,10 +205,10 @@ class TheCostsAreArithmeticInTodaysUnits(unittest.TestCase):
         self.assertEqual(round(c["observed_dup_ms_per_s"]["RUN 38"], 2), 7.50)
         self.assertEqual(round(100 * c["observed_dup_per_s"]["RUN 38"] / c["correction_ceiling_per_s"]), 96)
         self.assertLess(c["one_correction_per_chunk_ms_per_s"]["pair"], min(c["need_ms_per_s"].values()))
-        ev = open(os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), encoding="utf-8").read()
+        ev = document_archive.open_document(os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), encoding="utf-8").read()
         self.assertIn("- Observed: 30.703 net DUP/s.", ev)                             # GBP-HW-325
         self.assertIn("32 028.483", ev)
-        h = open(os.path.join(ROOT, "src", "audio", "gbp_aplay.h"), encoding="utf-8").read()
+        h = document_archive.open_document(os.path.join(ROOT, "src", "audio", "gbp_aplay.h"), encoding="utf-8").read()
         # AMENDED 2026-09-25 (GitHub Issue #121), on top: "today's units" are #118's, and #121 moved the default
         # cushion to 0.125 s (512); TARGET's 2048 is read from the header #118 was written against (b1a72a4),
         # through guards.show (a moved path fails, an absent commit skips), AFTER the checks HEAD still answers. The

@@ -128,3 +128,9 @@ These are also not established, and have no `U-GBP` id:
 - whether the one pulse per block is the AGB's left, right or mixed output; numbered since 2026-09-25: `U-GBP-047`, above;
 - GB/GBC-mode audio (Phase 7);
 - synchronisation with video.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

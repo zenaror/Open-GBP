@@ -9,6 +9,8 @@ pinned: what it says is what the reader, the archive and the fence say.
   * the Operator's questions are frozen, in Portuguese, and the document says they are recorded verbatim before any figure;
   * nothing is staged, no run outcome of RUN 58 is described, and the blinding vocabulary of Issue #128 is absent.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -24,7 +26,7 @@ LOCAL = os.path.join(ROOT, "captures", "local")
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 

@@ -1,5 +1,7 @@
 """tests/host/test_v28_run56_dma.py -- GitHub Issue #139: the AI DMA hand-off semantics READ at every callback's entry (RUN 56's image), as WRITTEN in main.c, and the reader
 that applies the pre-registered readings (HARDWARE_TESTS.md V28.23)."""
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -17,7 +19,7 @@ MAIN = W.MAIN
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

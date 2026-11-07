@@ -18,6 +18,8 @@ would make it dishonest are absent:
   * nothing was promoted: no id minted, no status moved, and the per-pad
     corroboration the head runs add is explicitly NOT a promotion.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -34,7 +36,7 @@ VERDICT = "SATISFIED WITH NAMED RESIDUALS"
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

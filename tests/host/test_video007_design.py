@@ -14,6 +14,8 @@ and really makes shifts, swaps and permutations falsifiable. The field model
 below is written from the section's formula and is not an implementation of
 the stimulus: nothing here touches a ROM, a runtime or a sidecar.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -25,7 +27,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

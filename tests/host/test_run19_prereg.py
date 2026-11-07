@@ -21,6 +21,8 @@ with failure reachable; Phase 5's closure is not decided and further away; no
 result, no id, no executed date; §V7.1–§V7.4 are the bytes of 59dce2b and the
 chapter heading only grew; nothing under the untouchable paths moved.
 """
+
+import archived_documents as document_archive
 import glob
 import os
 import re
@@ -50,7 +52,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

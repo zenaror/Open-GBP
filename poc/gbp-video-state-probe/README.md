@@ -208,3 +208,9 @@ register (A1, A2, one ACK and one re-arm per cycle, the stop word).
 invalidate the result held in RAM, the screen says whether the sidecar is complete, partial or
 failed, and there is never an automatic re-run: the hardware state after a run is not the state a
 fresh run starts from.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

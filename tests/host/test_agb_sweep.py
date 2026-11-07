@@ -18,6 +18,8 @@ volume 7 is what the physical run is for, and nothing here can stand in for it.
 **Nor can a host test say the screen is legible on his converter** — geometry is
 checked, visibility is not.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -131,7 +133,7 @@ int main(void)
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -168,7 +170,7 @@ def run_rom():
         return _OUT[0]
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "harness.c")
-        with open(src, "w") as f:
+        with document_archive.open_document(src, "w") as f:
             f.write(HARNESS)
         exe = os.path.join(d, "rom")
         # Issue #83 (E): through hostcc, so the one rule covers `cc` too -- a missing
@@ -510,7 +512,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         for path, h in want.items():
             if not os.path.exists(path):
                 continue
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 data = f.read()
             self.assertEqual(hashlib.sha256(data).hexdigest(), h, path)
             self.assertEqual(len(data), 2352, path)
@@ -526,9 +528,9 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         deliv = os.path.join(ROOT, "build", "physical", "agb-sweep-cart.gba")
         if not (os.path.exists(canon) and os.path.exists(deliv)):
             self.skipTest("the build artifacts are not in this checkout (build/ is ignored)")
-        with open(canon, "rb") as f:
+        with document_archive.open_document(canon, "rb") as f:
             c = f.read()
-        with open(deliv, "rb") as f:
+        with document_archive.open_document(deliv, "rb") as f:
             d = f.read()
         self.assertEqual(len(c), len(d))
         self.assertEqual(c[0xC0:], d[0xC0:])

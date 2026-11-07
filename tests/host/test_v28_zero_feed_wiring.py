@@ -12,6 +12,8 @@ from advancing -- the future driver loop itself failing to call gbp_aplay2_irq_h
 gbp_atrans2_step() on every real audio tick, e.g. by gating its own calls on feed or decode
 availability."
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -22,7 +24,7 @@ MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

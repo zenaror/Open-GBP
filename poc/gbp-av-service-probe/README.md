@@ -232,3 +232,9 @@ a DMA timeout leaving the engine busy (the teardown is best-effort; power cycle)
 during the drain with bit 15 = 0 (tolerated, cleared by the single main W1C); the second cause
 left latched until the teardown (by design); every write has physical precedent (0x0000 = A2,
 `read | 0x8000` = A1 / ACK, `read | 0x8AAA` = stop).
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

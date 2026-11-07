@@ -770,3 +770,9 @@ sentence above ("CORROBORATED, not FACT, for the L/R order") is history from
 that point; `INPUT.md` carries the current statement with its scope. Still
 not established: input latency, the need for the refresh, pads beyond the two
 declared, any other cartridge, a real game.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

@@ -18,6 +18,8 @@ through the parser and the frozen gates here.
 THE AUDIT IS EXERCISED, NOT COUNTED: when the listings exist, `drain` passes this
 image and fails play-0001's, and `play` fails this image.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -40,7 +42,7 @@ RINGLOG_CONTENT_MAX = 256 - 7 - 1      # LOG_LINE_LEN, minus the "%06u " prefix 
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

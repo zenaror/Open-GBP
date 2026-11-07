@@ -10,6 +10,8 @@ this file; nothing reads a capture. Two things carry the weight:
     just past, its boundaries -- including (e), the reading without which L fails
     a healthy system by construction.
 """
+
+import archived_documents as document_archive
 import os
 import random
 import struct
@@ -33,7 +35,7 @@ TB = v.TB_HZ
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -172,7 +174,7 @@ class TheHostResamplerIsTheFrozenOne(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="v22-")
         src = os.path.join(cls.tmp, "h.c")
-        with open(src, "w") as f:
+        with document_archive.open_document(src, "w") as f:
             f.write(HARNESS)
         cls.bin = os.path.join(cls.tmp, "h")
         cls.have, cls.ok, cls.err = hostcc.compile_c(
@@ -185,10 +187,10 @@ class TheHostResamplerIsTheFrozenOne(unittest.TestCase):
         xs = [rnd.choice((-32768, 32767, 0, -1, 1)) if k % 97 == 0 else rnd.randint(-32768, 32767)
               for k in range(4000)] + square(1000)
         p = os.path.join(self.tmp, "in.s16")
-        with open(p, "wb") as f:
+        with document_archive.open_document(p, "wb") as f:
             f.write(struct.pack("<%dh" % len(xs), *xs))
         subprocess.run([self.bin, p, p + ".out"], check=True, timeout=60)
-        with open(p + ".out", "rb") as f:
+        with document_archive.open_document(p + ".out", "rb") as f:
             b = f.read()
         c_out = list(struct.unpack("<%dh" % (len(b) // 2), b))
         py_out, used = v.resample_from({"hist": [0] * 16, "hpos": 0, "acc": 0}, xs, 10 ** 9)
@@ -414,7 +416,7 @@ class TheCommandLine(unittest.TestCase):
     def test_it_prints_every_verdict_and_the_series(self):
         with tempfile.TemporaryDirectory() as d:
             j = os.path.join(d, "r.json")
-            with open(j, "w") as f:
+            with document_archive.open_document(j, "w") as f:
                 import json
                 json.dump(report(), f)
             out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v22accept.py"), j],

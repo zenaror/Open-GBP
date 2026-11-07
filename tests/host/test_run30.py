@@ -15,6 +15,8 @@ data; that file could not, and the guard says so loudly.
 captures/local is ignored by git, so a clone legitimately has neither the raws
 nor the sidecar and the recomputations skip. The source-level pins do not.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -45,7 +47,7 @@ TOTAL_CRC = 0x73A74A49
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -59,7 +61,7 @@ def v8_part():
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 

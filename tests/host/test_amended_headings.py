@@ -29,6 +29,8 @@ exact words it had before the pointer was added. Rewriting a recorded claim is
 the thing the convention exists to prevent, so a test that only checked for a
 pointer would miss the failure that matters.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -54,7 +56,7 @@ POINTER = re.compile(r"\*\*\s*(\d{4}-\d{2}-\d{2})[^*]*Issue #(\d+)[^*]*\*\*")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

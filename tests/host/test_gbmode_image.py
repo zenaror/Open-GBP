@@ -18,6 +18,8 @@ WHICH TREE. Before the candidate is built the tree is the working tree; once HAR
 (`CANDIDATE_COMMIT=<sha>`), every comparison here uses THAT commit, so later checkpoints that touch shared sources cannot move a
 pinned candidate's claim (images reproduce at their own commit, HARDWARE_TESTS 23.9).
 """
+
+import archived_documents as document_archive
 import os
 import re
 import shutil
@@ -36,7 +38,7 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 

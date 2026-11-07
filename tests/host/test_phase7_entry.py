@@ -12,6 +12,8 @@ to nothing; ranges are checked at both ends.
 THE TWO CODE CLAIMS THE DOCUMENT LEANS ON ARE READ FROM THE TREE: that the CONTROL guard compares the vote
 to the value the runtime wrote, and that the V28 chassis header says what section 2 quotes from it.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -23,7 +25,7 @@ UNKNOWNS = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

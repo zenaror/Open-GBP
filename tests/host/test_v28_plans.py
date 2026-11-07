@@ -7,6 +7,8 @@ tools/v28budget.py's own PLANS dict is imported directly (not re-parsed from its
 compared field by field against the C header, parsed from its own source. Neither file is
 treated as the source of truth over the other -- this test is what keeps them equal.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -62,7 +64,7 @@ KIND_START_FN = {
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -455,7 +457,7 @@ class TheMakefileCleanTarget(unittest.TestCase):
 
     def test_clean_removes_every_plan_this_header_knows_about(self):
         mk = os.path.join(ROOT, "poc", "gbp-audio-v28", "Makefile")
-        with open(mk, encoding="utf-8") as f:
+        with document_archive.open_document(mk, encoding="utf-8") as f:
             text = f.read()
         m = re.search(r"^clean:\n(?:.*\n)*?\t@rm -rf ((?:[^\n]*\\\n)*[^\n]*)", text, re.M)
         self.assertIsNotNone(m, "clean: target's own rm -rf line could not be found")
@@ -472,7 +474,7 @@ class TheHeaderBuilds(unittest.TestCase):
         src = '#include "gbp_v28_plans.h"\nint main(void) { return (int)GBP_V28_VALIDATION_RUN.count; }\n'
         with tempfile.TemporaryDirectory() as d:
             srcfile = os.path.join(d, "ok.c")
-            with open(srcfile, "w", encoding="utf-8") as f:
+            with document_archive.open_document(srcfile, "w", encoding="utf-8") as f:
                 f.write(src)
             exe = os.path.join(d, "ok")
             have, ok, err = hostcc.compile_c(["-std=gnu11", "-Wall", "-Wextra", "-I", AUDIO, "-o", exe, srcfile])

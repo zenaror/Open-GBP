@@ -9,6 +9,8 @@ nor the export is an authority (Issue #88, correcting this docstring): an
 executed image is its recorded SHA-256 and commit, and only a FROZEN slot is
 checked against it.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import shutil
@@ -97,7 +99,7 @@ class Manifest(unittest.TestCase):
 
     def _refuse(self, extra_line):
         with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
-            f.write(open(MANIFEST).read())
+            f.write(document_archive.open_document(MANIFEST).read())
             f.write(extra_line)
             path = f.name
         try:
@@ -117,16 +119,16 @@ class Export(unittest.TestCase):
         for r in self.rows:
             d = os.path.join(self.tmp, "build", "poc", r["out_dir"])
             os.makedirs(d, exist_ok=True)
-            with open(os.path.join(d, r["dol"]), "wb") as f:
+            with document_archive.open_document(os.path.join(d, r["dol"]), "wb") as f:
                 f.write(("DOL:" + r["dir"]).encode() + os.urandom(64))
-            with open(os.path.join(d, "build-info.txt"), "w") as f:
+            with document_archive.open_document(os.path.join(d, "build-info.txt"), "w") as f:
                 f.write("build_id=%s\ncommit=deadbee\n" % r["short_name"])
         os.makedirs(os.path.join(self.tmp, "poc"), exist_ok=True)
         # The real manifest's ROWS, with the frozen column cleared: these tests exercise the export
         # MECHANICS against synthetic bytes, and a frozen slot refuses synthetic bytes by design
         # (that refusal is what FrozenSlotsCannotBeDestroyed proves, in its own temporary root).
-        with open(os.path.join(self.tmp, "layout.tsv"), "w") as f:
-            for line in open(MANIFEST):
+        with document_archive.open_document(os.path.join(self.tmp, "layout.tsv"), "w") as f:
+            for line in document_archive.open_document(MANIFEST):
                 if line.strip() and not line.lstrip().startswith("#"):
                     parts = line.rstrip("\n").split("\t")
                     parts[-1] = "-"
@@ -156,12 +158,12 @@ class Export(unittest.TestCase):
                 continue
             src = os.path.join(self.tmp, "build", "poc", r["out_dir"], r["dol"])
             dst = os.path.join(self.tmp, "build", "swiss", r["dir"], "boot.dol")
-            self.assertEqual(hashlib.sha256(open(src, "rb").read()).hexdigest(),
-                             hashlib.sha256(open(dst, "rb").read()).hexdigest())
+            self.assertEqual(hashlib.sha256(document_archive.open_document(src, "rb").read()).hexdigest(),
+                             hashlib.sha256(document_archive.open_document(dst, "rb").read()).hexdigest())
 
     def test_the_index_lists_every_export(self):
         self.assertEqual(self._run(), 0)
-        text = open(os.path.join(self.tmp, "build", "swiss", "INDEX.txt")).read()
+        text = document_archive.open_document(os.path.join(self.tmp, "build", "swiss", "INDEX.txt")).read()
         for r in self.rows:
             if r["enabled"] == "1":
                 self.assertIn(r["dir"], text)
@@ -171,12 +173,12 @@ class Export(unittest.TestCase):
         os.unlink(os.path.join(self.tmp, "build", "poc", self.rows[0]["out_dir"], self.rows[0]["dol"]))
         self.assertEqual(self._run(), 0)
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "build", "swiss", self.rows[0]["dir"], "boot.dol")))
-        text = open(os.path.join(self.tmp, "build", "swiss", "INDEX.txt")).read()
+        text = document_archive.open_document(os.path.join(self.tmp, "build", "swiss", "INDEX.txt")).read()
         self.assertIn("NOT EXPORTED", text)
 
     def test_the_export_only_clears_its_own_directory(self):
         other = os.path.join(self.tmp, "build", "poc", "keepme.txt")
-        open(other, "w").write("keep")
+        document_archive.open_document(other, "w").write("keep")
         self.assertEqual(self._run(), 0)
         self.assertTrue(os.path.exists(other), "the export removed something outside build/swiss")
 
@@ -184,7 +186,7 @@ class Export(unittest.TestCase):
         self.assertEqual(self._run(), 0)
         stray = os.path.join(self.tmp, "build", "swiss", "99-stale")
         os.makedirs(stray)
-        open(os.path.join(stray, "boot.dol"), "w").write("old")
+        document_archive.open_document(os.path.join(stray, "boot.dol"), "w").write("old")
         self.assertEqual(self._run(), 0)
         self.assertFalse(os.path.exists(stray), "a stale export directory survived")
 
@@ -224,13 +226,13 @@ class ColourCandidate(unittest.TestCase):
         info = os.path.join(ROOT, "build", "poc", "gbp-video-color-probe", "build-info.txt")
         index = os.path.join(ROOT, "build", "swiss", "INDEX.txt")
         if os.path.exists(info) and os.path.exists(index):
-            commit = dict(l.split("=", 1) for l in open(info).read().splitlines() if "=" in l).get("commit", "-")
-            row = [l for l in open(index).read().splitlines() if l.startswith("11-color ")]
+            commit = dict(l.split("=", 1) for l in document_archive.open_document(info).read().splitlines() if "=" in l).get("commit", "-")
+            row = [l for l in document_archive.open_document(index).read().splitlines() if l.startswith("11-color ")]
             if row and ("| %s " % commit) not in row[0]:
                 self.skipTest("build/swiss/11-color is the export of an earlier build (%s); the tree now builds the colour probe at %s"
                               % (row[0].split("|")[3].strip(), commit))
-        self.assertEqual(hashlib.sha256(open(src, "rb").read()).hexdigest(),
-                         hashlib.sha256(open(dst, "rb").read()).hexdigest())
+        self.assertEqual(hashlib.sha256(document_archive.open_document(src, "rb").read()).hexdigest(),
+                         hashlib.sha256(document_archive.open_document(dst, "rb").read()).hexdigest())
 
 
 class NotTracked(unittest.TestCase):
@@ -260,18 +262,18 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.poc = os.path.join(self.tmp, "build", "poc", "p")
         os.makedirs(self.poc)
         self.src = os.path.join(self.poc, "p.dol")
-        with open(self.src, "wb") as f:
+        with document_archive.open_document(self.src, "wb") as f:
             f.write(b"NEW BYTES, a rebuild at another commit\n")
         os.makedirs(os.path.join(self.tmp, "poc", "p"))
         self.out = os.path.join(self.tmp, "build", "swiss")
         os.makedirs(os.path.join(self.out, "70-frozen"))
         self.staged = os.path.join(self.out, "70-frozen", "boot.dol")
-        with open(self.staged, "wb") as f:
+        with document_archive.open_document(self.staged, "wb") as f:
             f.write(b"OLD BYTES, the image a physical run executed\n")
-        self.frozen_hash = hashlib.sha256(open(self.staged, "rb").read()).hexdigest()
+        self.frozen_hash = hashlib.sha256(document_archive.open_document(self.staged, "rb").read()).hexdigest()
         self.manifest = os.path.join(self.tmp, "layout.tsv")
         self._write_manifest(self.frozen_hash)
-        with open(os.path.join(self.out, "INDEX.txt"), "w") as f:
+        with document_archive.open_document(os.path.join(self.out, "INDEX.txt"), "w") as f:
             f.write("Open-GBP - Swiss launch layout\n\n"
                     "%-12s | %-18s | %-22s | %-9s | %10s | %-64s | %s\n"
                     % ("DIR", "TEST ID", "BUILD ID", "COMMIT", "SIZE", "SHA-256", "SOURCE")
@@ -280,7 +282,7 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
                        self.frozen_hash, "build/poc/p/p.dol"))
 
     def _write_manifest(self, frozen):
-        with open(self.manifest, "w") as f:
+        with document_archive.open_document(self.manifest, "w") as f:
             f.write("#number\tshort_name\tsource_poc\tdol\tout_dir\tmake_target\tenabled\tfrozen_sha256\n")
             f.write("70\tfrozen\tp\tp.dol\tp\tbuild\t1\t%s\n" % frozen)
 
@@ -288,53 +290,53 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         return swiss_export.main(["--root", self.tmp, "--out", self.out, "--manifest", self.manifest] + list(extra_args))
 
     def test_a_full_export_refuses_and_changes_nothing(self):
-        before = open(self.staged, "rb").read()
-        index_before = open(os.path.join(self.out, "INDEX.txt")).read()
+        before = document_archive.open_document(self.staged, "rb").read()
+        index_before = document_archive.open_document(os.path.join(self.out, "INDEX.txt")).read()
         rc = self._run()
         self.assertNotEqual(rc, 0, "the export must REFUSE, not succeed")
         self.assertEqual(rc, 4)
-        self.assertEqual(open(self.staged, "rb").read(), before, "the frozen slot's bytes were changed")
-        self.assertEqual(open(os.path.join(self.out, "INDEX.txt")).read(), index_before,
+        self.assertEqual(document_archive.open_document(self.staged, "rb").read(), before, "the frozen slot's bytes were changed")
+        self.assertEqual(document_archive.open_document(os.path.join(self.out, "INDEX.txt")).read(), index_before,
                          "INDEX.txt was rewritten while the export was refusing")
 
     def test_only_another_slot_leaves_the_frozen_one_alone(self):
         os.makedirs(os.path.join(self.tmp, "poc", "q"))
         os.makedirs(os.path.join(self.tmp, "build", "poc", "q"))
-        with open(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
+        with document_archive.open_document(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
             f.write(b"a new slot's bytes\n")
-        with open(self.manifest, "a") as f:
+        with document_archive.open_document(self.manifest, "a") as f:
             f.write("71\tfresh\tq\tq.dol\tq\tbuild\t1\t-\n")
-        before = open(self.staged, "rb").read()
+        before = document_archive.open_document(self.staged, "rb").read()
         rc = self._run("--only", "71-fresh")
         self.assertEqual(rc, 0)
-        self.assertEqual(open(self.staged, "rb").read(), before, "a --only export touched another slot")
+        self.assertEqual(document_archive.open_document(self.staged, "rb").read(), before, "a --only export touched another slot")
         self.assertTrue(os.path.exists(os.path.join(self.out, "71-fresh", "boot.dol")))
         # and the frozen slot's INDEX row is CARRIED OVER, not recomputed from build/poc
-        index = open(os.path.join(self.out, "INDEX.txt")).read()
+        index = document_archive.open_document(os.path.join(self.out, "INDEX.txt")).read()
         self.assertIn("frozen-0001", index, "the carried-over row lost the identity it recorded")
         self.assertIn("deadbee", index)
         self.assertIn(self.frozen_hash, index)
 
     def test_the_index_refuses_to_re_describe_a_frozen_slot_whose_bytes_moved(self):
         """If the staged bytes are not the pinned ones, the index must not learn a new identity for them."""
-        with open(self.staged, "wb") as f:
+        with document_archive.open_document(self.staged, "wb") as f:
             f.write(b"SOMETHING ELSE ENTIRELY\n")
         os.makedirs(os.path.join(self.tmp, "poc", "q"))
         os.makedirs(os.path.join(self.tmp, "build", "poc", "q"))
-        with open(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
+        with document_archive.open_document(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
             f.write(b"a new slot's bytes\n")
-        with open(self.manifest, "a") as f:
+        with document_archive.open_document(self.manifest, "a") as f:
             f.write("71\tfresh\tq\tq.dol\tq\tbuild\t1\t-\n")
         rc = self._run("--only", "71-fresh")
         self.assertEqual(rc, 5, "the index must refuse to describe a frozen slot it cannot vouch for")
 
     def test_an_export_that_writes_the_pinned_bytes_is_allowed(self):
         """The freeze is not a lock on the slot: it is a lock on the BYTES."""
-        with open(self.src, "wb") as f:
-            f.write(open(self.staged, "rb").read())
+        with document_archive.open_document(self.src, "wb") as f:
+            f.write(document_archive.open_document(self.staged, "rb").read())
         rc = self._run()
         self.assertEqual(rc, 0)
-        self.assertEqual(hashlib.sha256(open(self.staged, "rb").read()).hexdigest(), self.frozen_hash)
+        self.assertEqual(hashlib.sha256(document_archive.open_document(self.staged, "rb").read()).hexdigest(), self.frozen_hash)
 
     def test_a_bad_frozen_column_is_refused_by_the_manifest(self):
         self._write_manifest("not-a-hash")
@@ -406,7 +408,7 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # for a check whose scope widened for a good reason (Issue #29's three instances, #44's fourth).
         # stream-0016's identity is in §V8.12, a NEW dated part APPENDED to the frozen pre-registration:
         # frozen text keeps its words and the record grows on top.
-        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
+        hw = document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
         for d, h in sorted(rows.items()):
             if h != "-":
                 self.assertIn(h, hw, d)

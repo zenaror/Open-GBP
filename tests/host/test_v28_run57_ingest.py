@@ -3,6 +3,8 @@
 The numbers HARDWARE_TESTS.md V28.30 and GBP-HW-374 quote are recomputed here from captures/local (ignored by Git, so the test skips, with the registered reason, on a host without
 the archive). The marked-block reading (M1, 29 of 29) is the one that lifts the perceptual run's stop condition.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import sys
@@ -23,7 +25,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
     def setUpClass(cls):
         if not os.path.isfile(RUN57):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
-        with open(RUN57, "rb") as f:
+        with document_archive.open_document(RUN57, "rb") as f:
             raw = f.read()
         assert hashlib.sha256(raw).hexdigest() == SHA, "captures/local's RUN 57 archive is not the recorded one (a defect in the archive, never a skip)"
         cls.text = raw.decode("utf-8", "replace")

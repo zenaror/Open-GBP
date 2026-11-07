@@ -9,6 +9,8 @@ QUESTION S's figures are recomputed, and so are the two DESCRIPTIVE records of Â
 the totals, and what the floorless sample shows inside the sampled cycles. The record is checked for saying
 what the run does NOT establish before any verdict, for its order, for its statuses, and for the Gecko pair.
 """
+
+import archived_documents as document_archive
 import bisect
 import hashlib
 import json
@@ -43,7 +45,7 @@ T = TB / 4096.0
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -87,7 +89,7 @@ class Run(object):
                                check=True, capture_output=True, timeout=300)
                 blobs = {}
                 for k, p in (("report", rj), ("accept", aj), ("floor", fj)):
-                    with open(p, "rb") as f:
+                    with document_archive.open_document(p, "rb") as f:
                         blobs[k] = f.read()
             cls._done = {"blobs": blobs, "printed": out, "rep": json.loads(blobs["report"]),
                          "acc": json.loads(blobs["accept"]), "floor": json.loads(blobs["floor"])}
@@ -97,7 +99,7 @@ class Run(object):
 class TheFixtures(unittest.TestCase):
     def test_the_raws_are_the_consoles_files_byte_for_byte(self):
         for path, (h, n) in RAW.items():
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 raw = f.read()
             self.assertEqual((sha(raw), len(raw)), (h, n), path)
         log = read(LOG)

@@ -12,6 +12,8 @@ reads the merge rule as an OR from the Operator's sentence, and the tests
 require the label to still be there — a project that lets "almost certainly"
 quietly become "is" has lost the thing that makes its records worth keeping.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -23,7 +25,7 @@ POCS = ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

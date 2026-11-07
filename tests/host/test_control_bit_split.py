@@ -27,6 +27,8 @@ that is fact.
 It also pins what must NOT happen to `U-GBP-017`: one of its three Needs is
 answered, the item stays OPEN at P2, and no test here lets it close.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -118,7 +120,7 @@ WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

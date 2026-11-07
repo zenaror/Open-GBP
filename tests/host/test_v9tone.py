@@ -13,6 +13,8 @@ DISTINGUISHABLE instead of looking like a clean answer at the wrong frequency.
 A test that only showed the happy path would not be testing the decision that
 was actually made.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -26,7 +28,7 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

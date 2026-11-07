@@ -14,6 +14,8 @@ AUDIO-only in RUN 17 and carries a VIDEO block in both new runs, which is what
 makes the positional reference a category error — and it is wrong independently
 of the answer it produces, which is what made it safe to decide after the data.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -25,7 +27,7 @@ LOCAL = os.path.join(ROOT, "captures", "local")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

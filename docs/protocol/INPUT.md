@@ -118,3 +118,9 @@ controller") is **not assessed** by the two runs, which used a counting test
 ROM (GBP-HW-265). The one reporting defect the runs exposed, the clipped
 `ENVINPUT` log line, is a software finding (GBP-KEY-008), not a device
 property.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

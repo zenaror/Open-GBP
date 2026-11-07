@@ -168,3 +168,9 @@ Question answered: the physical VIDEO block sequence, both frame-start predicate
 
 A power cycle after the run is **mandatory**: the run writes the CONTROL transform and the IRQ
 register (A1, A2, one ACK and one re-arm per cycle, the stop word).
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

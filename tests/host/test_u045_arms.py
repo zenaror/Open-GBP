@@ -7,6 +7,8 @@ VIDEO gaps by arm, by gap time and for the clear gaps only; that no incomplete f
 (every one straddles a callback, the gaps completing just after it), so a per-frame assignment is unavailable by
 construction; and that the record labels all of it descriptive, with the readings HYPOTHESES.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -23,7 +25,7 @@ UNK = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 
 
 def read(p, mode="r"):
-    with open(p, mode, **({} if "b" in mode else {"encoding": "utf-8", "errors": "replace"})) as f:
+    with document_archive.open_document(p, mode, **({} if "b" in mode else {"encoding": "utf-8", "errors": "replace"})) as f:
         return f.read()
 
 

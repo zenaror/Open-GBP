@@ -12,6 +12,8 @@ because `make test-python` neither has the container toolchain nor should start 
   * THE RECORDS: the DEVLOG entry and the two HANDOFF paragraphs exist, start their blocks, carry the identities, and nothing older was edited or removed (the DEVLOG
     and the HANDOFF only gained text since the base commit).
 """
+
+import archived_documents as document_archive
 import difflib
 import os
 import re
@@ -36,7 +38,7 @@ HANDOFF_NEXT = "**2026-10-05 (Issue #159), on top: Issue #159 is done"
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 

@@ -84,3 +84,9 @@ bit 15's origin (U-GBP-034); the startup-region short intervals (U-GBP-030);
 the IRQ-window non-uniformity's mechanism (U-GBP-033). The assessment that
 weighed these against Phase 4's acceptance criterion is
 `docs/research/PHASE4_ASSESSMENT.md`.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

@@ -14,6 +14,8 @@ independence from the instrumentation. And that nothing was built: no new POC,
 BUILD_ID still stream-0015, nothing under src/, poc/, tools/ or the Makefile
 changed against 2e9e393.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -42,7 +44,7 @@ SRC_HZ = 59.727
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

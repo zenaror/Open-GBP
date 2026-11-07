@@ -13,6 +13,8 @@ VALUES the ROM writes and the ORDER it writes them in, against §V9.3.2's table
 and GBATEK's field layout. Whether a real AGB then emits 128.0 Hz is what the
 physical run is for, and nothing here can stand in for it.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -124,7 +126,7 @@ int main(void)
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -163,7 +165,7 @@ def run_rom():
     and the caller turned that into an unregistered `raise SkipTest("no host compiler")`."""
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "harness.c")
-        with open(src, "w") as f:
+        with document_archive.open_document(src, "w") as f:
             f.write(HARNESS)
         exe = os.path.join(d, "rom")
         have, ok, err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-function",
@@ -345,7 +347,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
                            (deliv, "ff5298f08c4dd7665981dbe39d0eb5b282a1bd122aa60a31923cab967a3844a0")):
             if not os.path.exists(path):
                 continue
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 data = f.read()
             self.assertEqual(hashlib.sha256(data).hexdigest(), want, path)
             self.assertEqual(len(data), 1404, path)

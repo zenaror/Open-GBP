@@ -9,6 +9,8 @@ carried as F8). The inputs here are REAL powerpc-eabi listings of three tiny
 objects compiled with the project compiler (tests/host/fixtures/poc_audit_f8,
 README there); nothing below matches C source text.
 """
+
+import archived_documents as document_archive
 import os
 import sys
 import tempfile
@@ -22,7 +24,7 @@ FX = os.path.join(ROOT, "tests", "host", "fixtures", "poc_audit_f8")
 
 
 def read(*p):
-    with open(os.path.join(*p), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(*p), encoding="utf-8") as f:
         return f.read()
 
 
@@ -98,7 +100,7 @@ class NegativeControls(unittest.TestCase):
 
     def test_a_missing_listing_is_a_finding_not_a_silent_downgrade(self):
         d = tempfile.mkdtemp()
-        with open(os.path.join(d, "gbp_vwitness.objdump.txt"), "w") as f:
+        with document_archive.open_document(os.path.join(d, "gbp_vwitness.objdump.txt"), "w") as f:
             f.write(read(FX, "data_ref", "gbp_vwitness.objdump.txt"))
         findings, report = poc_audit.audit_dir(d, "stream")
         self.assertTrue(any(f.startswith("gbp_vwitness.o: no relocation listing (gbp_vwitness.reloc.txt)") for f in findings), findings)
@@ -107,9 +109,9 @@ class NegativeControls(unittest.TestCase):
 
     def test_a_forbidden_prefix_and_main_must_not_call_also_see_data(self):
         d = tempfile.mkdtemp()
-        with open(os.path.join(d, "main.objdump.txt"), "w") as f:
+        with document_archive.open_document(os.path.join(d, "main.objdump.txt"), "w") as f:
             f.write("main.o:     file format elf32-powerpc\n\n\nDisassembly of section .text:\n\n00000000 <main>:\n   0:\t4e 80 00 20 \tblr\n")
-        with open(os.path.join(d, "main.reloc.txt"), "w") as f:
+        with document_archive.open_document(os.path.join(d, "main.reloc.txt"), "w") as f:
             f.write("main.o:     file format elf32-powerpc\n\nRELOCATION RECORDS FOR [.data.cb]:\nOFFSET   TYPE              VALUE\n"
                     "00000000 R_PPC_ADDR32      net_init\n00000004 R_PPC_ADDR32      gbp_vqueue_publish\n")
         findings, _ = poc_audit.audit_dir(d, "stream")

@@ -5,6 +5,8 @@ nearest-neighbour scaled to the whole frame (the duplication test must FIND it, 
 elsewhere, the bit-15 pixel, and the refusal to render outside the ignored roots. The archived RUN 59 sidecar (captures/local, ignored by Git) is recomputed against the numbers
 HARDWARE_TESTS.md V29.13 and GBP-HW-379 quote; that part skips, with the registered reason, on a host without the archive.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import random
@@ -181,7 +183,7 @@ class TheArchivedSidecarReadsAsRecorded(unittest.TestCase):
         if not (os.path.isfile(FULL) and os.path.isfile(IDXCAP)):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
         for p, want in ((FULL, FULL_SHA), (IDXCAP, IDXCAP_SHA)):
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 assert hashlib.sha256(f.read()).hexdigest() == want, "captures/local's RUN 59 sidecar is not the recorded one (a defect in the archive, never a skip)"
         cls.a = gp.analyse(FULL)
 
@@ -241,7 +243,7 @@ class TheArchivedSidecarReadsAsRecorded(unittest.TestCase):
                 self.assertLess(max(r), 0.99)
 
     def test_the_printed_block_in_the_record_is_the_tools_current_output(self):
-        with open(DOC, encoding="utf-8") as f:
+        with document_archive.open_document(DOC, encoding="utf-8") as f:
             d = f.read()
         i = d.index("### V29.13 RUN 59's picture")
         blk = d[d.index("```text\nGBMODE PICTURE", i) + len("```text\n"):]
@@ -267,7 +269,7 @@ class TheArchivedSidecarReadsAsRecorded(unittest.TestCase):
 
 class TheRecordStatesTheLimits(unittest.TestCase):
     def sect(self, path, head):
-        with open(path, encoding="utf-8") as f:
+        with document_archive.open_document(path, encoding="utf-8") as f:
             d = f.read()
         i = d.index(head)
         j = d.find("\n### ", i + 1)

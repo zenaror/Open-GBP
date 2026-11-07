@@ -18,6 +18,8 @@ with the substance a later checkpoint will rely on:
   * the experiments carry their gates and their verdicts, including the
     not-changed and not-sent outcomes, before any hardware.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -32,7 +34,7 @@ REGISTERS = os.path.join(ROOT, "docs", "protocol", "REGISTERS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

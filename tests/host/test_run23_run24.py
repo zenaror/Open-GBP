@@ -20,6 +20,8 @@ recomputed rather than quoted: one binary, one fixed sequence, the same read
 points, four runs with a GBA cartridge, one with none, one with a Game Boy
 Color cartridge, and exactly one of them moves.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -41,7 +43,7 @@ TB_HZ = 40500000
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -86,7 +88,7 @@ class TheArchivesAreWhatTheRecordSays(unittest.TestCase):
                 kind, size, digest = next(it)
                 path = os.path.join(LOCAL, run + (".log" if kind == "log" else "-%s.bin" % kind))
                 self.assertTrue(os.path.exists(path), path)
-                with open(path, "rb") as f:
+                with document_archive.open_document(path, "rb") as f:
                     raw = f.read()
                 self.assertEqual(len(raw), int(size.replace(" ", "")), path)
                 self.assertEqual(hashlib.sha256(raw).hexdigest(), digest, path)

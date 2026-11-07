@@ -3,6 +3,10 @@
 tools/reconcile.py — the promotion sweep of GitHub Issue #29: which lines of the
 consolidated pages rest on which evidence, side by side, for a person to read.
 
+The evidence catalogue is pinned to the historical revision in
+`historical_documents.json`; consolidated pages are read from the current tree.
+This report cannot establish current assignments or authorize experiments.
+
 WHY. Consolidated pages in docs/hardware/ and docs/protocol/ drift from
 docs/research/EVIDENCE.md, and the project has found it twice by accident:
 Issue #17 found four Phase-2 pages UNDERSTATING what EVIDENCE already carried,
@@ -43,6 +47,7 @@ import os
 import re
 import subprocess
 import sys
+from historical_documents import open_document, REVISION
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 EVIDENCE = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
@@ -54,7 +59,7 @@ TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "B
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -146,7 +151,7 @@ def citations(ids):
 
 
 def ids_changed_since(commit):
-    r = subprocess.run(["git", "-C", ROOT, "diff", "-U0", commit, "--", "docs/research/EVIDENCE.md"],
+    r = subprocess.run(["git", "-C", ROOT, "diff", "-U0", commit, REVISION, "--", "docs/research/EVIDENCE.md"],
                        capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit("git diff failed: " + r.stderr.strip())

@@ -9,6 +9,8 @@ conditions, and GAIN is not PASS; V's video clause is E over the start-up signat
 frame store, and fails on E_outside != 0 in either direction; Phase 6 closes only on four PASSes; a window
 that never opened leaves every gate INCONCLUSIVE; a malformed or contradictory declaration is refused.
 """
+
+import archived_documents as document_archive
 import io
 import json
 import os
@@ -322,10 +324,10 @@ class TheCommandLine(WithL2):
             paths = {}
             for name, obj in (("r", report()), ("d", declaration())):
                 paths[name] = os.path.join(d, name + ".json")
-                with open(paths[name], "w", encoding="utf-8") as f:
+                with document_archive.open_document(paths[name], "w", encoding="utf-8") as f:
                     json.dump(obj, f)
             side = os.path.join(d, "l2.bin")
-            with open(side, "wb") as f:
+            with document_archive.open_document(side, "wb") as f:
                 f.write(b"x")
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -336,13 +338,13 @@ class TheCommandLine(WithL2):
             for tok in ("  L2  PASS", "  C   PASS", "  A   PASS", "  V   PASS", "  R   AS EXPECTED",
                         "NOT A GATE", "A-FIDELITY, his words, NOT gated", "PHASE 6  CLOSES"):
                 self.assertIn(tok, out, tok)
-            with open(os.path.join(d, "o.json"), encoding="utf-8") as f:
+            with document_archive.open_document(os.path.join(d, "o.json"), encoding="utf-8") as f:
                 self.assertEqual(json.load(f)["phase6"]["verdict"], "CLOSES")
 
 
 class TheModuleAuthorisesNothing(unittest.TestCase):
     def test_it_reads_no_capture_and_takes_L2_C_M_from_v22_unedited(self):
-        with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
             src = f.read()
         self.assertNotIn("captures/", src.split('"""', 2)[2])
         for tok in ("import v22accept", "v22accept.question_L2(", "v22accept.question_C(report)",
@@ -358,7 +360,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
     KEY = "Issue #110 -- §V25 transcribed, Phase 6's real-cartridge gates frozen"
 
     def part(self):
-        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
             t = f.read()
         i = t.index("\n## V25 ")
         j = t.find("\n## V26 ", i)
@@ -379,7 +381,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
 
     def test_the_gates_are_the_bytes_of_the_amendment_that_last_changed_them(self):
         import frozen
-        with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
             now = f.read()
         self.assertEqual(frozen.source("Issue #110 -- §V25 AMENDMENT 1 applied", "tools/v25accept.py"), now,
                          "tools/v25accept.py was edited after §V25.10 AMENDMENT 1")
@@ -398,7 +400,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
         import difflib
         import frozen
         then = frozen.source(self.KEY, "tools/v25accept.py").splitlines()
-        with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
             now = f.read().splitlines()
         removed = [l for tag, i1, i2, _j1, _j2 in difflib.SequenceMatcher(None, then, now, autojunk=False).get_opcodes()
                    if tag != "equal" for l in then[i1:i2]]

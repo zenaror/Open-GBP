@@ -48,6 +48,8 @@ disagrees is corrected by the record or escalated, and a form that binds falsely
 form, never excused line by line (#83's own finding: an exception list is where the next defect
 hides).
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -67,7 +69,7 @@ PROSE = re.compile(r"(?:\*\*([FCHU])\*\*|(?<![\w/.\-])([FCHU])) \(([^()]*)\)")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -3,6 +3,8 @@
 The numbers HARDWARE_TESTS.md V28.33 and GBP-HW-376 quote are recomputed here from captures/local (ignored by Git, so the test skips, with the registered reason, on a host
 without the archive). The O1 scoring is redone from the confirmed rungs alone, apart from the tool, and the Operator's verbatim words are checked to be in the record.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import sys
@@ -21,7 +23,7 @@ EVID = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
 
 
 def section(path, head):
-    with open(path, encoding="utf-8") as f:
+    with document_archive.open_document(path, encoding="utf-8") as f:
         d = f.read()
     i = d.index(head)
     j = d.find("\n### ", i + 1)
@@ -33,7 +35,7 @@ class TheArchivedLogReadsAsRecorded(unittest.TestCase):
     def setUpClass(cls):
         if not os.path.isfile(RUN58):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
-        with open(RUN58, "rb") as f:
+        with document_archive.open_document(RUN58, "rb") as f:
             raw = f.read()
         assert hashlib.sha256(raw).hexdigest() == SHA, "captures/local's RUN 58 archive is not the recorded one (a defect in the archive, never a skip)"
         cls.text = raw.decode("utf-8", "replace")

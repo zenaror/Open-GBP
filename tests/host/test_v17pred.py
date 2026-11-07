@@ -3,6 +3,8 @@
 Synthetic checks only: the predictions must follow from the ROM's own tables and
 GBATEK, one axis at a time, and the module must be byte-identical to the commit
 that froze it."""
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -20,7 +22,7 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
 def read(f):
-    with open(f, encoding="utf-8") as fh:
+    with document_archive.open_document(f, encoding="utf-8") as fh:
         return fh.read()
 
 

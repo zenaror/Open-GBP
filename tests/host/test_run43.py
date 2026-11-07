@@ -15,6 +15,8 @@ window is present). No record says more than its evidence: A is not direction, t
 the bound is on the sum and not the residue, the slices' uniformity is not promoted, no pace is claimed impossible, and
 the latency proposal travels with its cost.
 """
+
+import archived_documents as document_archive
 import hashlib
 import json
 import os
@@ -52,7 +54,7 @@ OUT = {"report": "4374a4654f35c24eecca0c145c2854c6a9b769c0c9b6567b202395cd826da2
 
 
 def read(p):
-    with open(os.path.join(ROOT, p), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, p), encoding="utf-8") as f:
         return f.read()
 
 
@@ -97,7 +99,7 @@ class Run(object):
                                     check=True, capture_output=True, timeout=300).stdout
                 blobs = {}
                 for k, p in (("report", rj), ("accept", aj), ("accept_nodecl", nj)):
-                    with open(p, "rb") as f:
+                    with document_archive.open_document(p, "rb") as f:
                         blobs[k] = f.read()
             cls._done = {"blobs": blobs, "verdicts": v, "verdicts_nodecl": vn, "acc": json.loads(blobs["accept"])}
         return cls._done
@@ -105,10 +107,10 @@ class Run(object):
 
 class TheFiles(unittest.TestCase):
     def test_the_fixtures_are_the_raw_bytes(self):
-        with open(LOG, "rb") as f:
+        with document_archive.open_document(LOG, "rb") as f:
             b = f.read()
         self.assertEqual((sha(b), len(b)), RAW["log"])
-        with open(DECL, "rb") as f:
+        with document_archive.open_document(DECL, "rb") as f:
             self.assertEqual(sha(f.read()), DECL_SHA)
 
     def test_the_flat_archive_when_present(self):
@@ -118,12 +120,12 @@ class TheFiles(unittest.TestCase):
             p = os.path.join(LOCAL, n)
             if not os.path.isfile(p):
                 self.skipTest("the RUN 43 flat archive is not in this checkout (captures/local is ignored)")
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 b = f.read()
             self.assertEqual((sha(b), len(b)), RAW[k], n)
 
     def test_the_declaration_is_his_words(self):
-        with open(DECL, encoding="utf-8") as f:
+        with document_archive.open_document(DECL, encoding="utf-8") as f:
             d = json.load(f)
         self.assertEqual(d["A"], "Sim percebi")
         self.assertEqual(d["B"], "Parecia sincronizado . Acredito que cheguei no fim da escala da esquerda, que diminuía ..")
@@ -169,7 +171,7 @@ class TheRecord(unittest.TestCase):
     def test_the_declaration_block_is_his_words(self):
         s = v2720()
         block = s[s.index("#### V27.20.2 "):s.index("#### V27.20.3 ")]
-        with open(DECL, encoding="utf-8") as f:
+        with document_archive.open_document(DECL, encoding="utf-8") as f:
             d = json.load(f)
         for k in "ABDEFG":
             self.assertIn("%s. %s\n" % (k, d[k]), block, k)
@@ -213,7 +215,7 @@ class TheRecord(unittest.TestCase):
         self.assertIn("every Hz figure is conditional on uniform slices and on the block rate", h)
 
     def test_the_m4_table_is_the_tool(self):
-        with open(LOG, encoding="utf-8") as f:
+        with document_archive.open_document(LOG, encoding="utf-8") as f:
             m = v27derive.derive(f.read())["m4"]
         b = flat(entry(read(EV), "GBP-HW-343")[1])
         d, s = m["arms"]["DEEP"], m["arms"]["SHALLOW"]
@@ -227,7 +229,7 @@ class TheRecord(unittest.TestCase):
                                                                     rs["ci90"][1]), b)
 
     def test_the_event_rate_is_the_tool(self):
-        with open(LOG, encoding="utf-8") as f:
+        with document_archive.open_document(LOG, encoding="utf-8") as f:
             r = vevents.analyse(f.read())
         b = flat(entry(read(EV), "GBP-HW-344")[1])
         self.assertIn("RUN 43 sync-0001 16 384 5 249.734 14 912 %.2f %.4f %.1f s" % (r["per_s"], r["per_frame"],
@@ -303,7 +305,7 @@ class TheRecord(unittest.TestCase):
             self.assertIn(tok, v10, tok)
 
     def test_the_permutation_and_the_event_bound_are_the_tools(self):
-        with open(LOG, encoding="utf-8") as f:
+        with document_archive.open_document(LOG, encoding="utf-8") as f:
             text = f.read()
         pm = v27derive.derive(text)["m4"]["permutation"]
         b343 = flat(entry(read(EV), "GBP-HW-343")[1])

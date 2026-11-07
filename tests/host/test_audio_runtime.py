@@ -26,6 +26,8 @@ Four things are checked here, from the repository alone:
 4. STATIC PINS. No floating point, no allocation and no blocking call in the
    three runtime sources.
 """
+
+import archived_documents as document_archive
 import cmath
 import gzip
 import hashlib
@@ -166,7 +168,7 @@ def sha256(b):
 
 
 def fixture_bytes(label):
-    with open(os.path.join(FIXTURES, RUNS[label][0]), "rb") as f:
+    with document_archive.open_document(os.path.join(FIXTURES, RUNS[label][0]), "rb") as f:
         return f.read()
 
 
@@ -227,7 +229,7 @@ class Harness(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="adec-")
         src = os.path.join(cls.tmp, "harness.c")
-        with open(src, "w") as f:
+        with document_archive.open_document(src, "w") as f:
             f.write(HARNESS)
         cls.bin = os.path.join(cls.tmp, "harness")
         cls.have_gcc, cls.built, cls.err = hostcc.compile_c(
@@ -237,7 +239,7 @@ class Harness(unittest.TestCase):
         for label in RUNS:
             p = os.path.join(cls.tmp, label + ".bin")
             cls.raw[label] = gzip.decompress(fixture_bytes(label))
-            with open(p, "wb") as f:
+            with document_archive.open_document(p, "wb") as f:
                 f.write(cls.raw[label])
             if cls.built:
                 cls.dec[label] = cls._decode(p)
@@ -247,7 +249,7 @@ class Harness(unittest.TestCase):
         out = path + ".dec"
         r = subprocess.run([cls.bin, "dec", path, out], capture_output=True, text=True)
         assert r.returncode == 0, (r.returncode, r.stderr)
-        with open(out, "rb") as f:
+        with document_archive.open_document(out, "rb") as f:
             b = f.read()
         nw, o, wins = u32(b, 0), 4, []
         for _ in range(nw):
@@ -258,11 +260,11 @@ class Harness(unittest.TestCase):
 
     def resample(self, xs):
         p = os.path.join(self.tmp, "rs-%d.s16" % len(xs))
-        with open(p, "wb") as f:
+        with document_archive.open_document(p, "wb") as f:
             f.write(struct.pack("<%dh" % len(xs), *xs))
         r = subprocess.run([self.bin, "rs", p, p + ".out"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        with open(p + ".out", "rb") as f:
+        with document_archive.open_document(p + ".out", "rb") as f:
             b = f.read()
         n = u32(b, 0)
         counts = list(b[4:4 + n])
@@ -294,11 +296,11 @@ class TheFixturesAreTheRawSidecarsLosslessly(Harness):
         if not present:
             self.skipTest("the raw sidecars are not in this checkout (logs/ is ignored)")
         for label in present:
-            with open(os.path.join(ROOT, RUNS[label][3]), "rb") as f:
+            with document_archive.open_document(os.path.join(ROOT, RUNS[label][3]), "rb") as f:
                 self.assertEqual(sha256(f.read()), RUNS[label][4], label)
 
     def test_the_readme_names_each_fixture_with_its_raw_provenance(self):
-        with open(README, encoding="utf-8") as f:
+        with document_archive.open_document(README, encoding="utf-8") as f:
             t = f.read()
         for label, (name, gz_sha, _, raw_path, raw_sha, _) in RUNS.items():
             row = [l for l in t.splitlines() if l.startswith("| `%s`" % name)]
@@ -371,7 +373,7 @@ class TheRuntimeDecoderIsBitIdenticalToIssue80(Harness):
 class TheResamplerIs125Over16Exactly(Harness):
 
     def test_the_table_is_what_the_generator_says(self):
-        with open(os.path.join(AUDIO, "gbp_aresamp_coef.h"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(AUDIO, "gbp_aresamp_coef.h"), encoding="utf-8") as f:
             self.assertEqual(f.read(), gen_aresamp.render())
 
     def test_every_phase_sums_to_one_and_phase_zero_is_the_identity(self):
@@ -483,7 +485,7 @@ class TheRuntimeSourcesObeyTheDrainPathRules(unittest.TestCase):
     def sources(self):
         out = {}
         for f in RUNTIME_SOURCES + ["gbp_adec.h", "gbp_asrc.h", "gbp_aresamp.h", "gbp_aresamp_coef.h"]:
-            with open(os.path.join(AUDIO, f), encoding="utf-8") as fh:
+            with document_archive.open_document(os.path.join(AUDIO, f), encoding="utf-8") as fh:
                 t = fh.read()
             out[f] = re.sub(r"/\*.*?\*/", "", t, flags=re.S)   # code only, comments removed
         return out

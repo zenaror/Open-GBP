@@ -7,6 +7,8 @@ tools/v22accept.py, and §V22.12.2 must be exactly what they print. The explanat
 that follows the verdicts is checked for saying what the data does NOT establish,
 and for recording the Operator's exposed answer as the Orchestrator set it down.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -35,7 +37,7 @@ PRINTED_SHA256 = "12fee5d3113328ca10c768ffd024a759ace07483820eb2467b4687bb995169
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -63,7 +65,7 @@ def report():
 
 
 def verdicts():
-    with open(SIDE, "rb") as f:
+    with document_archive.open_document(SIDE, "rb") as f:
         return v22accept.evaluate(report(), f.read())
 
 
@@ -72,7 +74,7 @@ def tools_output():
         j = os.path.join(d, "r.json")
         subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v22report.py"), LOG, "--sidecar", SIDE,
                         "--json", j], check=True, capture_output=True, timeout=60)
-        with open(j, "rb") as f:
+        with document_archive.open_document(j, "rb") as f:
             rep = f.read()
         out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v22accept.py"), j, SIDE],
                              check=True, capture_output=True, timeout=120).stdout
@@ -81,7 +83,7 @@ def tools_output():
 
 class TheFixtures(unittest.TestCase):
     def test_the_log_is_the_raw_log_byte_for_byte(self):
-        with open(LOG, "rb") as f:
+        with document_archive.open_document(LOG, "rb") as f:
             raw = f.read()
         self.assertEqual(hashlib.sha256(raw).hexdigest(), LOG_SHA256)
         self.assertEqual(len(raw), 91726)
@@ -89,7 +91,7 @@ class TheFixtures(unittest.TestCase):
             self.assertIn(tok, raw.decode("utf-8", "replace"), tok)
 
     def test_the_l2_record_is_present_and_is_the_raw_file(self):
-        with open(SIDE, "rb") as f:
+        with document_archive.open_document(SIDE, "rb") as f:
             raw = f.read()
         self.assertEqual(hashlib.sha256(raw).hexdigest(), SIDE_SHA256)
         self.assertEqual(len(raw), 83916)

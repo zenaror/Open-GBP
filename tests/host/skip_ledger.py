@@ -79,7 +79,7 @@ LEDGER = [
     # Issue #82: these fire from `raise unittest.SkipTest(...)`, which the static extractor did not
     # see until #82, so they were registered nowhere. Each reads a RAW capture or log under logs/ or
     # captures/local/; the fixtures DERIVED from those runs are versioned and read unconditionally.
-    (r"^(the (run-[0-9]+|%s) (witness )?capture is not on this machine|the run-8 log is not on this machine"
+    (r"^(the (run-?[0-9]+|%s) (witness )?capture is not on this machine|the run-8 log is not on this machine"
      r"|run-8 log absent)$", "LOCAL_ARTIFACT_ABSENT",
      "the derived fixtures of those runs live under captures/fixtures/ and are read without a guard "
      "(test_disp_run5.py opens the run-5 disp fixture and pins its hash; test_disp_run6.py now FAILS "

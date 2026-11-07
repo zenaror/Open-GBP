@@ -4,6 +4,8 @@ The numbers HARDWARE_TESTS.md V30.11 and GBP-HW-380 quote are recomputed from ca
 the reader's verdict and cells, the press times, the aligned series (which frame the change starts and ends at), the identical windows and samples against RUN 59, the widened sample and the
 scale model figures. The record's printed blocks are checked equal to the tools' output, and the Operator's words verbatim.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -28,12 +30,12 @@ EVID = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 

@@ -25,6 +25,8 @@ WHAT IS CHECKED HERE, so the corrected claim cannot quietly become false again:
   * `--index-only` copies nothing and removes nothing, and upgrades an INDEX
     written before the STATUS column existed.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -65,13 +67,13 @@ BUILD_POC_READERS = {
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
 def sha256(p):
     h = hashlib.sha256()
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         for c in iter(lambda: f.read(1 << 20), b""):
             h.update(c)
     return h.hexdigest()
@@ -191,14 +193,14 @@ class TheExporterWritesTheStatusAndIndexOnlyTouchesNothing(unittest.TestCase):
         for name, body in (("p", b"PINNED BYTES, the image a run executed\n"), ("q", b"a copy of whatever was built\n")):
             d = os.path.join(self.tmp, "build", "poc", name)
             os.makedirs(d)
-            with open(os.path.join(d, name + ".dol"), "wb") as f:
+            with document_archive.open_document(os.path.join(d, name + ".dol"), "wb") as f:
                 f.write(body)
-            with open(os.path.join(d, "build-info.txt"), "w") as f:
+            with document_archive.open_document(os.path.join(d, "build-info.txt"), "w") as f:
                 f.write("build_id=%s-0001\ncommit=abc1234\n" % name)
             os.makedirs(os.path.join(self.tmp, "poc", name))
         self.pin = hashlib.sha256(b"PINNED BYTES, the image a run executed\n").hexdigest()
         self.manifest = os.path.join(self.tmp, "layout.tsv")
-        with open(self.manifest, "w") as f:
+        with document_archive.open_document(self.manifest, "w") as f:
             f.write("#number\tshort_name\tsource_poc\tdol\tout_dir\tmake_target\tenabled\tfrozen_sha256\n")
             f.write("70\tpin\tp\tp.dol\tp\tbuild\t1\t%s\n" % self.pin)
             f.write("71\tcopy\tq\tq.dol\tq\tbuild\t1\t-\n")
@@ -228,11 +230,11 @@ class TheExporterWritesTheStatusAndIndexOnlyTouchesNothing(unittest.TestCase):
         # turn the INDEX into one written before Issue #88: no STATUS column
         p = os.path.join(self.out, "INDEX.txt")
         old = [re.sub(r"\| (PINNED-VERIFIED|UNPINNED-COPY)\s+\| ", "| ", l) for l in read(p).splitlines()]
-        with open(p, "w") as f:
+        with document_archive.open_document(p, "w") as f:
             f.write("\n".join(old) + "\n")
         before = self.snapshot()
         # and move build/poc on: an index-only rewrite must not care, and must not copy it
-        with open(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
+        with document_archive.open_document(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
             f.write(b"a LATER build, never exported\n")
         self.assertEqual(self.run_export("--index-only"), 0)
         self.assertEqual(self.snapshot(), before, "--index-only changed a staged file")

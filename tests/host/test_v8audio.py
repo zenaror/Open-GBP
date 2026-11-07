@@ -20,6 +20,8 @@ guards below are units of a paragraph or a table row, never a clause split on
 punctuation — the split-on-";" defect of Issue #33 let an injected offender
 through, and the fix was to make the unit big enough to contain the offence.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -37,7 +39,7 @@ BIN_SHA = "b3597b72adeae0cb8627e5c1b00584ca8a30bb2ff592c4b645e98cd9428ac564"
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -458,7 +460,7 @@ class TheReservedNamesAreReservedAndNothingMore(unittest.TestCase):
             self.skipTest("RUN 30's archived copies are not in this checkout (captures/local is ignored)")
         self.assertEqual(sorted(present), sorted(self.NAMES), "one of the two archived copies is missing")
         for n in self.NAMES:
-            with open(os.path.join(ROOT, n), "rb") as f:
+            with document_archive.open_document(os.path.join(ROOT, n), "rb") as f:
                 self.assertEqual(hashlib.sha256(f.read()).hexdigest(), want[n], n)
 
     def test_the_operators_raw_drop_is_untouched(self):
@@ -470,7 +472,7 @@ class TheReservedNamesAreReservedAndNothingMore(unittest.TestCase):
         if not all(os.path.exists(f) for f in raw):
             self.skipTest("the raw drop is not in this checkout (logs/ is ignored)")
         for f, want in raw.items():
-            with open(f, "rb") as fh:
+            with document_archive.open_document(f, "rb") as fh:
                 self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), want, f)
 
     def test_the_handoff_carries_the_reservation_and_not_a_result(self):

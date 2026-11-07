@@ -9,6 +9,8 @@ only at READY >= 2 and call the producer once per pump run, the default is 4 chu
 Then the versioned traces are pinned (RUN 39, RUN 40) with the pump-slot rates of the traced and the game runs, the
 latency table, and the ring's offset predicted against the one RUN 43 measured.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -22,7 +24,7 @@ TB = 40500000
 
 
 def read(p):
-    with open(os.path.join(ROOT, p), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, p), encoding="utf-8") as f:
         return f.read()
 
 

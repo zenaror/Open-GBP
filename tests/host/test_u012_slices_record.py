@@ -8,6 +8,8 @@ against what the record said before it (e2084ba, the commit before #118).
   * the correction is where a reader meets it: "L2 PASS" is separated from fidelity at both closures and on the
     protocol page, and the ~2 kHz limit is attributed to the decoder, never to the path.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -28,7 +30,7 @@ L2_SENTENCE = ("`L2 PASS` means the chain reproduces on the host what it produce
 
 
 def now(path):
-    with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, path), encoding="utf-8") as f:
         return f.read()
 
 

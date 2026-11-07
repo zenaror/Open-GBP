@@ -9,6 +9,8 @@ report. The record is checked for #103's order (the observer gate before P, P be
 floor rule), for saying what the run does NOT establish before any verdict, and for keeping the Gecko
 gap stated, with the Operator's words apart from every hypothesis.
 """
+
+import archived_documents as document_archive
 import bisect
 import hashlib
 import json
@@ -46,7 +48,7 @@ T = TB / 4096.0
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -111,9 +113,9 @@ class Run(object):
                                      check=True, capture_output=True, timeout=600).stdout
                 subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v23floor.py"), rj, "--json", fj],
                                check=True, capture_output=True, timeout=120)
-                with open(rj, "rb") as f:
+                with document_archive.open_document(rj, "rb") as f:
                     rep_bytes = f.read()
-                with open(fj, "rb") as f:
+                with document_archive.open_document(fj, "rb") as f:
                     floor_bytes = f.read()
             rep = json.loads(rep_bytes)
             acc = v23accept.evaluate(rep)
@@ -130,7 +132,7 @@ class Run(object):
 class TheFixtures(unittest.TestCase):
     def test_the_raws_are_the_consoles_files_byte_for_byte(self):
         for path, (h, n) in RAW.items():
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 raw = f.read()
             self.assertEqual((sha(raw), len(raw)), (h, n), path)
         log = read(LOG)

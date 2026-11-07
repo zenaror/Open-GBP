@@ -10,6 +10,8 @@ The separation between the two competing models is asserted rather than
 printed: §V11.4 claims ≥5 bytes at every non-anchor point and >9 at two, and an
 edit that narrowed it would weaken the experiment silently. Here it fails.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -28,7 +30,7 @@ import v11sweep as v  # noqa: E402
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

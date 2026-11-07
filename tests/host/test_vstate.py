@@ -13,6 +13,8 @@ entry 0 of both of GBI's reference tables; it needs no private input. The compar
 references' embedded data runs only when the private inputs are present under input/extracted/,
 and without them the verdict is `reference_content=unavailable`, which is never a failure of a run.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import struct
@@ -50,7 +52,7 @@ def diag_bytes():
     if "diag" not in _CACHE:
         path = os.path.join(outdir(), "vstate-host-diag.bin")
         subprocess.run([BIN, "--dump-diag", path], check=True, capture_output=True)
-        with open(path, "rb") as f:
+        with document_archive.open_document(path, "rb") as f:
             _CACHE["diag"] = f.read()
         _CACHE["diag_path"] = path
     return _CACHE["diag"]
@@ -62,7 +64,7 @@ def distinct_bytes():
     if "distinct" not in _CACHE:
         path = os.path.join(outdir(), "vstate-host-diag-distinct.bin")
         subprocess.run([BIN, "--dump-diag-distinct", path], check=True, capture_output=True)
-        with open(path, "rb") as f:
+        with document_archive.open_document(path, "rb") as f:
             _CACHE["distinct"] = f.read()
         _CACHE["distinct_path"] = path
     return _CACHE["distinct"]
@@ -75,7 +77,7 @@ def v5_bytes():
     if "v5" not in _CACHE:
         path = os.path.join(outdir(), "vstate-host-v5.bin")
         subprocess.run([BIN, "--dump-v5", path], check=True, capture_output=True)
-        with open(path, "rb") as f:
+        with document_archive.open_document(path, "rb") as f:
             _CACHE["v5"] = f.read()
         _CACHE["v5_path"] = path
     return _CACHE["v5"]
@@ -93,7 +95,7 @@ def sidecar_bytes():
     if "data" not in _CACHE:
         path = os.path.join(outdir(), "vstate-host.bin")
         subprocess.run([BIN, "--dump", path], check=True, capture_output=True)
-        with open(path, "rb") as f:
+        with document_archive.open_document(path, "rb") as f:
             _CACHE["data"] = f.read()
         _CACHE["path"] = path
     return _CACHE["data"]
@@ -281,7 +283,7 @@ class StrictParsing(unittest.TestCase):
             log = os.path.join(d, "v1-for-vstate.log")
             seq = os.path.join(d, "v1-for-vstate-seq.bin")
             subprocess.run([VIDEO_BIN, "--dump-log", log, seq], check=True, capture_output=True)
-            with open(seq, "rb") as f:
+            with document_archive.open_document(seq, "rb") as f:
                 v1 = f.read()
             self.assertEqual(v1[:8], b"OGBPSEQ1")             # the same family
             self.assertEqual(struct.unpack_from(">H", v1, 8)[0], 1)
@@ -642,7 +644,7 @@ class DiagnosticIsRecomputed(unittest.TestCase):
         physical sidecar is tampered and the tool reports the inconsistency instead."""
         if not os.path.isfile(PHYSICAL_V3):
             self.skipTest("physical v3 sidecar missing")
-        with open(PHYSICAL_V3, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V3, "rb") as f:
             data = bytearray(f.read())
         d0 = vstate.parse(bytes(data))
         off = d0["off_diag"]
@@ -714,7 +716,7 @@ class PhysicalV2IsFrozen(unittest.TestCase):
     consolidated. Adding format 3 may not move one field of format 2."""
 
     def setUp(self):
-        with open(PHYSICAL_V2, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V2, "rb") as f:
             self.data = f.read()
         self.d = vstate.parse(self.data)
 
@@ -767,7 +769,7 @@ class PhysicalV3(unittest.TestCase):
     summary."""
 
     def setUp(self):
-        with open(PHYSICAL_V3, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V3, "rb") as f:
             self.data = f.read()
         self.d = vstate.parse(self.data)
 
@@ -860,7 +862,7 @@ class PhysicalV4(unittest.TestCase):
     PRODUCER DEFECT. Everything asserted here is recomputed from the bytes on disk."""
 
     def setUp(self):
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             self.data = f.read()
         self.d = vstate.parse(self.data)
 
@@ -999,7 +1001,7 @@ class V5RejectsTheV4Defect(unittest.TestCase):
 
     def _c_verdict(self, data):
         path = os.path.join(outdir(), "vstate-v5-tamper.bin")
-        with open(path, "wb") as f:
+        with document_archive.open_document(path, "wb") as f:
             f.write(data)
         r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -1090,13 +1092,13 @@ class FrozenFormatsStayReadable(unittest.TestCase):
         for path, version in ((PHYSICAL_V2, 2), (PHYSICAL_V3, 3), (PHYSICAL_V4, 4)):
             if not os.path.isfile(path):
                 continue
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 d = vstate.parse(f.read())
             self.assertEqual(d["version"], version, path)
             self.assertEqual(self._c_verdict(path), 0, path)
 
     def test_the_v4_defect_is_reported_and_not_fatal(self):
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             d = vstate.parse(f.read())
         w = vstate.producer_warnings(d)
         kinds = {}
@@ -1115,7 +1117,7 @@ class FrozenFormatsStayReadable(unittest.TestCase):
         r = subprocess.run([BIN, "--parse", PHYSICAL_V4], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(int(r.stdout.strip().split("=")[1]), 0)
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             d = vstate.parse(f.read())
         self.assertEqual(d["version"], 4)
         offenders = [i for i, g in enumerate(d["diags"])
@@ -1126,7 +1128,7 @@ class FrozenFormatsStayReadable(unittest.TestCase):
         """Section 21: DF_SERVICE_WRITTEN (0x0100) lives in v4's RESERVED byte. A v4 file that
         sets it - even the physical one, tampered in memory with both CRCs made valid again -
         must be refused by the v4 contract in BOTH parsers. The bit is not retroactively legal."""
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             data = bytearray(f.read())
         d = vstate.parse(bytes(data))
         self.assertEqual(d["version"], 4)
@@ -1139,7 +1141,7 @@ class FrozenFormatsStayReadable(unittest.TestCase):
             vstate.parse(tampered)
         self.assertIn("record flag", str(cm.exception))
         path = os.path.join(outdir(), "vstate-v4-with-v5-flag.bin")
-        with open(path, "wb") as f:
+        with document_archive.open_document(path, "wb") as f:
             f.write(tampered)
         r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -1147,13 +1149,13 @@ class FrozenFormatsStayReadable(unittest.TestCase):
 
     def test_the_warning_is_derived_from_the_content_not_from_a_hash(self):
         """The same analysis must flag ANY inconsistent v4 record, not just this file's."""
-        with open(PHYSICAL_V3, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V3, "rb") as f:
             data = bytearray(f.read())
         d0 = vstate.parse(bytes(data))
         self.assertEqual(d0["version"], 3)
         self.assertEqual(vstate.producer_warnings(d0), [])     # v3 has no v4 record to check
         # a synthetic v4 record with a clean authority produces no warning at all
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             v4 = vstate.parse(f.read())
         clean = [g for g in v4["diags"]
                  if (g["authoritative_value"] & 0x0555) == (g["gbi_value"] & 0x0555)]
@@ -1170,7 +1172,7 @@ class ParserParity(unittest.TestCase):
 
     def _c(self, data):
         path = os.path.join(outdir(), "vstate-parity.bin")
-        with open(path, "wb") as f:
+        with document_archive.open_document(path, "wb") as f:
             f.write(data)
         r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -1188,7 +1190,7 @@ class ParserParity(unittest.TestCase):
         for path, what in ((PHYSICAL_V2, "physical v2"), (PHYSICAL_V3, "physical v3"),
                            (PHYSICAL_V4, "physical v4")):
             if os.path.isfile(path):
-                with open(path, "rb") as f:
+                with document_archive.open_document(path, "rb") as f:
                     corpus.append((what, f.read(), True))
         corpus.append(("synthetic v5 (two shapes)", v5_bytes(), True))
         corpus.append(("synthetic v5 (fatal record)", diag_bytes(), True))
@@ -1215,7 +1217,7 @@ class ParserParity(unittest.TestCase):
         # a v1 file belongs to another tool entirely
         v1 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001-seq.bin")
         if os.path.isfile(v1):
-            with open(v1, "rb") as f:
+            with document_archive.open_document(v1, "rb") as f:
                 corpus.append(("GBP-VIDEO-001 format 1", f.read(), False))
         disagreements = []
         for what, data, expect_ok in corpus:
@@ -1238,7 +1240,7 @@ class PhysicalV5(unittest.TestCase):
     SIZE = 4360684
 
     def setUp(self):
-        with open(PHYSICAL_V5, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V5, "rb") as f:
             self.data = f.read()
         self.d = vstate.parse(self.data)
 
@@ -1399,7 +1401,7 @@ class PhysicalV5(unittest.TestCase):
         # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
         # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
         artifacts.required(self, PHYSICAL_V5_FIXTURE, "a versioned fixture under captures/fixtures/")
-        with open(PHYSICAL_V5_FIXTURE, encoding="utf-8") as f:
+        with document_archive.open_document(PHYSICAL_V5_FIXTURE, encoding="utf-8") as f:
             text = f.read()
         self.assertIn("# SOURCE=physical GameCube", text)
         self.assertIn("# BUILD_ID=vstate-0004", text)
@@ -1414,7 +1416,7 @@ class PhysicalV5(unittest.TestCase):
         """Two long runs, one description. No rate and no distribution is claimed from it."""
         if not os.path.isfile(PHYSICAL_V4):
             self.skipTest("the physical v4 sidecar is not present")
-        with open(PHYSICAL_V4, "rb") as f:
+        with document_archive.open_document(PHYSICAL_V4, "rb") as f:
             v4 = vstate.parse(f.read())
 
         def suffixes(d):

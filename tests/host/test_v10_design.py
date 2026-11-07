@@ -9,6 +9,8 @@ already has, the rider's deferral, the wait in the steps — and, above all, tha
 evidence id or a status is a pre-registration wearing the wrong name, and Issue
 #68's scope forbids one.
 """
+
+import archived_documents as document_archive
 import math
 import os
 import re
@@ -25,7 +27,7 @@ UNK = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

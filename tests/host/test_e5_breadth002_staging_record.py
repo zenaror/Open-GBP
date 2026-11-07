@@ -8,6 +8,8 @@ Durable, append-only forms (no whole-file equality):
   * the DEVLOG entry exists once; the two HANDOFF paragraphs exist once each, each BEFORE the paragraph of Issue #160 it sits on top of, and neither cites the test-family id;
   * no evidence id was added (EVIDENCE.md has the ids of BASE and none else).
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -32,7 +34,7 @@ PREV_NEXT = "**2026-10-05 (Issue #160), on top: Issue #160 is done"
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 

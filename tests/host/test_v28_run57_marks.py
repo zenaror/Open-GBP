@@ -9,6 +9,8 @@ register reads the shorter block (and the interval to the next callback is 2 ms 
   * the rule's thresholds, the marks' scope (a mute's FIRST silent hand-off only, never an underrun's, at most one in flight, at most GBP_V28_DMA_MARKS);
   * the wiring in main.c: the mark exists in validation_run and in no other plan, the callback has no conditional, the format strings.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -93,7 +95,7 @@ def build():
     d = tempfile.mkdtemp(prefix="run57marks")
     src = os.path.join(d, "driver.c")
     exe = os.path.join(d, "driver")
-    with open(src, "w") as f:
+    with document_archive.open_document(src, "w") as f:
         f.write(DRIVER)
     have, ok, err = hostcc.compile_c(["-std=gnu11", "-Wall", "-Wextra", "-I", AUDIO, "-o", exe, src, os.path.join(AUDIO, "gbp_v28_dma.c")])
     return have, ok, err, exe
@@ -211,8 +213,8 @@ class TheMarksScope(unittest.TestCase):
         """gbp_atrans2 measures the fraction of the period gone from the LAST TWO hand-off instants at the level-setting call, in the mute's second-to-last period
         (handed + 1 >= mute, the shortest mute being GBP_V28_STEP_MUTE): the interval a mark shortens is the one that STARTS at j + 1 or j + 2 and ENDS at j + 2 or j + 3."""
         step_mute = 7      # gbp_v28_ladder.h's own _Static_assert(GBP_V28_STEP_MUTE == 7u && GBP_V28_START_MUTE == 10u): a change there breaks the build first
-        self.assertIn("GBP_V28_STEP_MUTE == 7u", open(os.path.join(AUDIO, "gbp_v28_ladder.h")).read())
-        self.assertIn("handed + 1u >= t->mute", open(os.path.join(AUDIO, "gbp_atrans2.c"), encoding="utf-8").read(), "adjust2's own trigger: the second-to-last period of the mute")
+        self.assertIn("GBP_V28_STEP_MUTE == 7u", document_archive.open_document(os.path.join(AUDIO, "gbp_v28_ladder.h")).read())
+        self.assertIn("handed + 1u >= t->mute", document_archive.open_document(os.path.join(AUDIO, "gbp_atrans2.c"), encoding="utf-8").read(), "adjust2's own trigger: the second-to-last period of the mute")
         # counting the mute's first hand-off as 1: adjust2 first runs at handed = mute - 1 and measures the interval (handed - 1 -> handed), which STARTS at hand-off mute - 2 = 5;
         # a mark at hand-off 1 shortens the block that starts at 1 + lag (lag 1 or 2, the rule reads lag 3 as unresolved) and that interval ENDS at 2 + lag: 4 at lag 2, 5 at lag 3
         landing_interval_starts = step_mute - 2
@@ -277,7 +279,7 @@ class TheRuleThresholds(unittest.TestCase):
 
 class TheMarkExistsInValidationRunAndNowhereElse(unittest.TestCase):
     def test_the_makefile_defines_the_macro_in_the_validation_branch_alone(self):
-        mk = open(MAKEFILE, encoding="utf-8").read()
+        mk = document_archive.open_document(MAKEFILE, encoding="utf-8").read()
         self.assertEqual(mk.count("GBP_V28_DMA_MARK"), 1, "the one define")
         branch = re.search(r"ifeq \(\$\(PLAN\),validation_run\)\n(.*?)\nelse ifeq", mk, re.S).group(1)
         self.assertIn("-DGBP_V28_DMA_MARK=1", branch)
@@ -287,29 +289,29 @@ class TheMarkExistsInValidationRunAndNowhereElse(unittest.TestCase):
         self.assertIn("$(EXTRA_DEFINES)", mk)
 
     def test_the_source_refuses_the_macro_in_any_other_plan(self):
-        src = open(MAIN, encoding="utf-8").read()
+        src = document_archive.open_document(MAIN, encoding="utf-8").read()
         self.assertIn("#if defined(GBP_V28_DMA_MARK) && !defined(GBP_V28_PLAN_VALIDATION)\n#error", src)
 
     def test_the_only_uses_of_the_mark_are_under_the_macro(self):
-        code = W.code(open(MAIN, encoding="utf-8").read())
+        code = W.code(document_archive.open_document(MAIN, encoding="utf-8").read())
         for token in ("gbp_v28_dma_len(", "gbp_v28_dma_marks_enable(", "V28MARK"):
-            for m in re.finditer(re.escape(token), open(MAIN, encoding="utf-8").read()):
-                before = open(MAIN, encoding="utf-8").read()[:m.start()]
+            for m in re.finditer(re.escape(token), document_archive.open_document(MAIN, encoding="utf-8").read()):
+                before = document_archive.open_document(MAIN, encoding="utf-8").read()[:m.start()]
                 opens = len(re.findall(r"^#\s*ifdef GBP_V28_DMA_MARK", before, re.M))
                 closes = len(re.findall(r"^#\s*(?:endif|else)\b", before[before.rfind("#ifdef GBP_V28_DMA_MARK"):], re.M)) if opens else 0
                 self.assertTrue(opens and closes == 0, "%s at offset %d is not inside #ifdef GBP_V28_DMA_MARK ... (no #else/#endif yet)" % (token, m.start()))
         self.assertTrue(code)
 
     def test_the_callback_has_no_conditional_and_takes_its_length_from_the_helper(self):
-        body = W.function_body(W.code(open(MAIN, encoding="utf-8").read()), "live_dma_cb")
+        body = W.function_body(W.code(document_archive.open_document(MAIN, encoding="utf-8").read()), "live_dma_cb")
         self.assertNotIn("if (", body)
         self.assertIn("AUDIO_InitDMA((u32)(size_t)c, dma_block_bytes(c));", body)
-        helper = W.function_body(open(MAIN, encoding="utf-8").read(), "dma_block_bytes")
+        helper = W.function_body(document_archive.open_document(MAIN, encoding="utf-8").read(), "dma_block_bytes")
         self.assertIn("gbp_v28_dma_len(&v28_dma, ap2.mute_carry != 0u && c == ap2.silence, GBP_APLAY2_CHUNK_BYTES)", helper)
         self.assertIn("return GBP_APLAY2_CHUNK_BYTES;", helper)
 
     def test_the_teardown_lines_and_their_widths(self):
-        src = open(MAIN, encoding="utf-8").read()
+        src = document_archive.open_document(MAIN, encoding="utf-8").read()
         f1 = "V28MARKS n=%lu short=%lu chunk=%lu"
         f2 = "V28MARK i=%lu j=%lu left=%lu,%lu,%lu dur=%lu,%lu,%lu,%lu done=%lu"
         self.assertIn('"%s"' % f1, src)

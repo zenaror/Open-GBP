@@ -18,6 +18,8 @@ AND THE IMAGE MATRIX IS VERIFIED AGAINST THE SOURCES. The claim that decides
 the cheapest path — that the capture probe has no input path while the stream
 and play probes do — is read from the tree rather than taken from the design.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -33,7 +35,7 @@ GBA_SHA = "53c212c73e814875fcbac16a4dc22ea5d6c752f85cdddc433db97439caef2b6e"
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

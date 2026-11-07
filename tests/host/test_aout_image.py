@@ -15,6 +15,8 @@ true is what the image LINKS and DOES, so those are what is pinned:
     cannot become it by accident.
 The samples themselves are pinned by tests/host/test_audio_listen.py.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -34,7 +36,7 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

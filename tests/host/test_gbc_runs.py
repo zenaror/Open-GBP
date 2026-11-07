@@ -21,6 +21,8 @@ own bar was met AND the argument was written out, and the scope that travels
 with it — one console, one GBP, this read sequence, and THE BIT IS NOT IN THE
 ORIGINAL BYTE — is asserted with it.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -45,7 +47,7 @@ POINTS = ["P0", "A1-0", "A1-50US", "A1-500US", "A2-0", "A2-50US", "A2-500US", "A
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -101,7 +103,7 @@ class TheArchiveIsWhatTheRecordSays(unittest.TestCase):
 
     def test_every_hash_in_the_section_is_the_hash_on_disk(self):
         for n in (27, 28, 29):
-            digest = hashlib.sha256(open(path(n), "rb").read()).hexdigest()
+            digest = hashlib.sha256(document_archive.open_document(path(n), "rb").read()).hexdigest()
             self.assertEqual(digest, GBC[n], n)
             self.assertIn(digest, section(), "§V7.10 does not carry RUN %d's hash" % n)
 
@@ -111,7 +113,7 @@ class TheArchiveIsWhatTheRecordSays(unittest.TestCase):
             for n in RUNS:
                 if not os.path.exists(path(n, kind)):
                     self.skipTest("no local archive on this host (captures/local is ignored)")
-                blobs.add(open(path(n, kind), "rb").read())
+                blobs.add(document_archive.open_document(path(n, kind), "rb").read())
             self.assertEqual(len(blobs), 1, "%s differs across the GB/GBC runs" % kind)
         self.assertIn("a session that captured nothing, four times", plain(section()))
 

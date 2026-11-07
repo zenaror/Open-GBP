@@ -25,6 +25,8 @@ INDEPENDENT of the future runs:
   - nothing frozen moved: §V7.1–§V7.5 byte-identical, EVIDENCE untouched, no
     GBP-HW id minted, nothing under src/, poc/, tools/ or the Makefile.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -50,7 +52,7 @@ NAMES = ["captures/local/GBP-PLAY-001_play-0001-run21.log",
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

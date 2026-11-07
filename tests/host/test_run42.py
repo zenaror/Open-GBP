@@ -14,6 +14,8 @@ The ingestion's text is checked against the tools and against itself (TheRecord)
 tool's output byte for byte, the closure never travels without the audio-to-video offset, and no record says more than
 its evidence.
 """
+
+import archived_documents as document_archive
 import hashlib
 import json
 import os
@@ -49,7 +51,7 @@ FAMILY = {38: os.path.join(FXD, "hw-gamecube-gbp-2026-09-24-live-0001-run38.log"
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -75,7 +77,7 @@ class Run(object):
                                        capture_output=True, timeout=300).stdout
                 blobs = {}
                 for k, p in (("report", rj), ("accept", aj), ("final", fj)):
-                    with open(p, "rb") as f:
+                    with document_archive.open_document(p, "rb") as f:
                         blobs[k] = f.read()
             cls._done = {"blobs": blobs, "sealed": sealed, "final": final, "rep": json.loads(blobs["report"]),
                          "acc": json.loads(blobs["final"])}
@@ -85,7 +87,7 @@ class Run(object):
 class TheFixtures(unittest.TestCase):
     def test_the_raws_are_the_consoles_files_byte_for_byte(self):
         for path, (h, n) in RAW.items():
-            with open(path, "rb") as f:
+            with document_archive.open_document(path, "rb") as f:
                 raw = f.read()
             self.assertEqual(sha(raw), h, path)
             if n is not None:
@@ -98,7 +100,7 @@ class TheFixtures(unittest.TestCase):
             self.assertIn(tok, log, tok)
 
     def test_the_declaration_is_the_orchestrators_resolution_by_reference(self):
-        with open(DECL, encoding="utf-8") as f:
+        with document_archive.open_document(DECL, encoding="utf-8") as f:
             d = json.load(f)
         self.assertEqual((d["a_stability"], set(d["defects"].values()), d["picture"], d["controls"]),
                          ("PASS", {"no"}, "normal", "responded"))

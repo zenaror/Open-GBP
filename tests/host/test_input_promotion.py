@@ -14,6 +14,8 @@ frozen moved — HARDWARE_TESTS §V7, the evidence headings and U-GBP-010 are th
 bytes of 4e54583, no GBP-HW id was minted, nothing under src/, poc/, tools/
 or Makefile changed.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -41,7 +43,7 @@ ID = re.compile(r"\b(GBP-(?!VIDEO|BBA|INIT|AV|PROBE|BASELINE|INPUT)[A-Z]+-\d{3}|
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

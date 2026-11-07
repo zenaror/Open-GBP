@@ -19,6 +19,8 @@ tests/host/test_input_impl.py — the input path implemented (GitHub Issue #19,
     after Issue #24 (RUN 14 / RUN 15 ingested, §V7.2) U-GBP-010 is CLOSED and the
     highest GBP-HW id is 265.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -43,7 +45,7 @@ SERVICE_PATH_FILES = ("gbp_vstate_probe.c", "gbp_vstate.c", "gbp_vqueue.c", "gbp
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

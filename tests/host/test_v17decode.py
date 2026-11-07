@@ -5,6 +5,8 @@ known period and amplitude out — so a pass on the captures is not the only thi
 standing between the code and the claim. Then the verdict is recomputed on the
 archive, and the correction to §V17.4's disclosure is pinned against the bytes.
 """
+
+import archived_documents as document_archive
 import math
 import os
 import re
@@ -30,7 +32,7 @@ B34 = os.path.join(LOCAL, "GBP-AUDIO-003_stream-0016-run34-audio.bin")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

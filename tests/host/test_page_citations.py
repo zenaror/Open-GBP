@@ -20,6 +20,8 @@ id nothing defines is unambiguous drift — the id was renamed, retired or never
 written — and it cannot be argued about. That is checked here, for every page,
 on every run.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -37,7 +39,7 @@ TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "B
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

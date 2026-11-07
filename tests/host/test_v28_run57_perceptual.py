@@ -5,6 +5,8 @@
   * the records (V28_NULL, V28CFG) and their widths; the nulling's dispatch is unchanged (start with the session seed, LEFT / RIGHT step, UP confirm);
   * tools/v28null.py: the (T, A) -> L table, CENSORED per setting and per end, the verdicts, the labels.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -25,7 +27,7 @@ MAKEFILE = os.path.join(ROOT, "poc", "gbp-audio-v28", "Makefile")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

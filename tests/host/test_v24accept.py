@@ -8,6 +8,8 @@ byte, and sweep-0002's tone with losses planted per cycle and per arm. Pinned: t
 refusal; the cycle -> arm rule and its counted exclusions; each verdict and the precedence between them;
 that a low half arm is the finding, never a failure; and that what is reported beside the verdict is there.
 """
+
+import archived_documents as document_archive
 import io
 import json
 import os
@@ -204,7 +206,7 @@ class TheCyclesAndWhatIsReported(unittest.TestCase):
         r = build(700, {HALF: 0.3, FULL: 0.8})
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "r.json")
-            with open(p, "w") as f:
+            with document_archive.open_document(p, "w") as f:
                 json.dump(r, f)
             orig = v24accept.S_TRIALS
             buf = io.StringIO()
@@ -214,14 +216,14 @@ class TheCyclesAndWhatIsReported(unittest.TestCase):
             out = buf.getvalue()
             self.assertIn("  S   CAUSE", out)
             self.assertIn("CONTEXT, not the discriminator", out)
-            with open(os.path.join(d, "o.json")) as f:
+            with document_archive.open_document(os.path.join(d, "o.json")) as f:
                 self.assertEqual(json.load(f)["S"]["verdict"], "CAUSE")
             self.assertEqual(orig, v24accept.S_TRIALS)
 
 
 class TheModuleAuthorisesNothing(unittest.TestCase):
     def test_it_reads_no_capture_and_carries_v23_over_unedited(self):
-        with open(os.path.join(ROOT, "tools", "v24accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v24accept.py"), encoding="utf-8") as f:
             src = f.read()
         self.assertNotIn("captures/", src.split('"""', 2)[2])
         self.assertIn("import v23accept", src)
@@ -234,7 +236,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
     KEY = "Issue #105 -- §V24 transcribed, Run B's QUESTION S frozen"
 
     def part(self):
-        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
             t = f.read()
         i = t.index("\n## V24 ")
         j = t.find("\n## V25 ", i)
@@ -242,7 +244,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
 
     def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
         import frozen
-        with open(os.path.join(ROOT, "tools", "v24accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v24accept.py"), encoding="utf-8") as f:
             now = f.read()
         self.assertEqual(frozen.source(self.KEY, "tools/v24accept.py"), now,
                          "tools/v24accept.py was edited after it was frozen")

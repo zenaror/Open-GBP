@@ -14,6 +14,8 @@ code, in two halves:
     method GBP-HW-316 used -- and that method is itself checked by reproducing
     GBP-HW-316's 68.06 / 68.59 before it is trusted with anything new.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -47,7 +49,7 @@ PRESERVED_OPEN, PRESERVED_CLOSE = [8, 30, 90, 150], [25, 89, 149, 197]
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -290,7 +292,7 @@ class TheArchiveRecomputes(unittest.TestCase):
                           "(captures/local is ignored)")
 
     def log(self, s):
-        with open(os.path.join(LOCAL, s[2]), "rb") as f:
+        with document_archive.open_document(os.path.join(LOCAL, s[2]), "rb") as f:
             b = f.read()
         return b, b.decode("utf-8", "replace")
 

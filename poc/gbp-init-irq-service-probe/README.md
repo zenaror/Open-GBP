@@ -262,3 +262,9 @@ GBP-HW-042…047, GBP-IRQ-009; log verbatim in HARDWARE_TESTS.md; fixture
 `captures/fixtures/hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay` replays the whole run
 (112 operations, 0 mismatches) to this result (`tests/unit/test_gbp_initirq4.c`,
 `tests/host/test_hw_fixture.py`, `tests/host/test_initirq4_replay.py`).
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

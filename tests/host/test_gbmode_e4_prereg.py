@@ -4,6 +4,8 @@ The rival-reading table in the document is generated from the reader's own state
 the RUN 59 pin, no slot 28 exists, the DOL hash is unchanged); the code facts the check rests on are read from the sources; the Operator's text is in Portuguese, in the button x count typography,
 and carries no word for a change of the picture.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -21,7 +23,7 @@ PIN = "e33115e348fbf7c51dfadba61d52ea4c8b07e64874c69550a832ed07e494a497"
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -130,7 +132,7 @@ class TheArchiveMatchesTheNumbersTheTextQuotes(unittest.TestCase):
         cls.p = os.path.join(ROOT, "captures", "local", "GBP-VIDEO-004_gbmode-0001-run59-idxcap.bin")
         if not os.path.isfile(cls.p):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
-        with open(cls.p, "rb") as f:
+        with document_archive.open_document(cls.p, "rb") as f:
             assert hashlib.sha256(f.read()).hexdigest() == "5687d3b34bf0763cb05c2625105f982231459779587e1f821e34c1466b471f3c", "the archive is not the recorded one"
 
     def test_the_windows_and_the_seconds_the_text_quotes(self):

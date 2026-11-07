@@ -16,6 +16,8 @@ exist — it is to catch the day somebody "helpfully" pastes the rule's text int
 AGENTS.md as well, and the day somebody rewrites §7b instead of leaving it as
 the case the rule cites.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -30,7 +32,7 @@ OLD_SENTENCE = "na RUN estou usando ez-flash e o road rage paralelo apenas"
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -79,3 +79,9 @@ runs; GBP-VID-020). Dolphin ties video IRQs to the audio tick (**H**).
   used for a separate feature and calls the DSP, not the HSP). **F**
 - No mailbox-style registers were found despite YAGCD's "TX/RX mailbox"
   wording. **F (absence)**
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

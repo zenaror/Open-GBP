@@ -8,6 +8,8 @@ the limit cannot be dropped later while the quote survives.
 The archive lives under captures/local/, which Git ignores, so the recomputations
 skip in a clone; everything that reads only the DOCUMENTS runs everywhere.
 """
+
+import archived_documents as document_archive
 import collections
 import os
 import re
@@ -35,7 +37,7 @@ POP = bytes(bin(i).count("1") for i in range(256))
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -87,7 +89,7 @@ class TheRawsAreArchivedUnderTheReservedNames(unittest.TestCase):
             p = os.path.join(RAW, name)
             if not os.path.exists(p):
                 continue
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 self.assertEqual(hashlib.sha256(f.read()).hexdigest(), h, p)
             seen += 1
             self.assertIn(h, part())
@@ -98,7 +100,7 @@ class TheRawsAreArchivedUnderTheReservedNames(unittest.TestCase):
         raw = os.path.join(RAW, "GBP-AUDIO-001_stream-0016.log")
         if not (os.path.exists(raw) and os.path.exists(LOG)):
             self.skipTest("RUN 30 or its reference is not in this checkout")
-        with open(raw, "rb") as a, open(LOG, "rb") as b:
+        with document_archive.open_document(raw, "rb") as a, document_archive.open_document(LOG, "rb") as b:
             self.assertEqual(a.read(), b.read())
 
     def test_the_console_name_and_the_archive_name_disagree_by_design(self):

@@ -15,6 +15,8 @@ quietly:
   * that RUN 34 is compared by THE SAME instrument — a first draft of §V20 quoted
     RUN 31's V=15 as RUN 34's, and this pins the correction.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -43,7 +45,7 @@ PRIOR = {"RUN 33 sidecar": "cfe472d36ba6040ecbedf9adfc601b73b501d401f363ccc78c20
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -55,7 +57,7 @@ def part():
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -141,7 +143,7 @@ class TheArchiveRecomputes(unittest.TestCase):
 
     def test_the_three_crc_channels_agree(self):
         import awinparse
-        h, _a, _o = awinparse.parse(open(B35, "rb").read())
+        h, _a, _o = awinparse.parse(document_archive.open_document(B35, "rb").read())
         self.assertEqual(h["total_crc32"], 0x6B1E8337)
         self.assertIn("total_crc=6b1e8337", read(L35))
 

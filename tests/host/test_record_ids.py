@@ -28,6 +28,8 @@ Test ids used as section headings (the families in test_page_citations.TEST_FAMI
 GBP-VIDEO-004 over several runs) are headings of experiments, not evidence ids, and are excluded
 from uniqueness by that one declaration.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -44,7 +46,7 @@ ID = re.compile(r"\b((?:GBP|ENV)-([A-Z]+)-\d{3}|U-(?:GBP|ENV)-\d{3})\b")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

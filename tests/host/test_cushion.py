@@ -19,6 +19,8 @@ What is held here:
   * the method rule the adoption produced is in docs/RESEARCH_METHOD.md.
 The chain's behaviour at the new default is checked in tests/unit/test_gbp_aplay.c.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -33,7 +35,7 @@ RECORDS = ("docs/protocol/AUDIO.md", "docs/research/EVIDENCE.md", "docs/research
 
 
 def read(p):
-    with open(p if os.path.isabs(p) else os.path.join(ROOT, p), encoding="utf-8") as f:
+    with document_archive.open_document(p if os.path.isabs(p) else os.path.join(ROOT, p), encoding="utf-8") as f:
         return f.read()
 
 

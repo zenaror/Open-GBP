@@ -112,3 +112,9 @@ Pergunta respondida: does the Docker/libogc2/elf2dol/dolpad pipeline produce a D
                     real GameCube through Swiss (U-ENV-002), including video, pad and SD2SP2 logging?
 Risco:              none beyond running homebrew; the GBP is not touched.
 ```
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

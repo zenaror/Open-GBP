@@ -19,6 +19,8 @@ that changes no verdict. Every inherited gate is the run-9/10/11 gate reused;
 none added, none narrowed. Nothing here derives a topology from a file, and no
 test consults the operator's report to decide a machine fact.
 """
+
+import archived_documents as document_archive
 import hashlib
 import json
 import os
@@ -67,14 +69,14 @@ def disp():
 
 def struct():
     if "s" not in _C:
-        with open(STRUCT) as f:
+        with document_archive.open_document(STRUCT) as f:
             _C["s"] = json.load(f)
     return _C["s"]
 
 
 def run11():
     if "r11" not in _C:
-        with open(RUN11) as f:
+        with document_archive.open_document(RUN11) as f:
             _C["r11"] = json.load(f)
     return _C["r11"]
 
@@ -92,7 +94,7 @@ def full_analysis():
 
 
 def sha(path):
-    with open(path, "rb") as f:
+    with document_archive.open_document(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -244,7 +246,7 @@ class TheSubordinateFullFrameResult(unittest.TestCase):
         forbidden = "GBP-VIDEO-008" + " PASS"      # the literal must not exist anywhere, this file included
         for path, enc in ((STRUCT, None), (HW, "utf-8"), (os.path.join(ROOT, "docs", "HANDOFF.md"), "utf-8"),
                           (os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), "utf-8")):
-            with open(path, encoding=enc) as f:
+            with document_archive.open_document(path, encoding=enc) as f:
                 self.assertNotIn(forbidden, f.read(), path)
 
 
@@ -405,7 +407,7 @@ class TheComparisonWithRun11AndTheFindings(unittest.TestCase):
         self.assertIn("OPEN", f["GBP-VID-035"])
         self.assertIn("not fixed here", f["GBP-VID-035"])
         self.assertEqual(struct()["evidence_ids"], ["GBP-HW-%d" % n for n in range(250, 256)])
-        with open(os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), encoding="utf-8") as fh:
+        with document_archive.open_document(os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), encoding="utf-8") as fh:
             ev = fh.read()
         h34 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-034 ")][0]
         h35 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-035 ")][0]

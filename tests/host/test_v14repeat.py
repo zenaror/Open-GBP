@@ -5,6 +5,8 @@ RUN 32 exactly, so that the method frozen for RUN 34 is the one already used and
 not a new one. §V14's two findings must hold against the code rather than only
 in prose. And §V14 must stay a pre-registration that adds no gate.
 """
+
+import archived_documents as document_archive
 import math
 import os
 import re
@@ -29,7 +31,7 @@ RUN32 = os.path.join(LOCAL, "GBP-AUDIO-003_stream-0016-run32-audio.bin")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

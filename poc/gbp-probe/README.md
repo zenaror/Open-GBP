@@ -125,3 +125,9 @@ Risco:              low. GBP-side writes only to the TEST window (what every dri
                     mock: a DMA that never completes leaves the engine busy until reset — the
                     log still records everything up to that point.
 ```
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

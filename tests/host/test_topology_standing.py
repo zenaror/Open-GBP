@@ -16,6 +16,8 @@ minted; HANDOFF's "Do not rediscover" row and a do-not-assume bullet carry the
 standing part; §V7.1–§V7.3 and §V7.4's results are the bytes of aaee492;
 nothing under the forbidden paths moved.
 """
+
+import archived_documents as document_archive
 import json
 import os
 import re
@@ -39,7 +41,7 @@ W_BBA_STANDING = "BBA também permanecera presente e sem cabo, ate que seja soli
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -68,7 +70,7 @@ def part(n, text=None):
 
 
 def struct(run):
-    with open(os.path.join(FX, P + "idxcap-run%d-struct.json" % run), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(FX, P + "idxcap-run%d-struct.json" % run), encoding="utf-8") as f:
         return json.load(f)
 
 

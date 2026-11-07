@@ -8,6 +8,8 @@ carry the same identity, the same bounds and the same caveats; when the image
 is built on this host at the recorded commit, build-info agrees with them.
 Nothing frozen moved: §V7.1–§V7.5, EVIDENCE.md, the run numbers.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -32,7 +34,7 @@ BASE = "3e6aad1"      # origin/main before Issue #39
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

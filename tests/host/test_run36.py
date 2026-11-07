@@ -10,6 +10,8 @@ this file checks that they say so, and say when each word was given.
 The live Gecko capture lives under captures/local/ (ignored), so its checks skip
 in a clone; everything else runs everywhere.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -32,12 +34,12 @@ SEGMENT_FRAMES = 48500          # 32 500 tone + 16 000 gap, 6 208 inputs through
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
 def sha256(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -172,7 +174,7 @@ class TheLiveGeckoCapture(unittest.TestCase):
     def setUp(self):
         if not os.path.exists(GECKO):
             self.skipTest("the RUN 36/37 Gecko capture is not archived in this checkout")
-        with open(GECKO, "rb") as f:
+        with document_archive.open_document(GECKO, "rb") as f:
             self.raw = f.read()
         self.lines = [l.decode("ascii", "replace") for l in self.raw.split(b"\n")]
 

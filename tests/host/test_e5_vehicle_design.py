@@ -4,6 +4,8 @@ The store table is recomputed with tools/v28budget.py's own rules; the demonstra
 reason, on a host without it); every code claim the design rests on is read from the sources; nothing exists yet that the design says does not exist (no POC, no slot, no record); the library
 default is untouched; the Operator's draft text predicts nothing. The build half has landed (Issue #153): the 'nothing is built' pins are amended on top, each saying so.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -20,7 +22,7 @@ RUN57 = os.path.join(ROOT, "captures", "local", "GBP-AUDIO-V28_v28-validation-00
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -219,9 +221,9 @@ class TheBuildRecordV318(unittest.TestCase):
         if not os.path.isfile(info) or ("commit=%s\n" % VEHICLE_COMMIT) not in read(info):
             self.skipTest("gbp-play-gba is not built in this checkout")
         import hashlib
-        with open(os.path.join(out, "gbp-play-gba.dol"), "rb") as f:
+        with document_archive.open_document(os.path.join(out, "gbp-play-gba.dol"), "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), VEHICLE_SHA)
-        with open(os.path.join(out, "gbp-play-gba.unpadded.dol"), "rb") as f:
+        with document_archive.open_document(os.path.join(out, "gbp-play-gba.unpadded.dol"), "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), VEHICLE_UNPADDED_SHA)
 
     def test_the_decisions_the_review_changed_are_recorded(self):

@@ -13,6 +13,8 @@ What is held here, each checked, not assumed:
     CARTDECL a declaration; the procedural deviation in its four parts, in order.
 The archive is under captures/local (ignored by Git): those tests skip, with the registered reason, on a host without it.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -45,12 +47,12 @@ OPERATOR = ("sim, joguei na ordem.. os logs -1 -2 e -3 se referem na ordem solic
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -115,7 +117,7 @@ class TheArchiveReadsAsRecorded(unittest.TestCase):
             assert sha(p) == RUNS[r][1], "captures/local's RUN %d archive is not the recorded one (a defect in the archive, never a skip)" % r
         cls.text = {}
         for r, p in cls.paths.items():
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 cls.text[r] = f.read()
         cls.fig = {r: figures(t) for r, t in cls.text.items()}
         cls.sec = flat(v31_10())
@@ -125,7 +127,7 @@ class TheArchiveReadsAsRecorded(unittest.TestCase):
         if not all(os.path.isfile(p) for p in raws):
             self.skipTest("raw log not available locally")
         for r, (f, h, raw) in RUNS.items():
-            with open(os.path.join(RAW, raw), "rb") as a, open(self.paths[r], "rb") as b:
+            with document_archive.open_document(os.path.join(RAW, raw), "rb") as a, document_archive.open_document(self.paths[r], "rb") as b:
                 self.assertEqual(a.read(), b.read(), "RUN %d: the archive copy differs from %s" % (r, raw))
 
     def test_the_frozen_readers_output_is_the_records_byte_for_byte(self):
@@ -218,7 +220,7 @@ class TheArchiveReadsAsRecorded(unittest.TestCase):
         if not all(os.path.isfile(p) for p in paths.values()):
             self.skipTest("no local archive on this host (captures/local is ignored)")
         for r, p in paths.items():
-            with open(p, encoding="utf-8", errors="replace") as fh:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as fh:
                 t = fh.read()
             taps = recs(t, "V28TAPS")[0]
             self.assertGreater(int(taps["taps"]), int(taps["blocks_in"]), r)
@@ -316,7 +318,7 @@ class TheRecordsAreOnTopAndSayWhatTheyMay(unittest.TestCase):
             self.skipTest("no local archive on this host (captures/local is ignored)")
         want = {55: ("2", ["1", "1", "0", "0"]), 56: ("2", ["1", "1", "0", "0"]), 57: ("2", ["1", "1", "0", "0"]), 58: ("1", ["1", "0"])}
         for r, p in paths.items():
-            with open(p, encoding="utf-8", errors="replace") as fh:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as fh:
                 t = fh.read()
             self.assertEqual((recs(t, "V28C")[0]["underruns"], [x["underruns"] for x in recs(t, "V28PHC")]), want[r], r)
 

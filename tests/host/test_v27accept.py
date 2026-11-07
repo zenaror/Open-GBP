@@ -2,6 +2,8 @@
 reports BEFORE the image exists. Every branch of every verdict is reached by a construction, and the counts §V27.10
 froze are the ones the tool decides by. Nothing here reads hardware data.
 """
+
+import archived_documents as document_archive
 import copy
 import os
 import subprocess
@@ -296,7 +298,7 @@ class Phase3(unittest.TestCase):
                                         lost=0, starved=5, t_start=0, t_end=10, partial=1)]
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "r.json")
-            with open(p, "w") as f:
+            with document_archive.open_document(p, "w") as f:
                 json.dump(r, f)
             out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v27accept.py"), p],
                                  capture_output=True, text=True, timeout=60).stdout
@@ -376,7 +378,7 @@ class ThePrintedVerdictCarriesEveryInput(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "r.json")
-            with open(p, "w") as f:
+            with document_archive.open_document(p, "w") as f:
                 json.dump(report(), f)
             out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v27accept.py"), p],
                                  capture_output=True, text=True, timeout=60).stdout
@@ -396,7 +398,7 @@ class ThePrintedVerdictCarriesEveryInput(unittest.TestCase):
 
 class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
     def read(self, p):
-        with open(p, encoding="utf-8") as f:
+        with document_archive.open_document(p, encoding="utf-8") as f:
             return f.read()
 
     def test_the_tool_is_byte_identical_to_its_freeze(self):

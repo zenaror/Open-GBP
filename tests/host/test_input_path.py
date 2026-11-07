@@ -17,6 +17,8 @@ mGBA with its exact commit; the ROADMAP's Phase 5 status and the HANDOFF row
 exist; and the keypad code that Issue #19 (2026-09-21) later added is the
 module §7 named.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -38,7 +40,7 @@ ID = re.compile(r"\b(GBP-(?!VIDEO|BBA|INIT|AV|PROBE|BASELINE|PLAY)[A-Z]+-\d{3}|E
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

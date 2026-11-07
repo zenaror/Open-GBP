@@ -1,647 +1,796 @@
-# Open-GBP Research Method
+# Research and hardware safety method
 
-Open-GBP combines reverse engineering, synthetic testing, emulator-assisted testing, and physical hardware experiments.
+This is the public method for implementing and reviewing Open-GBP. It defines
+compatibility requirements, claim boundaries, reproducible evidence and safe
+hardware procedures. It does not track individual work sessions or current
+assignments. Public format and validation entry points are in [VALIDATION.md](VALIDATION.md).
 
-The purpose of this document is to prevent assumptions from silently becoming implementation facts.
+## Authority hierarchy
 
-## Evidence classifications
+The project's authority hierarchy is:
 
-Every material hardware claim should be classified as one of the following.
+```text
+REAL PHYSICAL HARDWARE
+        >
+official Game Boy Player Start-up Disc
+        >
+Game Boy Interface
+        >
+Dolphin / mGBA and other emulators
+```
 
-### FACT
+Physical Game Boy Player behavior is the final authority for the target
+runtime.
 
-Directly observed in a primary source or reproducible experiment.
+The official Start-up Disc is the primary software reference.
+
+GBI is an independent mature implementation and behavioral/reverse-engineering
+reference.
+
+Dolphin and mGBA are auxiliary references and never replace physical
+observation.
+
+Divergences between these sources must be preserved and documented. Never
+silently select whichever source agrees with the current implementation.
+
+## Evidence vocabulary
+
+Every research claim must use the project's evidence vocabulary:
+
+| Status           | Meaning                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| **FACT**         | Observed on physical hardware, or a property of code/data that can be independently recomputed. |
+| **CORROBORATED** | Supported by two or more independent sources, with no single source being decisive.             |
+| **HYPOTHESIS**   | Consistent with observations but not isolated or established by an adequate experiment.         |
+| **UNKNOWN**      | Explicitly unresolved.                                                                          |
+
+An inference is never promoted to `FACT` merely because it appears plausible.
+
+In particular:
+
+* emulator behavior is not physical `FACT`;
+* an implementation claim is not evidence merely because the implementation
+  produced it;
+* an Operator observation remains an `OPERATOR OBSERVATION` unless separately
+  supported by machine evidence;
+* a GitHub Issue, label, milestone, or Project field never promotes evidence
+  status.
+
+The rules below apply to every implementation and published result.
+
+## Historical and binary identity rules
+
+Never reinterpret a historical fixture to make it agree with a newer theory.
+
+The original observation remains exactly as recorded, including known defects.
+
+Never claim that an artifact was physically executed unless its exact identity
+matches the recorded run.
+
+A rebuilt binary inherits the source behavior of a validated variant, but does
+**not** inherit its physical validation status.
+
+This project embeds commit identity in hardware-testable images. A rebuild at
+another commit can therefore have a different hash.
+
+Before using the words **physically tested**, compare the artifact's SHA-256
+against the exact hash recorded in:
+
+* the original immutable run record and its artifact manifest;
+* the corresponding fixture and its provenance.
+
+See `docs/VALIDATION.md` for historical record access.
+
+Always distinguish:
+
+```text
+variant/source validation
+```
+
+from:
+
+```text
+exact binary validation
+```
+
+No hardware is ever tested with a `-dirty` build.
+
+## Frozen contracts
+
+Never silently change a frozen binary or data format.
+
+A frozen contract changes by introducing a **new version**, not by modifying
+the meaning of an existing version.
+
+Historical fixtures must remain interpretable according to the contract under
+which they were created.
+
+See `docs/VALIDATION.md` for the regression reference and published format sources.
+
+## Scientific role independence
+
+No evidence status derives from a role title.
 
 Examples:
 
-* a specific instruction in the official Startup Disc writes a known register;
-* a hardware trace repeatedly reports a specific value under a controlled condition;
-* a register address is directly visible in a verified implementation.
+* hardware evidence is hardware evidence;
+* code-derived facts are code-derived facts;
+* Operator observations are human observations;
+* an Executor's implementation claim is not self-validating because the
+  Executor wrote the code;
+* an Orchestrator's analysis is not physical evidence because the Orchestrator
+  reviewed a run.
 
-### CORROBORATED
+## Normal physical Link Port behavior is a permanent requirement
 
-Supported independently by multiple credible sources or experiments.
+The existing PicoAdapterGB already works through the physical Game Boy Player
+Link Port.
+
+Therefore the following path is established and must not be unnecessarily
+re-proven:
+
+```text
+physical cartridge
+       ↕
+real AGB serial/link hardware
+       ↕
+physical GBP Link Port
+       ↕
+PicoAdapterGB
+```
+
+Do not waste research time proving ordinary external Link Port communication
+exists.
+
+Instead, preserve it.
+
+Physical Link Port compatibility is a permanent requirement of the project,
+including:
+
+* Link Cable multiplayer with another physical Game Boy;
+* official accessories;
+* compatible third-party accessories;
+* physical Mobile Adapter GB;
+* PicoAdapterGB;
+* other normal serial modes exercised through the physical port.
+
+PicoAdapterGB is a concrete regression fixture, not the entire compatibility
+target.
+
+The two Mobile Adapters must remain conceptually separate.
+
+The **physical Mobile Adapter GB** is a normal physical Link Port accessory
+and must continue working like other accessories.
+
+The **virtual Mobile Adapter GB** is an additional Open-GBP extension over the
+GameCube BBA.
+
+Conceptually:
+
+```text
+NORMAL MODE
+
+cartridge
+   ↕
+physical Link Port
+   ↕
+PicoAdapterGB / cable / peripheral
+```
+
+versus:
+
+```text
+MOBILE ADAPTER MODE
+
+cartridge
+   ↕
+internal serial path
+   ↕
+GBS-DOL / HSP
+   ↕
+Open-GBP
+   ↕
+virtual Mobile Adapter
+   ↕
+BBA
+   ↕
+Ethernet
+```
+
+Do not assume the internal serial path works as required. Prove it
+experimentally.
+
+When Mobile Adapter functionality is disabled, Open-GBP must not prevent
+normal external Link Port devices from working.
+
+## Mobile Adapter is late-stage work
+
+Do not integrate:
+
+* `libmobile`;
+* PicoAdapterGB Mobile Adapter code;
+* mGBA Mobile Adapter code;
+* BGB-related Mobile Adapter code;
+* other Mobile Adapter implementations;
+
+during early Game Boy Player development.
+
+The required progression is defined by `docs/ROADMAP.md`.
+
+Establish independently:
+
+1. reproducible build environment;
+2. test infrastructure;
+3. physical GBP detection and initialization;
+4. video;
+5. input;
+6. audio;
+7. GBA compatibility;
+8. GB/GBC compatibility;
+9. physical Link Port regression;
+10. useful standalone runtime / GBI-class functionality;
+11. internal SIO behavior;
+12. BBA/network behavior;
+13. stable runtime architecture.
+
+Only after these foundations are sufficiently understood should Mobile
+Adapter protocol integration begin.
+
+Mobile Adapter support must remain additive and must not replace or degrade:
+
+* physical Link Port behavior;
+* physical Mobile Adapter GB support;
+* PicoAdapterGB;
+* rumble;
+* GBP-aware game features;
+* GB/GBC/GBA compatibility;
+* Start-up Disc / GBI-derived behavior.
+
+## Hardware research safety
+
+When interacting with undocumented hardware:
+
+1. Prefer read-only observation first.
+2. Reproduce known official initialization before experimenting.
+3. Change one variable at a time.
+4. Record original state where possible.
+5. Avoid speculative writes to unknown control bits.
+6. Document uncertainty.
+7. Make experimental writes explicitly opt-in.
+8. Provide a clear reset/recovery procedure where relevant.
+
+Permanent physical-experiment rules:
+
+* a new physical write requires justification from a known reference or
+  explicit experimental authorization;
+* prefer one new variable per experiment;
+* preserve and restore state whenever possible;
+* every operational wait must have a bounded timeout;
+* a timeout is an operational bound, never automatically a discovered
+  hardware property;
+* hardware is never tested with a `-dirty` build;
+* a physical candidate requires a clean commit, rebuild, passing tests, and
+  recorded artifact hash;
+* power-cycle the console after experiments that may leave device state
+  unresolved when the procedure specifies it.
+
+Do not chain several unverified assumptions into a single hardware test.
+
+## Minimize physical hardware intervention
+
+Before requesting a physical GameCube test, determine whether the question can
+be answered using:
+
+1. static analysis;
+2. host-native unit tests;
+3. synthetic vectors;
+4. mock hardware transports;
+5. trace replay;
+6. PowerPC compilation/link validation;
+7. binary inspection;
+8. Dolphin;
+9. Ghidra/static analysis when authorised by the roadmap.
+
+Only request physical hardware when real hardware behavior is material to the
+question.
+
+Do not ask the Operator to manually debug something that can be tested
+autonomously.
+
+Physical experiments should answer a specific research question.
+
+Avoid requests such as:
+
+> Try this and tell me what happens.
+
+## Hardware test request format
+
+When a physical test is genuinely required, provide:
+
+```text
+Test ID:
+Build ID:
+DOL:
+Required cartridge/test ROM:
+Physical Link Port state:
+BBA state:
+Steps:
+Expected result/log:
+Question answered:
+```
+
+Prefer a bounded procedure such as:
+
+```text
+1. Copy DOL to SD.
+2. Launch through Swiss.
+3. Wait for READY.
+4. Perform one defined action.
+5. Press X to save the report.
+6. Return the generated log.
+```
+
+After the Operator reports a result, preserve its exact artifact identity, literal
+observations, derived conclusions and unresolved questions in a durable run record.
+Publish reusable, non-proprietary fixtures and regression tests when practical.
+
+Do not leave important hardware knowledge only in chat history.
+
+## Build identification
+
+Every hardware-testable DOL must be identifiable.
+
+Prefer embedding or displaying:
+
+* semantic application/POC name;
+* build ID;
+* short Git commit hash when available.
 
 Example:
 
 ```text
-Dolphin model
-+
-Startup Disc analysis
-+
-matching physical hardware behavior
+Open-GBP HSP Probe
+Build: hsp-0007
+Commit: a83f2cd
 ```
 
-### HYPOTHESIS
+Generated logs must contain the same identity.
 
-A plausible interpretation that has not yet been experimentally demonstrated.
+This is required to tie hardware observations to exact source.
 
-Hypotheses may guide tests but must not be used as stable API behavior without an explicit warning.
+## Autonomous testing
 
-### UNKNOWN
+Hardware-specific code should be isolated behind testable boundaries whenever
+practical.
 
-Observed or suspected behavior for which no defensible interpretation currently exists.
-
-Unknown bits should remain unknown.
-
-Do not assign names merely to make a register map look complete.
-
-## Evidence hierarchy
-
-For behavior of the physical Game Boy Player, use evidence approximately in this order:
+Prefer a structure conceptually similar to:
 
 ```text
-repeatable physical hardware observation
-        ↓
-official Game Boy Player software analysis
-        ↓
-multiple independent hardware-oriented references
-        ↓
-Dolphin hardware model
-        ↓
-other open-source implementations/research
-        ↓
-single-source speculation
+higher-level GBP logic
+        │
+        ▼
+GBP transport/API
+        │
+        ├── real HSP backend
+        ├── mock backend
+        └── trace/replay backend
 ```
 
-This is not absolute. A hardware observation with an uncontrolled experiment can be weaker than careful static analysis.
+Avoid spreading direct MMIO or HSP transaction code throughout unrelated
+modules.
 
-Record the reasoning.
+The purpose is to enable:
 
-## Independence of design, execution, observation and validation
+* deterministic host tests;
+* hardware simulation;
+* failure injection;
+* trace replay;
+* regression testing;
+* fewer physical hardware runs.
 
-Four things are kept in different hands, or at least in different steps that
-each leave a record (`AGENTS.md`, "Roles and responsibilities"):
+Timing-sensitive code may require lower-level specialization. Preserve
+testability where doing so does not compromise correctness.
 
-- **experiment design and pre-registration** — the question and the PASS/FAIL
-  gates are written down and committed *before* the hardware is touched, and
-  are not renegotiated after the result is seen;
-- **execution** — implementation, builds and evidence ingestion, within a
-  bounded checkpoint;
-- **physical observation** — what a human saw or heard, recorded literally as
-  OPERATOR OBSERVATION;
-- **post-run validation** — independent recomputation of the important claims
-  from the artifacts themselves.
+## Synthetic tests
 
-A claim keeps the status its *source* gives it, never the status of whoever
-states it. The seats may be held by humans or AIs and may change independently.
+Every protocol transformation that can be tested without hardware should have
+automated tests.
 
-**Operational tracking is not evidence.** GitHub Issues, milestones, labels and
-the Project record who is doing what and in which order (`AGENTS.md`,
-"Operational coordination — GitHub"). Opening, labelling or closing an Issue
-changes no classification; only this document's process does, through
-`docs/research/EVIDENCE.md`, `docs/research/HARDWARE_TESTS.md` and the
-fixtures. A pre-registered gate may be *linked* from an Issue, but it is frozen
-in `HARDWARE_TESTS.md`, and an operator declaration quoted in an Issue stays
-OPERATOR OBSERVATION.
+Examples:
 
-## Research records
+* register encoding/decoding;
+* interrupt bit handling;
+* keypad encoding;
+* video packet parsing;
+* frame/buffer boundaries;
+* ring-buffer wraparound;
+* log encoding;
+* trace parsing;
+* timeout/state-machine behavior;
+* malformed data;
+* queue overflow behavior;
+* networking state machines.
 
-Use:
+When implementing new behavior, consider the host-side test before the hardware
+test.
+
+## Trace and replay infrastructure
+
+Physical hardware experiments should generate reusable evidence when practical.
+
+Preferred cycle:
 
 ```text
-docs/research/EVIDENCE.md
+one physical test
+      ↓
+hardware trace
+      ↓
+sanitized fixture
+      ↓
+repeatable host regression tests
 ```
 
-for claims and their supporting evidence.
-
-Suggested structure:
+Public reusable fixtures may be stored under:
 
 ```text
-ID: GBP-SIO-001
-Claim:
-Status:
-Confidence:
-Sources:
-Hardware tests:
-Notes:
-Open questions:
+captures/fixtures/
 ```
 
-Use:
+Private/local captures belong under:
 
 ```text
-docs/research/UNKNOWNS.md
+captures/local/
+captures/private/
 ```
 
-for unanswered questions that require future investigation.
+Never commit private information or proprietary binary data unintentionally.
 
-Use:
+Trace formats should be documented and machine-readable where practical.
+
+## Raw log workflow
+
+The permanent workflow is:
 
 ```text
-docs/research/DEVLOG.md
+logs/
+    raw input handed over by the Operator
+    never edited
+    never normalized
+    never versioned
+
+captures/local/
+    preserved local copy
+    ignored by Git
+
+captures/fixtures/
+    derived replay fixtures
+    versioned when appropriate
 ```
 
-for chronological project decisions and discoveries.
+Hashes are computed directly from the original raw logs.
 
-Use:
+Raw bytes are primary evidence. Semantic interpretations are derived data and
+must remain separate.
 
-```text
-docs/research/HARDWARE_TESTS.md
-```
+## SD2SP2 logging
 
-for experiments actually executed on physical hardware.
+The hardware setup may include SD2SP2 available.
 
-### A later direct answer outranks a better reading of an earlier ambiguous one (2026-09-22, GitHub Issue #56)
+Use it as the preferred persistent hardware logging destination when useful.
 
-**The rule has two halves and they are one rule seen from two sides.**
+Never perform SD writes directly in timing-critical HSP/SIO paths.
 
-```text
-THE EVIDENCE HALF     a later DIRECT answer about the thing outranks a better READING of an earlier ambiguous
-                      statement about it. The ambiguous sentence is not reinterpreted, not retro-fitted and
-                      not quietly dropped: it is left as it stands, and the direct answer is what the record
-                      rests on.
-THE OPERATIONAL HALF  when an Operator statement is ambiguous, THE REPAIR IS TO ASK ABOUT THE THING, not to
-                      re-read the sentence more carefully. A more careful reading of an ambiguous sentence
-                      produces a more confident guess, which is the failure mode, not the fix.
-```
-
-**The case that produced it.** On 2026-09-21 the Operator wrote *"na RUN estou
-usando ez-flash e o road rage paralelo apenas"*. It was relayed as a settled
-choice of instrument and it was not one — the sentence names two things and
-settles neither for the runs that were eventually performed. **It was flagged
-as ambiguous at the time rather than resolved, which was right.** On 2026-09-22
-it was settled by asking about the runs themselves, and the answer was direct:
-*"EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B"*
-(`docs/research/PHASE5_ASSESSMENT.md` §7b and R3, which remain the case).
-
-**The old sentence is still unread, and that is part of the rule rather than an
-omission.** Nobody went back to decide what it had meant, because the question
-it was ambiguous about now has a direct answer. A record that re-reads its way
-to a conclusion cannot show anyone how it got there.
-
-**Why the flagging mattered more than the resolution.** Had the ambiguity been
-read away in September, the four runs of Phase 5 would have carried an
-instrument nobody had actually confirmed, and the attribution caveat would have
-been lifted or kept on a guess. Flagging cost one sentence and one day; the
-alternative would have cost the record.
-
-### A reference figure is defined by what the element CONTAINS, never by its position (2026-09-22, GitHub Issue #53)
-
-**The rule.** When a pre-registration freezes a comparison against a reference
-run, it must identify the reference elements by **what they contain**, not by
-where they sit. "The AUDIO-only cycles" is a reference; "`CYCLT i=6,7`" is not,
-even when i=6 and i=7 happen to be the AUDIO-only cycles in the run the table
-was written from.
-
-**The case that produced it**, and it is worth keeping because the failure is
-not obvious in advance. §V7.6.3 tabulated Question T's baseline from RUN 17 by
-record index — *"ACK → RE-ARM, AUDIO-only cycles: CYCLT i=6,7: 12 ticks"*. In
-RUN 21 and RUN 22, `CYCLT i=6` **carries a VIDEO block**. The index is a
-position in a bounded ring of recent cycles; **what that position holds depends
-on what the device was doing when the ring was captured**, so the same index
-denotes different kinds of thing in different runs. Comparing `i=6` to `i=6`
-compares an AUDIO-only cycle with a VIDEO-carrying one — a category error,
-found only when the gate was applied in code to real logs (Issue #52), and the
-reason Question T was recorded **INCONCLUSIVE** (`HARDWARE_TESTS.md` §V7.8.10).
-
-**Why this one could be fixed after the data and the others could not.** The
-defect is wrong **independently of the answer it produces**: it can be
-demonstrated by pointing at the two records, without knowing what verdict
-either reading gives. **A defect that can only be recognised by disliking its
-output is not safe to act on after the data**, and must be reported and left
-(`HARDWARE_TESTS.md` §V7.8.6, where the unnamed-statistic half was).
-
-**IT WAS A LAPSE IN ONE TABLE, NOT A BLIND SPOT IN THE METHOD, and the
-distinction matters to how this rule is read.** The project was already doing
-the right thing elsewhere before anyone wrote it down: `HARDWARE_TESTS.md`
-§V5.30.4 compares a candidate build against the last physically validated one
-**by named field** — frame table, event store, raw ring, episode raw, audio raw
-— and its host guard *"resolves each POC's declarations rather than comparing
-argument spellings"*, which is content-matching in the strictest sense
-available to it. The audit of Issue #54 also found the ordinal form in one
-cross-run colour comparison where it **cannot bite** (`captures/README.md`, the
-appended note; the three certified frames within each run are identical by that
-run's own record, so every pairing gives the same answer). **So this rule is
-not a new idea being introduced — it is an existing practice being written
-down, after one table failed to follow it.** A rule recorded as novel invites
-the reader to treat earlier work as suspect; recorded as a lapse, it tells them
-where to look and what they will find.
-
-**How to satisfy the rule.** State the predicate that selects the elements —
-"every cycle whose record shows a VIDEO block", "every frame whose FRAME_ID is
-in the sampled set" — and have the analysis apply that predicate to **both**
-sides. A reference table may still print index labels as provenance; it may not
-use them as the matching key.
-
-### A heading that outlived its status — append the pointer, never rewrite the words (recognised 2026-09-22, GitHub Issue #49)
-
-A record is amended **on top**: the original words stay, and the correction is
-added below them with its date and its Issue. That is why "Failed experiments"
-below says not to delete a rejected hypothesis merely because a later
-explanation was found, and it is how every correction in this project has been
-made.
-
-**It has one consequence that is easy to miss, and this project has already
-been bitten by it.** When the amendment changes a **status**, the heading keeps
-saying what it said — and a heading is the first thing a reader meets, and the
-only thing most tools read. Issue #48 found `tools/reconcile.py` reporting
-`GBP-HW-272` as `HYPOTHESIS` while the amendment in its body had moved that
-claim to `CORROBORATED`, in the one checkpoint whose rule was that statuses are
-copied. The tool was fixed to flag such entries; the document had to be fixed
-too.
-
-**So: when an amendment changes a claim's status, the heading gains a POINTER,
-appended after its existing words. The existing words are not reordered, not
-softened and not requalified.** The pointer carries the date, the Issue and the
-status the amendment actually holds.
-
-**This is recognised here, not introduced.** The project has done it for a long
-time in at least two places:
-
-```text
-UNKNOWNS.md   ## U-GBP-010 (P2 — CLOSED 2026-09-21 by … GBP-HW-265) — L/R bit order in KEYPAD —
-              **2026-09-21, Issue #33: the routing FACT (hw, the runs) by the machine join of
-              RUN 17 / RUN 18, GBP-HW-270; stays CLOSED**
-                   ^ the original heading intact, each checkpoint's outcome appended after it
-HARDWARE_TESTS.md
-              ## V7 — … RUN 14 / RUN 15 … · RUN 17 / RUN 18 … · RUN 19 / RUN 20 … WITHDRAWN …
-              · RUN 21 / RUN 22 … · RUN 23 / RUN 24 … (Issue #47, §V7.7)
-                   ^ the same, appended across seven checkpoints
-```
-
-**Appending a pointer is not a status change.** The status changed when the
-amendment was authorised; the pointer records that it did, where a reader who
-stops at the heading will see it. Changing the status itself is a separate
-decision with its own checkpoint.
-
-`tests/host/test_amended_headings.py` holds the rule to its population: any
-entry `tools/reconcile.py` reports with a later amendment in its body must
-carry a pointer in its heading.
-
-## Documentation promotion
-
-Research notes are not automatically public protocol documentation.
-
-Information should generally move through:
-
-```text
-observation
-    ↓
-research note
-    ↓
-hypothesis
-    ↓
-test
-    ↓
-corroboration
-    ↓
-docs/protocol or docs/hardware
-```
-
-When information is promoted into the consolidated documentation, preserve references to the evidence that supports it.
-
-
-### Reconciliation sweep — before promoting anything (GitHub Issue #29, 2026-09-21)
-
-Consolidated pages drift from `EVIDENCE.md` because nothing in the process
-compares the two layers. The project found it twice, by accident both times:
-Issue #17 found four Phase-2 pages **understating** what EVIDENCE already
-carried, and Issue #26 found `ARCHITECTURE.md`'s keypad plane **contradicting**
-`GBP-KEY-001` / `GBP-KEY-005` on the polarity. So, as part of every promotion:
-
-1. **Run the sweep** for the evidence the checkpoint touches:
-
-   ```text
-   tools/reconcile.py GBP-KEY-004 GBP-HW-270     # the ids by name
-   tools/reconcile.py --since <commit>           # the ids whose EVIDENCE entries changed
-   ```
-
-   It prints every line of every page in `docs/protocol/` and `docs/hardware/`
-   that cites those ids, with EVIDENCE's status beside it. **It judges
-   nothing.**
-
-2. **Read the lines it prints** and **record what you found in the checkpoint,
-   including "nothing"**. A sweep that found nothing is a result and is written
-   down as one; a sweep nobody records is indistinguishable from a sweep nobody
-   ran.
-
-3. **A sweep relocates or corrects WORDING.** A genuine disagreement between a
-   page and `EVIDENCE.md` — a page claiming more than the evidence, or the
-   opposite of it — is **escalated**, never resolved by editing the page to
-   match a guess, and never by editing the evidence to match the page.
-
-**Why this is an instruction and not a test.** Measured on 2026-09-21: of 278
-table rows in the consolidated pages, only 44 carry both a status letter and an
-id `EVIDENCE.md` defines, and 8 of those 44 read "weaker" than their evidence
-under a mechanical comparison — all 8 correctly, because a page row carries a
-**compound, aspect-scoped** status ("C (format and polarity …); F (hw,
-run-scoped)") while an evidence entry carries one status for one claim. A gate
-built on that comparison would be wrong about a fifth of what it could see and
-blind to the rest, and it would be switched off within two checkpoints. What IS
-mechanical is the half that cannot be argued about: every id a page cites must
-exist (`tests/host/test_page_citations.py`, every run).
-
-**Since Issue #96 (2026-09-24), one narrow comparison is a gate too**
-(`tests/host/test_page_status_bindings.py`). Where a page binds ONE status
-letter to ONE id, the letter must be one the entry names. Only two forms count
-as a binding:
-- a Status/Evidence table row with a bare letter and a single id;
-- `**X** (ID)` in prose.
-
-An open question is never bound to F or C, and a closed one is not pointed at
-as open. The two indexes (`docs/protocol/README.md`, `docs/hardware/README.md`)
-state no status at all: the instance that prompted #96 was an index restating
-a page's status and drifting from it.
-
-**What the gate does not do.** When it was written (2026-09-24) it covered 42
-of the 287 page lines that cite an id, and its test states that measurement
-with its date. It checks membership rather than equality, and it cannot see a
-claim that
-cites no id. A green run therefore does not mean the consolidated set agrees
-with the record, and the sweep above stays the instruction. A binding that
-disagrees is corrected by the record or escalated. It is never excused by an
-exception list.
-## Synthetic-first testing policy
-
-Manual physical hardware interaction should be minimized.
-
-Before requesting a GameCube hardware test, determine whether the question can be answered through:
-
-```text
-static analysis
-host-side unit tests
-synthetic inputs
-mock transports
-recorded trace replay
-PowerPC compile/link validation
-Dolphin
-```
-
-Only request physical testing when the hardware itself is material to the answer.
-
-The development agent should perform all other testing autonomously.
-
-## Hardware abstraction
-
-Code interacting with GBP registers or HSP should be designed so the hardware transport can be substituted where practical.
-
-Conceptual model:
-
-```text
-GBP logic
-   │
-   ▼
-transport interface
-   ├── real HSP backend
-   ├── mock backend
-   └── trace/replay backend
-```
-
-This allows high-level logic to be tested on the development host without requiring a GameCube.
-
-Avoid spreading direct MMIO access throughout unrelated code.
-
-## Trace-driven testing
-
-Physical tests should generate compact deterministic traces when useful.
-
-Timing-critical events must first be written to a preallocated RAM buffer.
-
-Do not perform synchronous SD writes from a timing-critical IRQ or serial path.
-
-Preferred flow:
+Preferred architecture:
 
 ```text
 hardware event
-   ↓
-RAM ring buffer
-   ↓
-noncritical flush
-   ↓
+      ↓
+preallocated RAM ring buffer
+      ↓
+safe/noncritical flush
+      ↓
 SD2SP2
 ```
 
-A recorded trace should contain enough metadata to reproduce its context:
+Do not:
+
+* allocate memory on every event;
+* write one filesystem record per serial byte;
+* block a serial IRQ on FAT/SD I/O.
+
+If the event buffer fills, increment an overflow/lost-event counter rather
+than blocking the critical path.
+
+A useful log header should contain:
+
+* build ID;
+* Git commit when available;
+* test ID;
+* execution mode;
+* cartridge/test software;
+* physical Link Port state;
+* BBA state;
+* buffer capacity;
+* overflow count;
+* relevant runtime options.
+
+Provide an on-screen summary so SD logging failure does not make a test
+unusable.
+
+## No USB Gecko or logic analyzer dependency
+
+Assume the Operator does not have:
+
+* USB Gecko;
+* logic analyzer.
+
+Do not make required workflows depend on them.
+
+Diagnostics should prefer:
+
+* on-screen status;
+* counters;
+* error/status codes;
+* RAM ring-buffer event histories;
+* SD2SP2 logs;
+* later BBA telemetry when it does not interfere with the behavior under test.
+
+Optional support for additional debug hardware may be added later, but it must
+not be required for normal project development.
+
+## Internal SIO research
+
+Do not assume the following are solved:
+
+* meaning of all `SIOControl` bits;
+* meaning, width, and timing of `SIOData`;
+* Serial IRQ semantics;
+* GBA-mode internal serial behavior;
+* GB/GBC-mode internal serial behavior;
+* external Link Port routing;
+* whether internal handling mirrors, redirects, disables, or competes with
+  the external connector.
+
+Normal external Link communication does not prove GameCube-side internal SIO
+control.
+
+Internal SIO research should begin read-only whenever possible.
+
+A key eventual experiment is:
 
 ```text
-test ID
-build ID / Git commit
-GBP execution mode
-cartridge or test program
-physical Link Port state
-BBA state
-relevant configuration
-overflow/error counters
+known serial activity generated by physical cartridge/AGB
+          ↓
+observe through GameCube/HSP
 ```
 
-Once captured, the trace should be usable by automated replay tests whenever practical.
-
-### An instrument that runs during part of a measurement window has a cost inside that window (2026-09-24, GitHub Issue #116)
-
-**An instrument that runs during part of a measurement window has a cost inside that window.
-Either measure the cost and report it separately, or do not run the instrument during the
-measurement.** A figure integrated over a window that contains the instrument is a figure about
-the instrument and the subject together.
-
-**Where this came from.**
-- Phase 6's L2 check CRC'd every chunk handed to the AI, for 10 s of a 64 s window
-  (`GBP-HW-338`).
-- Every AUDIO loss rate of RUN 38–42 was integrated over the whole window, instrument
-  included.
-- RUN 41's record then read the instrument's own rise as the game loading a level.
-- The contamination was not proportional:
-  - it fell mostly on the better arm of an interleaved design, so balanced arms did not cancel
-    it;
-  - it made the stretch effect look smaller than it was: 0.341 published, 0.270 outside the
-    window (`GBP-HW-339`).
-- **The result was plausible, so it survived review. It was believed, written down and reasoned
-  from for three runs.** That is what makes this failure worse than an absent or obviously wrong
-  result.
-
-**How to satisfy the rule when an instrument is designed.**
-- Say in the pre-registration when the instrument runs, and what it adds per cycle.
-- **Report every rate three ways: over the whole window, outside the instrument's span, and
-  inside it.** Report the whole-window figure only beside the other two.
-- **A balanced or interleaved design does not excuse this.** Balance cancels a cost that scales
-  every arm in proportion. A fixed or saturating cost does not scale that way, and it biases a
-  ratio even when the arms are exactly balanced.
-- Where the instrument can be located in the data itself, locate it there rather than infer it
-  from the code. In RUN 39 and RUN 40 the kept `process` steps are the CRC, one per cycle, and
-  nothing else.
-
-### A frozen mechanism carries its arithmetic, exactly as a frozen threshold carries its integers (2026-09-24, GitHub Issue #117)
-
-**If the frozen text cannot be checked with a calculator, it is not frozen, it is asserted.**
-
-**Where this came from.** One pre-registration (§V27) lost two gates before any data:
-- M1's band, "within ±16 of `TARGET`", which the archive had never satisfied at today's
-  `TARGET` (the fill sat 17–245 below it in every run);
-- a mute transition accepted on reading, "pause, set the level at MUTE − 5, resume with four
-  READY", which could not reach its own level: after 11 paused chunks the ring holds 1 920 samples
-  against the 2 560 the level needs, and at the top of Phase 2 a 4-chunk pause lands exactly on
-  the ring's cap.
-
-Both were caught by the Executor before the build, with the arithmetic, and both were the
-Orchestrator's to have checked: every threshold was recomputed before it was frozen, and the
-mechanisms were not.
-
-**How to satisfy the rule.** A frozen mechanism states its quantities and the arithmetic that
-joins them: what accumulates at what rate, what the caps are, what the worst case reaches.
-Before freezing, the reviewer computes the worst case from the frozen numbers and writes it in
-the freeze. A mechanism whose text carries no number that can be recomputed is not ready to
-freeze.
-
-### When two statistics disagree, calibrate them against the design instead of choosing (2026-09-25, GitHub Issue #121)
-
-**When two statistics of the same comparison disagree, calibrate them against the design that produced the data, and
-say which is primary and why. Do not pick the one whose answer is convenient.**
-
-**Where this came from.** RUN 43's M4 compared two cushion arms over six dwells each (`GBP-HW-343`):
-- a 90 % percentile interval, resampling dwells, gave 0.798–0.977 for the loss ratio, which excludes 1;
-- the exact permutation of the 12 dwells gave a one-sided p of 0.068, which does not clear 0.05.
-
-Both describe the same null, so both cannot be right. `tests/host/test_v27derive.py` (`TheIntervalsCoverage`)
-simulated that null in the design's own terms: equal rates, the run's own dwell exposures, Poisson losses. The
-interval excluded 1 in 63 of 400 simulations, **15.75 % against its nominal 10 %**. Under the same null the permutation rejected at one-sided 0.05 in 16 of 400 simulations, 4.0 %, and at
-two-sided 0.10 in 36 of 400, 9.0 % (`ThePermutationsSize`): it holds its size. So the permutation is primary, the interval is descriptive, and the conclusion follows the
-permutation: no increase was detected, and a lower loss is not established. #121 adopted 0.125 s on that sentence, not
-on the interval's.
-
-**How to satisfy the rule.**
-- Simulate the design's own null, with its own units and exposures, and measure each statistic's false-positive rate
-  there. A statistic that is anti-conservative for few clusters is not wrong. It is uncalibrated, and the
-  calibration is a finding.
-- Wherever the result is quoted, state three things together: the primary statistic, the measured calibration of the
-  other, and the conclusion the primary supports.
-- Cite the calibration by its test, not by an argument. That is the difference between a convention and a finding.
-
-### A consequence is not finished until the code it touches is named, and a citation is not a reason until it is followed back (2026-09-25, GitHub Issue #123)
-
-Two failures of one family, both in the gap between the record and the code. Every artefact involved is individually
-correct, so no review of any one of them catches it.
-
-**The orphaned consequence** (the Orchestrator's, #123). `GBP-HW-315` (#82) recorded, hours after #81 wrote the
-decoder, that a block carries where in it a level change fell — at least 8× the resolution the one-value-per-block
-decode keeps. It was recorded correctly, in the right file, with the right status, and nobody went back to the
-decoder for two days. **When a new claim contradicts an assumption that existing code rests on, the claim is not
-finished until that code is named in it: changed, or recorded as knowingly unchanged with the reason.** `GBP-HW-347`
-is the first entry written under this rule.
-
-**The citation nobody followed back** (#123, `GBP-HW-349`). `gbp_aplay.c` read *"§V22.4: at most one counted
-correction per chunk"*. §V22.4 does not impose it: it decides that corrections are counted events, not how many. The
-rule was an image choice with no recorded reason, and it set the correction ceiling that #118 found binding at a finer
-decode. **A rule with a citation nobody followed back is indistinguishable from a rule with a reason.** Before a rule
-constrains a design, follow its citation to the text. If the text does not state the rule, record that, say where the
-rule actually came from, and correct the citation.
-
-### A claim about the record's contents requires reading the record (2026-09-25, GitHub Issue #124)
-
-**An assertion that something has NOT been done needs the same evidence as an assertion that it has.** In a project
-whose record predates the session reading it, "I have not seen it" is not a finding. Before a claim about what the
-record lacks, read the record and cite what was read:
-- the files;
-- the git log;
-- the local commit graph, not only the remote.
-
-The Orchestrator made two such claims in one session, each one command away from its answer, and named the rule
-himself:
-- **"The Executor is idle."** It came from three signals that all meant the opposite. The remote lags by the length
-  of the gate by design, and two local commits sat ahead of it.
-- **"No reverse engineering has been done."** `EVIDENCE.md`'s own preamble records the 2026-09-13 static pass of the
-  Start-up Disc and of GBI (`tools/gciso.py`, `tools/gbi_unpack.py`, `tools/ghidra/*.java`). The true, narrower
-  claim was that no pass had been brought to bear on the audio questions, and whether that one touched audio was
-  unchecked.
-
-It is the same family as the orphaned consequence and the citation followed back above: each is a statement about
-what the record says, made without reading it.
-
-### A deferral with no named successor is a decision to forget (2026-09-25, GitHub Issue #125)
-
-This is the orphaned-consequence rule above, applied to intentions instead of findings (the Orchestrator's, #125).
-
-**The instance.** On 2026-09-13 the DEVLOG listed gbihf and gbisr as "not analyzed yet (differential step deferred)",
-and named no successor. Twelve days later the differential was proposed as a new lead, on #125's opening. It took one
-round to do, and in the functions compared it found where the editions' audio differs: the default converter, the
-output ring and the start delay (`GBP-AUD-002`).
-
-**The family.** The Orchestrator named three failures on #125, and they share one shape: the record was right, and
-nothing carried the consequence forward.
-- `GBP-HW-315`'s audible consequence, which was never carried to the decoder.
-- The one-per-chunk rule's citation, which cited a section that did not impose it.
-- The gbihf differential.
-
-**The contrast, the same week** (the Orchestrator's, #125). Drawing GBI's stereo mapping from LIBAESND's source, the
-weak link was named when the conclusion was drawn: GBI's DSP microcode had not been compared. The settling check, a
-byte comparison, was requested in the same message, and it closed within the hour (`GBP-AUD-004`). That is the
-difference this rule is written for: a weak link flagged, acted on provisionally, and closed.
-
-**Rule: a deferral names its successor.** That is the Issue, the round or the condition that picks the work up. A
-deferral without one is recorded as a decision not to do it, in those words.
-
-**Analysis outputs that evidence rests on live where they survive** (the Orchestrator's, #125): at a documented local
-path, hashed, with the same discipline `captures/local/` has. An analysis whose output is disposable produces claims
-whose support is disposable. The decompiles of 2026-09-13…16 lived inside `build/`. On 2026-09-17 a wipe of the whole
-build tree, renamed aside and deleted to clear stale dentries, removed them (`EVIDENCE.md`'s preamble, on top).
-
-Moving them to such a path has a named successor: the Orchestrator's scheduling, which #125's report requests. Until
-then, an analysis round commits a per-file hash manifest of its outputs and cites it from its DEVLOG entry. The
-manifest holds paths, addresses and hashes, and no content; #125's is `docs/research/manifests/issue-125-ghidra125.sha256`.
-
-## Hardware test requests
-
-A hardware test request should be small and deterministic.
-
-It should identify:
+before attempting:
 
 ```text
-build/test ID
-DOL to execute
-required cartridge/test program
-physical cable/peripheral state
-exact user actions
-expected output/log file
-what question the experiment answers
+GameCube/HSP response
+          ↓
+physical cartridge/AGB observes response
 ```
 
-Do not ask the user to perform broad exploratory debugging that software or static analysis could perform.
+## Network/BBA development
 
-## Failed experiments
+Network support must be developed independently of Mobile Adapter logic.
 
-A failed test is evidence.
+Before Mobile Adapter integration, build standalone BBA/network tests with an
+automated host-side peer.
 
-Record:
+Test independently:
 
-* what was expected;
-* what occurred;
-* whether the failure was repeatable;
-* relevant logs;
-* whether the hypothesis was rejected or remains unresolved.
+* BBA detection/init;
+* IP configuration;
+* UDP;
+* TCP;
+* DNS if required;
+* reconnect behavior;
+* timeout behavior;
+* nonblocking behavior;
+* queues/buffering.
 
-Do not delete failed hypotheses from the research history merely because a later explanation was found.
+Never perform blocking DNS/TCP/UDP operations from timing-critical serial
+handling.
 
-## Emulator use
+A likely architecture is:
 
-Dolphin is an auxiliary tool.
+```text
+timing-critical SIO
+       ↓
+queue/ring buffer
+       ↓
+protocol worker
+       ↓
+network queue
+       ↓
+BBA worker
+```
 
-It is useful for:
+Do not introduce concurrency unnecessarily, but slow network operations must
+never violate serial timing requirements.
 
-* DOL smoke tests;
-* PowerPC execution debugging;
-* detecting obvious memory corruption;
-* testing generic GameCube code;
-* comparing known HSP behavior.
+## Phase gates
 
-It is not automatically authoritative for incompletely emulated GBP functionality.
+Follow:
 
-When emulator and physical hardware behavior differ, record the difference and investigate it.
+```text
+docs/ROADMAP.md
+```
 
-## Proprietary binary analysis
+Do not skip forward merely because a later feature is more interesting.
 
-Locally owned binaries may be inspected for interoperability research.
+A later phase may be investigated early only when it directly answers a
+blocking feasibility question.
 
-Rules:
+If that happens:
 
-* never modify the original input in place;
-* calculate and record hashes;
-* keep proprietary files under ignored local directories;
-* do not commit or redistribute proprietary data;
-* document behavior and independently written code rather than copying proprietary implementation text.
+* keep the experiment narrow;
+* document why the roadmap was crossed;
+* do not allow the experiment to become an architectural dependency
+  prematurely.
 
-## Mobile Adapter isolation
+`libmobile` remains explicitly gated until the relevant GBP/SIO/network
+foundations are validated.
 
-Mobile Adapter protocol implementation is deliberately a late-stage concern.
+Ghidra installation does not authorize early reverse engineering.
 
-Before that phase, the GBP runtime, physical Link regression, internal SIO behavior, and BBA networking must be understandable and independently testable.
+## GBI-class functionality
 
-This prevents Mobile Adapter-specific assumptions from contaminating the hardware research and makes the resulting GBP documentation useful beyond a single application.
+Once the basic runtime is stable, Open-GBP should progressively aim for
+practical normal-use functionality comparable to mature GBP software.
+
+Potential areas:
+
+* presentation modes;
+* scaling;
+* filtering;
+* latency/timing improvements;
+* configuration;
+* compatibility fixes;
+* robust startup/shutdown;
+* runtime usability.
+
+Do not implement cosmetic parity before the underlying hardware runtime is
+stable.
+
+## What Open-GBP will not do
+
+Physical experiments are cheap to get wrong and expensive to repeat.
+
+Before requesting hardware, exhaust the applicable autonomous options:
+
+```text
+static analysis
+    ↓
+host tests
+    ↓
+synthetic vectors
+    ↓
+mock transports
+    ↓
+trace replay
+    ↓
+PowerPC build/link
+    ↓
+binary inspection
+    ↓
+Dolphin
+    ↓
+Ghidra when authorized
+    ↓
+physical Game Boy Player
+```
+
+No hardware is ever tested with a `-dirty` build.
+
+Do not manufacture evidence IDs.
+
+Read the canonical file, find the highest ID currently in use, and allocate
+the next free one.
+
+Do not use proprietary ROM/disc material as a donor unless explicitly permitted
+by project policy.
+
+Do not commit proprietary material.
+
+Do not silently promote hypotheses into facts.
+
+Do not reopen resolved questions without a new reason.
+
+Do not use later-phase features to contaminate early-stage Game Boy Player
+research.
+
+## Experiment design, observation and independent review
+
+Keep design, execution, physical observation and post-run validation in separate
+steps with durable records. Pre-register the question, comparison and prospective
+PASS/FAIL/INCONCLUSIVE gates before hardware execution. Do not renegotiate them
+after seeing results. Independently recompute important claims from raw artifacts;
+a role title or an Issue transition cannot substitute for that validation.
+
+Record literal OPERATOR OBSERVATION before opening or interpreting new machine
+logs. When a statement is ambiguous, ask about the underlying fact. A later direct
+answer supersedes an interpretation of an earlier ambiguous statement; retain the
+original wording and identify the later answer rather than retrofitting history.
+
+A claim record identifies its ID, precise scope, status, confidence, sources,
+artifact hashes, experiment/gates, notes and open questions. Unknown bits remain
+unknown. Hypotheses may guide tests but cannot silently become stable API behavior.
+An uncontrolled hardware observation can be weaker than careful static analysis;
+explain the limits of each source even though physical behavior is the final target.
+
+## Reference selection and amendments
+
+Select comparison elements by their contents, never by ordinal position alone.
+Apply the same explicit predicate to reference and candidate data. An index in a
+bounded ring may identify different event types in different runs. Indices can be
+provenance labels, but cannot silently become cross-run matching keys.
+
+A post-data correction must be demonstrably defective independently of whether its
+verdict is convenient. Otherwise report the defect and preserve the registered
+verdict as inconclusive rather than changing a gate after seeing its output.
+
+Amend records by appending the correction, date and provenance while retaining
+the original words and rejected hypotheses. If an amendment changes a status,
+append a visible pointer to the heading, without rewriting its original status.
+The pointer locates the amendment; it does not itself authorize a status change.
+
+## Measurement cost and frozen arithmetic
+
+An instrument running inside a measurement window contributes to that measurement.
+Measure and report its cost separately, or keep it outside the window. State when
+it runs and what it adds per cycle. Report rates for the whole window, inside the
+instrument span and outside it together. Locate the span in the data when possible.
+Balanced or interleaved arms do not cancel a fixed or saturating measurement cost.
+
+Freeze mechanisms with the same precision as thresholds: state accumulation rates,
+capacities, bounds and worst-case arithmetic. The reviewer must recompute and record
+the worst case before freezing. A mechanism that cannot be checked from its frozen
+quantities is an assertion, not a validated freeze.
+
+## Statistical calibration
+
+When statistics disagree, calibrate them against the design that generated the
+data instead of choosing the favorable answer. Simulate the design's null with
+its own sampling units and exposures, measure false-positive rates, and state which
+statistic is primary and why. Report the primary statistic, the other's measured
+calibration and the supported conclusion together. Cite the reproducible calibration
+test; an argument alone does not establish coverage or test size.
+
+## Claim propagation and retained support
+
+Before promoting research into consolidated hardware/protocol documentation, follow
+the supporting citations and inspect amendments. Reconcile scoped and compound
+claims individually; a naive comparison of status letters cannot promote a claim.
+`tools/reconcile.py` is a report for that review, not an authority or an automatic
+promotion gate. Preserve public attribution and reusable non-proprietary evidence.
+
+A finding that contradicts an implemented assumption must name the affected code:
+change it within authorized scope, or record why it remains knowingly unchanged.
+Follow a design citation to its actual text; if it does not state the rule, identify
+the true origin and correct the citation. A claim that something has not been done
+requires reading the relevant records and local commit graph, as a positive claim does.
+
+A deferral names the Issue, round or condition that resumes it. Without a successor,
+record it explicitly as a decision not to do the work. Retain the analysis outputs
+on which conclusions depend in recoverable storage, with hashes and provenance.
+A path/hash manifest does not replace the content it identifies. Never erase unique
+support merely because it lies in a generated or ignored directory.
+
+## Core decision rule
+
+When choosing what to do next, prefer the task that:
+
+1. answers the most important unresolved technical question;
+2. requires the fewest unsupported assumptions;
+3. can be tested most autonomously;
+4. produces reusable evidence;
+5. advances the current roadmap phase;
+6. minimizes unnecessary physical Operator intervention.
+
+When uncertain, document the uncertainty rather than hiding it.
+
+The project should optimize for **reproducible evidence and independently
+validated behavior**, not merely for visible implementation progress.

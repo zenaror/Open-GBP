@@ -9,6 +9,8 @@ Durable, append-only forms (no whole-file equality):
   * the slot name 29-vehicle2 is in the record and nowhere in tools/swiss-layout.tsv;
   * the DEVLOG entry and the two HANDOFF paragraphs exist once, in order.
 """
+
+import archived_documents as document_archive
 import difflib
 import os
 import re
@@ -34,7 +36,7 @@ CLOSURE = "draw_quad, gbp_v28_step_hook, live_dma_cb, live_tap, offer_oldest_rea
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 

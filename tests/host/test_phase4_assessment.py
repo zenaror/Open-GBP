@@ -12,6 +12,8 @@ four terms of the criterion and names an owner for every residual; the
 ROADMAP keeps the criterion verbatim and still points at Phase 9 for
 presentation; no unknown was closed by this checkpoint.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -34,7 +36,7 @@ ID = re.compile(r"\b(GBP-(?!VIDEO|BBA|INIT|AV|PROBE|BASELINE|INPUT)[A-Z]+-\d{3}|
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

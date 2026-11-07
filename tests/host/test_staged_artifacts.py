@@ -28,6 +28,8 @@ WHAT IT DOES NOT DO. It does not build, export, copy or repair anything, and it
 never writes to `build/swiss/` or to the SD. A mismatch is reported, never
 fixed: a staged artifact that differs from its record is a finding for a person.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -107,14 +109,14 @@ ARCHIVE = {
 
 def sha256(path):
     h = hashlib.sha256()
-    with open(path, "rb") as f:
+    with document_archive.open_document(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

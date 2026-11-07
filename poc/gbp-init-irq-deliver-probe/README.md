@@ -226,3 +226,9 @@ run unmasked, `never_unmasked` otherwise), the replay of the fixture through the
 probe reports `unmasked_once`, and the mock scenarios pin the label per path. The same
 record's `irq_attempted=3` counts A1, A2 and the ACK before the stop word; the final
 `WRITES` record counts 4/4 — expected.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

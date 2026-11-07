@@ -8,6 +8,8 @@ file descriptor, so both are driven from a pipe and a fake directory.
 What these CANNOT check is that a real Pico Gecko speaks CDC-ACM the way this
 assumes. That is what the bring-up on `01-smoke` is for, and §V12 says so.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -23,7 +25,7 @@ SMOKE = os.path.join(ROOT, "poc", "smoke-test", "source", "main.c")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -132,9 +134,9 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         os.write(w, b"READY\nHEARTBEAT n=1\nEXIT reason=start\n")
         os.close(w)
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "o"), "wb") as out:
+            with document_archive.open_document(os.path.join(d, "o"), "wb") as out:
                 n = geckorx.pump(r, out, until=r"EXIT reason=")
-            with open(os.path.join(d, "o"), "rb") as f:
+            with document_archive.open_document(os.path.join(d, "o"), "rb") as f:
                 got = f.read()
         os.close(r)
         self.assertIn(b"EXIT reason=start", got)
@@ -150,7 +152,7 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         os.write(w, b"hello")
         clock = [0.0]
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "o"), "wb") as out:
+            with document_archive.open_document(os.path.join(d, "o"), "wb") as out:
                 def tick():
                     clock[0] += 0.5
                     return clock[0]
@@ -166,10 +168,10 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         os.write(w, b"partial run")
         os.close(w)                      # EOF: os.read returns b"" -- the writer is gone
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "o"), "wb") as out:
+            with document_archive.open_document(os.path.join(d, "o"), "wb") as out:
                 with self.assertRaises(geckorx.DeviceGone) as cm:
                     geckorx.pump(r, out, idle_exit=0.0)
-            with open(os.path.join(d, "o"), "rb") as f:
+            with document_archive.open_document(os.path.join(d, "o"), "rb") as f:
                 self.assertEqual(f.read(), b"partial run")
         os.close(r)
         self.assertEqual(cm.exception.total, 11)
@@ -182,10 +184,10 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         os.write(sl, b"before the fall")
         os.close(sl)
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "o"), "wb") as out:
+            with document_archive.open_document(os.path.join(d, "o"), "wb") as out:
                 with self.assertRaises(geckorx.DeviceGone) as cm:
                     geckorx.pump(m, out)
-            with open(os.path.join(d, "o"), "rb") as f:
+            with document_archive.open_document(os.path.join(d, "o"), "rb") as f:
                 self.assertEqual(f.read(), b"before the fall")
         os.close(m)
         self.assertIn("EIO", str(cm.exception))
@@ -221,7 +223,7 @@ class AHangupEndsTheRunLoudlyAndNonZero(unittest.TestCase):
             p = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "geckorx.py"),
                                   "--port", fifo, "--out", out] + list(extra),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            with open(fifo, "wb") as w:              # blocks until the tool has opened it
+            with document_archive.open_document(fifo, "wb") as w:              # blocks until the tool has opened it
                 w.write(payload)
             try:
                 _o, err = p.communicate(timeout=20)
@@ -229,7 +231,7 @@ class AHangupEndsTheRunLoudlyAndNonZero(unittest.TestCase):
                 p.kill()
                 p.communicate()
                 self.fail("the capture did not end when its device went away: the RUN 39 defect")
-            with open(out, "rb") as f:
+            with document_archive.open_document(out, "rb") as f:
                 got = f.read()
         return p.returncode, err.decode("utf-8", "replace"), got
 
@@ -378,7 +380,7 @@ class TheBringUpResultIsRecordedWithItsLimits(unittest.TestCase):
         if not os.path.exists(p):
             self.skipTest("the bring-up log is not archived in this checkout")
         import hashlib
-        with open(p, "rb") as fh:
+        with document_archive.open_document(p, "rb") as fh:
             data = fh.read()
         self.assertEqual(hashlib.sha256(data).hexdigest(),
                          "432bfbab5681e7a15fdd8c43b6955259caf76cc67421d4064c847a29b10a8865")

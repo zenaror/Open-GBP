@@ -294,3 +294,9 @@ whether `0xCC005012` bits 3–5 are required (U-GBP-004), the function of
 bit 15 (U-GBP-007), the nature of the device line (U-GBP-022, P2), the
 read byte layout details (U-GBP-008/025), and everything about
 SIOCTL/SIODATA (U-GBP-001/002).
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

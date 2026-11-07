@@ -9,6 +9,8 @@ readings and a SHORT one does, because that is the correction this checkpoint
 exists for: §V11.16.9 named the wrong separator and it is corrected on top
 rather than deleted.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -29,7 +31,7 @@ UNK = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -17,6 +17,8 @@ fine. A real log will exercise at most one of those. So they are built here,
 adversarially, while nobody knows what the runs will say — which is the whole
 reason §V7.6.11 was frozen in the first place.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -408,7 +410,7 @@ class TheParserAgreesWithTheRuntimesOwnFormat(unittest.TestCase):
         paths = [p for p in paths if p.endswith(".log")]
         checked = 0
         for p in paths:
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 text = f.read()
             if " KEY n=" not in text:
                 continue
@@ -422,7 +424,7 @@ class TheParserAgreesWithTheRuntimesOwnFormat(unittest.TestCase):
             self.skipTest("no local archive on this host (captures/local is ignored)")
 
     def test_the_format_string_is_the_runtimes(self):
-        h = open(os.path.join(ROOT, "src", "gbp", "gbp_input.h"), encoding="utf-8").read()
+        h = document_archive.open_document(os.path.join(ROOT, "src", "gbp", "gbp_input.h"), encoding="utf-8").read()
         m = re.search(r'#define GBP_INPUT_EVENT_FMT "([^"]+)"', h)
         self.assertTrue(m)
         for field in ("n=", "act=", "keys=", "word=", "t_poll=", "t_attempt=", "t_done=", "xfer=", "rc="):
@@ -561,7 +563,7 @@ class TheRejectedRulesAreDemonstratedWrong(unittest.TestCase):
         self.assertIn(True, list(answers.values()))
 
     def test_the_amendment_says_why_both_were_rejected(self):
-        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
+        hw = document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
         part = hw[hw.index("#### V7.6.15 "):hw.index("### V7.7 ")]
         p = re.sub(r"\s+", " ", part).replace("`", "").replace("**", "")
         self.assertIn("reads the wrong presses WHILE LOOKING CORRECT", p)

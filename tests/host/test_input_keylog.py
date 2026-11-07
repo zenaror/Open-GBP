@@ -13,6 +13,8 @@ summary exists; the descriptor and the policy are byte-identical to the
 candidate that ran (0ff8355); BUILD_ID is stream-0015, not executed, not
 staged; nothing frozen moved. Nothing here runs a program.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -38,7 +40,7 @@ STREAM15_SHA = "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

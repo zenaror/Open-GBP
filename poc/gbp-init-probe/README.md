@@ -110,3 +110,9 @@ CONTROL write, AR_INFO restored. Logs, facts and analysis:
 `docs/research/HARDWARE_TESTS.md`, `EVIDENCE.md` GBP-HW-011…020, DEVLOG
 2026-09-15; `tools/blockdiff.py --snapshots <log>` reproduces the
 timing/bit table.
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../../docs/VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

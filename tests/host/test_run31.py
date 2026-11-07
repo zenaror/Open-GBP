@@ -16,6 +16,8 @@ slice chosen after seeing the data. The tests keep them apart.
 captures/local and logs/ are ignored by design, so a clone has neither and the
 recomputations skip; the source-level pins do not.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -43,7 +45,7 @@ BLOCK_MS = 1000.0 / 4094.4
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -84,9 +86,9 @@ class TheRawsAndTheNamingDefect(unittest.TestCase):
     def test_the_hashes(self):
         if not (os.path.exists(LOG) and os.path.exists(BIN)):
             self.skipTest("RUN 31 is not archived in this checkout (captures/local is ignored)")
-        with open(LOG, "rb") as f:
+        with document_archive.open_document(LOG, "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), LOG_SHA)
-        with open(BIN, "rb") as f:
+        with document_archive.open_document(BIN, "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), BIN_SHA)
         self.assertEqual(os.path.getsize(BIN), 5243788)
 

@@ -14,6 +14,8 @@ settle the debt as NOT READABLE IN THESE LOGS: the vehicle's log carries no reco
     and never says the two gates passed; the HANDOFF and the DEVLOG carry the state.
 The archive is under captures/local (ignored by Git): those tests skip, with the registered reason, on a host without it. The reader's own line is tested in test_playread.py.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import posixpath
@@ -43,7 +45,7 @@ NO_SKIP_NO_ARCHIVE = "no local archive on this host (captures/local is ignored)"
 
 
 def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, rel), encoding="utf-8") as f:
         return f.read()
 
 
@@ -57,7 +59,7 @@ def flat(s):
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -166,7 +168,7 @@ class TheArchivedLogsReadAsRecorded(unittest.TestCase):
             assert sha(p) == VEHICLE[r][1], "captures/local's RUN %d archive is not the recorded one (a defect in the archive, never a skip)" % r
         cls.text = {}
         for r, p in cls.paths.items():
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 cls.text[r] = f.read()
 
     def test_the_census_of_the_three_vehicle_logs(self):
@@ -188,7 +190,7 @@ class TheArchivedLogsReadAsRecorded(unittest.TestCase):
         if not all(os.path.isfile(p) for p in paths):
             self.skipTest("no local archive on this host (captures/local is ignored)")
         for p in paths:
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 c = census(f.read())
             self.assertEqual(c["header"], c["records"], p)
             self.assertEqual(sorted(c["tag_hits"]), ["STARTUP", "STARTUPT", "STARTUPV", "STREAMINV"], p)

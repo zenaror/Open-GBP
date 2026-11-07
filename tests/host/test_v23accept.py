@@ -9,6 +9,8 @@ the ones §V23 exists for:
     would call them coincident at p < 0.001 (§V23.2 -- the gate must not rediscover the cadence);
   - a loss overlapping a recorder write goes to the recorder before the chain (§V23.8 (a)).
 """
+
+import archived_documents as document_archive
 import io
 import json
 import os
@@ -343,7 +345,7 @@ class TheWholeReport(unittest.TestCase):
             import tempfile
             with tempfile.TemporaryDirectory() as d:
                 p = os.path.join(d, "r.json")
-                with open(p, "w", encoding="utf-8") as f:
+                with document_archive.open_document(p, "w", encoding="utf-8") as f:
                     json.dump(r, f)
                 V.K_TRIALS_SAVED, V.K_TRIALS = V.K_TRIALS, 300
                 try:
@@ -365,7 +367,7 @@ class TheWholeReport(unittest.TestCase):
 
 class TheModuleAuthorisesNothing(unittest.TestCase):
     def test_it_reads_no_capture_and_writes_nothing(self):
-        with open(os.path.join(ROOT, "tools", "v23accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v23accept.py"), encoding="utf-8") as f:
             src = f.read()
         for forbidden in ("captures/", "logs/", "subprocess", '"w"', "'w'", '"wb"'):
             self.assertNotIn(forbidden, src, forbidden)
@@ -379,7 +381,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
 
     def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
         import frozen
-        with open(os.path.join(ROOT, "tools", "v23accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v23accept.py"), encoding="utf-8") as f:
             now = f.read()
         self.assertEqual(frozen.source(self.KEY, "tools/v23accept.py"), now,
                          "tools/v23accept.py was edited after it was frozen")
@@ -402,7 +404,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
 
 class ThePartSaysWhatItIs(unittest.TestCase):
     def part(self):
-        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
             t = f.read()
         i = t.index("\n## V23 ")
         j = t.find("\n## V24 ", i)

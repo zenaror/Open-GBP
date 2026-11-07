@@ -87,3 +87,9 @@ the GameCube-side *SIO control*/*SIO data* blocks, is **unknown**
 - HSP / DMA mechanics: `docs/hardware/HSP.md`
 - GBS-DOL behavior summary: `docs/hardware/GBS-DOL.md`
 - Evidence and open questions: `docs/research/EVIDENCE.md`, `docs/research/UNKNOWNS.md`
+
+## Historical references
+
+Research record names cited above identify immutable historical sources, not
+active files in this checkout. See the [validation guide](../VALIDATION.md)
+for the pinned Git catalogue and reproducible access.

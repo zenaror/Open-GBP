@@ -31,7 +31,7 @@ means it is FROZEN in `tools/swiss-layout.tsv` and its bytes were checked
 against the pin. A slot reading `UNPINNED-COPY` is **not** any executed image,
 whatever build id it shows: on 2026-09-23 slots 01–11 on the card were
 rebuilds from `7d7a6d8` (Issue #88). To rerun such an image, restage it first
-from its own commit and pin it (`docs/HANDOFF.md`, the per-image recipe).
+from its own commit and pin it (the immutable original run record and per-image recipe; see `docs/VALIDATION.md`).
 
 ## Stimulus / cartridge
 
@@ -44,7 +44,7 @@ run `<N-1>` · anything intentionally different (ONE variable per experiment).
 
 ## Pre-registered gates
 
-Pointer to the `docs/research/HARDWARE_TESTS.md` section that freezes
+Pointer to the durable, prospective experiment record that freezes
 PASS / FAIL / INCONCLUSIVE, and the list of gates reused unchanged.
 
 ## Reserved raw-file names

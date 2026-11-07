@@ -4,6 +4,8 @@ The amendment (HARDWARE_TESTS.md V29.14) and its cross-reference (V28.34) are ch
 CONTROL state, the one PI record that differs and why it is not carried state) are recomputed from captures/local (ignored by Git: that part skips, with the registered reason, on a
 host without the archive).
 """
+
+import archived_documents as document_archive
 import datetime
 import os
 import re
@@ -20,7 +22,7 @@ HZ = 40500000
 
 
 def section(head):
-    with open(DOC, encoding="utf-8") as f:
+    with document_archive.open_document(DOC, encoding="utf-8") as f:
         d = f.read()
     i = d.index(head)
     j = d.find("\n### ", i + 1)
@@ -84,7 +86,7 @@ class TheAmendmentKeepsTheOperatorsFourItemsApart(unittest.TestCase):
         self.assertNotIn("invalid", s.replace('"run invalidated"', ""))
 
     def test_the_committed_sections_are_appended_not_rewritten(self):
-        with open(DOC, encoding="utf-8") as f:
+        with document_archive.open_document(DOC, encoding="utf-8") as f:
             d = f.read()
         self.assertLess(d.index("### V29.12 RUN 59 EXECUTED AND INGESTED"), d.index("### V29.14 PROCEDURAL DEVIATION"))
         self.assertLess(d.index("### V28.33 RUN 58 EXECUTED AND INGESTED"), d.index("### V28.34 Cross-reference"))
@@ -98,7 +100,7 @@ class TheLogChecksAreRecomputed(unittest.TestCase):
             raise unittest.SkipTest("no local archive on this host (captures/local is ignored)")
         texts = []
         for p in (L58, L59, L57):
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 texts.append(f.read())
         cls.t58, cls.t59, cls.t57 = texts
 
@@ -158,12 +160,12 @@ class TheLogChecksAreRecomputed(unittest.TestCase):
             p = os.path.join(LOCAL, "GBP-AUDIO-V28_v28-validation-0001-run%s.log" % n)
             if not os.path.isfile(p):
                 self.skipTest("no local archive on this host (captures/local is ignored)")
-            with open(p, encoding="utf-8", errors="replace") as f:
+            with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
                 self.assertEqual(rec(f.read()), want, n)
         p54 = os.path.join(LOCAL, "GBP-AUDIO-V28_v28-diagloss-0001-run54.log")
         if not os.path.isfile(p54):
             self.skipTest("no local archive on this host (captures/local is ignored)")
-        with open(p54, encoding="utf-8", errors="replace") as f:
+        with document_archive.open_document(p54, encoding="utf-8", errors="replace") as f:
             self.assertEqual(rec(f.read()), ("00010000", 20))
         self.assertEqual(rec(self.t59), ("00010000", 16))
         self.assertEqual(rec(self.t57), ("00010000", 225))

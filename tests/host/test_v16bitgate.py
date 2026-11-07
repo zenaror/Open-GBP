@@ -7,6 +7,8 @@ RUN 34. The non-retroactivity clause is checked in the document, and the
 repaired gates' output on RUN 32 and RUN 34 is asserted only as the labelled
 measurement the record says it is.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -29,7 +31,7 @@ B34 = os.path.join(LOCAL, "GBP-AUDIO-003_stream-0016-run34-audio.bin")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

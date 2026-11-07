@@ -8,6 +8,8 @@ press) and nothing else: not a frame one later, not 12 + press + one elsewhere, 
 beyond the start-up span, not a frame after the AI; P's boundaries are structural (t_first <= t_press < t_next);
 an early press, a missing bound, an incomplete list are INCONCLUSIVE; the rate half is §V25.10's integers.
 """
+
+import archived_documents as document_archive
 import io
 import json
 import os
@@ -81,7 +83,7 @@ class TheModuleIsV25WithOneFunctionReplaced(unittest.TestCase):
     def test_it_redefines_only_the_video_clause(self):
         own = {n for n, o in vars(v).items() if callable(o) and getattr(o, "__module__", None) == "v26accept"}
         self.assertEqual(own, {"video_clause", "evaluate", "main", "_Replaced"})
-        with open(os.path.join(ROOT, "tools", "v26accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v26accept.py"), encoding="utf-8") as f:
             src = f.read()
         for name in ("question_L2", "question_C", "question_A", "question_R", "question_V", "check_declaration"):
             self.assertNotIn("def %s" % name, src, name)
@@ -212,10 +214,10 @@ class PhaseSix(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             rp, dp = os.path.join(d, "r.json"), os.path.join(d, "d.json")
             for p, o in ((rp, report(press_idx=PRESS_IDX)), (dp, self.decl)):
-                with open(p, "w") as f:
+                with document_archive.open_document(p, "w") as f:
                     json.dump(o, f)
             side = os.path.join(d, "s.bin")
-            with open(side, "wb") as f:
+            with document_archive.open_document(side, "wb") as f:
                 f.write(b"s")
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -226,7 +228,7 @@ class PhaseSix(unittest.TestCase):
             for tok in ("  V   PASS", "PHASE 6  CLOSES", "V's start-up clause (§V26.7): P {'index': 612",
                         "cannot be attributed between the console prints and the first VI hand-over"):
                 self.assertIn(tok, out, tok)
-            with open(os.path.join(d, "o.json")) as f:
+            with document_archive.open_document(os.path.join(d, "o.json")) as f:
                 self.assertEqual(json.load(f)["V"]["video"]["P"]["index"], PRESS_IDX)
         self.assertIs(v25accept.video_clause.__module__, "v25accept")
 
@@ -237,7 +239,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
     KEY = "Issue #113 -- §V26 transcribed, the rebuilt start-up clause frozen"
 
     def part(self):
-        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
             t = f.read()
         i = t.index("\n## V26 ")
         j = t.find("\n## V27 ", i)
@@ -245,7 +247,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
 
     def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
         import frozen
-        with open(os.path.join(ROOT, "tools", "v26accept.py"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(ROOT, "tools", "v26accept.py"), encoding="utf-8") as f:
             now = f.read()
         self.assertEqual(frozen.source(self.KEY, "tools/v26accept.py"), now,
                          "tools/v26accept.py was edited after it was frozen")

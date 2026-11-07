@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "revision": "d358c5e75201dbc45798ab58507fd6c9623f2140",
+  "documents": {
+    "INITIAL_PROMPT.md": "b8adce007a6d6c88c9375d28285cbb585372f971c5814b907130d0af8479e059",
+    "docs/HANDOFF.md": "13bf4bf16cb0048c7f8c6beee4da0d97e2005c1fc7e0f0780e19949b2666fc21",
+    "docs/ONBOARDING.md": "f28b9bc672383e211e1c9f668a988602633a4a68a2a0a3e113f16fbf8a26a84d",
+    "docs/research/DEVLOG.md": "78a53802d40e66f0b20a07ef7837512fa4616b68c5825f46d3984304e92b8231",
+    "docs/research/EVIDENCE.md": "a2b4022ee7e78ad955b5a4eedf2da7a9163382570ab5a72b6603f299c2c4336f",
+    "docs/research/HARDWARE_TESTS.md": "05c71347a4ac5488a6dd2e00de5754a55d74fa91ae9e36349d4a9564907f3e08",
+    "docs/research/UNKNOWNS.md": "b7eb287edb88ee41ca5d0908dd116b48537371a434f7de92f7db55589142e05d",
+    "docs/research/PHASE4_ASSESSMENT.md": "c82f41969d91920048c9746687fedac74637e8b26412f781e9ae78ed9c252b40",
+    "docs/research/PHASE5_ASSESSMENT.md": "562d5356fc716e280d6f681c085de568f15327df90436d4e26bd6fa40950df7e",
+    "docs/research/PHASE6_ENTRY.md": "84db97d1cd44e38d34502ff829fcf94b107fa02b1318332bfb4cf826cc73b7e6",
+    "docs/research/PHASE7_ENTRY.md": "39e6afeb95556321b22bcc3cf2c4d19d5bce017ee228dc4fe46611a8e7d66d03",
+    "AGENTS.md": "2d93ef332f4c58d6ed0b86f98130b63e783db5fca65bcccf5cb1ff0e6dfabe80",
+    "README.md": "b9643a1295a904ed725fff3e9fcdd2228657714c2ff3254db1678e54aa05b8d3",
+    "docs/README.md": "472492e9d793a2a83170f4f596cec66f5f34f4a3335cd84c554b88c0813e4f81",
+    "docs/ROADMAP.md": "8be97d069d1e0d3daade4354e79053bb7caf166d98e0bdfb3238cdf349042b91",
+    "docs/RESEARCH_METHOD.md": "6f042b8fdfcd02b39c3fce1703f253809caaee0f02b61098cd97ef65ddc92c54",
+    "docs/research/GBC_PATH.md": "5fdc52218d43e7229a226f05b22dfe68caf354ea1582ba2962783d3dc2700bd0",
+    "docs/research/INPUT_PATH.md": "d5d04895a044466122efd8c419d64e7c2040cc3077853cefdae72ed5727109ad",
+    "docs/research/VIDEO_PATH.md": "ba34b870a33a1567fd88c40ce3f1a70e13dde69384a9958b019de85fc72f5370"
+  }
+}

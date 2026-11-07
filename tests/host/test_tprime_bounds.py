@@ -14,6 +14,8 @@ than either number — `skipped_cause_pending` is a property of the BUILD, not o
 the run — and that is pinned too, because without it a cross-build comparison
 of that quantity reads as an anomaly.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import glob
@@ -29,7 +31,7 @@ TB = 40500000.0
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -18,6 +18,8 @@ to the last commit that changed it; nothing under the untouchable paths moved.
 No test consults the Operator's report to decide a machine fact, and no test
 promotes the routing beyond CORROBORATED.
 """
+
+import archived_documents as document_archive
 import hashlib
 import json
 import os
@@ -115,7 +117,7 @@ def path(run, kind):
 def struct(run):
     k = ("s", run)
     if k not in _C:
-        with open(path(run, "struct"), encoding="utf-8") as f:
+        with document_archive.open_document(path(run, "struct"), encoding="utf-8") as f:
             _C[k] = json.load(f)
     return _C[k]
 
@@ -143,18 +145,18 @@ def full(run):
 
 def run13():
     if "r13" not in _C:
-        with open(os.path.join(FX, P + "idxcap-run13-struct.json"), encoding="utf-8") as f:
+        with document_archive.open_document(os.path.join(FX, P + "idxcap-run13-struct.json"), encoding="utf-8") as f:
             _C["r13"] = json.load(f)
     return _C["r13"]
 
 
 def sha(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -14,6 +14,8 @@ Makefile, docs/protocol or docs/hardware moved. Issue #24 (2026-09-21) then inge
 (§V7.2): U-GBP-010 is CLOSED, GBP-HW-261…265 and GBP-KEY-008 / 009 exist, and
 the RUN 14 / RUN 15 fixtures were added -- the pins below say so.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -33,7 +35,7 @@ FROZEN_COMMIT = "848007abfd1b7d2e21a6ef7582062e0ee9539d5a"   # Issue #20: §V7 p
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

@@ -20,6 +20,8 @@ hardware bases relocated onto buffers. What is required here:
 WHAT A HOST CANNOT CHECK, said rather than implied: no sound, no real SOUNDBIAS, and whether the readout is legible on
 his converter. The physical run is for those, and #124 authorises none.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import struct
@@ -206,7 +208,7 @@ def build_run(harness, src_dir, defines=(), key=None):
         return _OUT[key]
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "harness.c")
-        with open(src, "w") as f:
+        with document_archive.open_document(src, "w") as f:
             f.write(harness)
         exe = os.path.join(d, "rom")
         args = ["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-function", "-I", src_dir]
@@ -228,7 +230,7 @@ def route_out(mix=0x1177):
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -412,9 +414,9 @@ class TheBuiltImages(unittest.TestCase):
     def test_the_entry_branches_to_the_stub(self):
         for v in VARIANTS:
             p = self.need(v)
-            with open(p["gba"], "rb") as f:
+            with document_archive.open_document(p["gba"], "rb") as f:
                 rom = f.read()
-            with open(p["elf"], "rb") as f:
+            with document_archive.open_document(p["elf"], "rb") as f:
                 elf = f.read()
             addr, _size = gbaentry.elf_symbol(elf, "bias_entry")
             self.assertEqual(struct.unpack_from("<I", rom, 0)[0], gbaentry.branch_to(addr), v)
@@ -427,9 +429,9 @@ class TheBuiltImages(unittest.TestCase):
     def test_the_stubs_words_are_the_read_the_stash_and_the_branch(self):
         for v in VARIANTS:
             p = self.need(v)
-            with open(p["gba"], "rb") as f:
+            with document_archive.open_document(p["gba"], "rb") as f:
                 rom = f.read()
-            with open(p["elf"], "rb") as f:
+            with document_archive.open_document(p["elf"], "rb") as f:
                 elf = f.read()
             addr, w = self.stub_words(rom, elf, v)
             start, _ = gbaentry.elf_symbol(elf, "start_vector")
@@ -478,7 +480,7 @@ class TheBuiltImages(unittest.TestCase):
         for v, h in HASHES.items():
             self.assertIn("%-15s sha256 %s" % ("route-" + v, h), ev, v)
             p = self.need(v)
-            with open(p["gba"], "rb") as f:
+            with document_archive.open_document(p["gba"], "rb") as f:
                 self.assertEqual(hashlib.sha256(f.read()).hexdigest(), h, v)
 
     def test_the_build_info_names_the_variant_and_crt0(self):

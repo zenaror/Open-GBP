@@ -10,6 +10,8 @@ project's unit, that the reference says so in as many words, and that the
 photographs the Operator supplied are out of `logs/` (which is the raw drop of
 physical runs) without having been deleted.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import unittest
@@ -24,7 +26,7 @@ PHOTOS = ("gekkio-1_03_pcb_front.jpg", "gekkio-1_04_pcb_back.jpg")
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 

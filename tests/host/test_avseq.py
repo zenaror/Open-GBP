@@ -12,6 +12,8 @@ of both of GBI's reference tables. That anchor needs no private input. The compa
 references' embedded frame runs only when the private inputs are present under input/extracted/;
 without them the verdict is `reference_content=unavailable`, which is never a failure of a run.
 """
+
+import archived_documents as document_archive
 import os
 import struct
 import subprocess
@@ -39,7 +41,7 @@ def make_sidecar():
     d = outdir()
     log, seq = os.path.join(d, "avseq-host.log"), os.path.join(d, "avseq-host-seq.bin")
     subprocess.run([BIN, "--dump-log", log, seq], check=True, capture_output=True)
-    with open(seq, "rb") as f:
+    with document_archive.open_document(seq, "rb") as f:
         return f.read(), log, seq
 
 
@@ -65,7 +67,7 @@ class ChecksumAnchor(unittest.TestCase):
     """GBI's per-block checksum, anchored to the physical block of GBP-AV-SERVICE-001."""
 
     def setUp(self):
-        with open(PHYSICAL_AVSVC_BLOCKS, "rb") as f:
+        with document_archive.open_document(PHYSICAL_AVSVC_BLOCKS, "rb") as f:
             self.block = avdump.parse(f.read())["video"]
 
     def test_physical_block_checksum(self):

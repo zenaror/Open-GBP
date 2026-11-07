@@ -3,6 +3,8 @@
 Each gate has a POSITIVE control (a clean log that must read clean) and a NEGATIVE one (the same log with one thing wrong that must be caught): a reader that can only say 'fine' proves nothing.
 What the reader must NOT do is tested too: decide the fallback rule, read a research record, report a void gate as passed, or call a -dirty build a candidate.
 """
+
+import archived_documents as document_archive
 import os
 import sys
 import unittest
@@ -242,7 +244,7 @@ class TheTapGateIsPerPhase(unittest.TestCase):
             for name, text, expect in (("realistic", log(), "CAPTURE: FAIL\n  - V28TAPS taps=%d != blocks_in=%d\n" % (4096 * 355 - 451 - 2457 + 1 + PRE_ORIGIN, 4096 * 355 - 451 - 2457 + 1)),
                                        ("no pre-origin window", log(pre_origin=0), "CAPTURE: PASS\n")):
                 path = os.path.join(tmp, name.replace(" ", "_") + ".log")
-                with open(path, "w") as f:
+                with document_archive.open_document(path, "w") as f:
                     f.write(text)
                 out = subprocess.run([sys.executable, reader, path], capture_output=True, text=True)
                 self.assertEqual(out.returncode, 0, out.stderr)
@@ -318,7 +320,7 @@ class TheRepairedReaderOnTheArchivedPlayLogs(unittest.TestCase):
         window = {61: 26266, 62: 27567, 63: 25994}
         phases = {61: (245321, 1226658), 62: (245329, 1226652), 63: (245333, 1226642)}
         for r, p in paths.items():
-            with open(p, "rb") as f:
+            with document_archive.open_document(p, "rb") as f:
                 raw = f.read()
             self.assertEqual(hashlib.sha256(raw).hexdigest(), RUNS[r][1], "RUN %d: the archive is not the recorded one (a defect, never a skip)" % r)
             o = playread.analyse(raw.decode("utf-8", errors="replace"))
@@ -400,7 +402,7 @@ RUN17_LOG = ("GBP-VIDEO-004_stream-0015-run17.log", "85d8963752cb9fed95d9842d010
 
 def unit_expected():
     """The five lines the C unit test expects the writer to produce: ONE source of truth for writer and reader."""
-    with open(UNIT_TEST, encoding="utf-8") as f:
+    with document_archive.open_document(UNIT_TEST, encoding="utf-8") as f:
         src = f.read()
     got = dict(re.findall(r'static const char \*const EXPECT_(\w+) = "([^"]*)";', src))
     return {"STARTUP": got["STARTUP"], "STARTUPT": got["STARTUPT"], "STARTUPV": got["STARTUPV"], "STREAMINV": got["STREAMINV"], "STREAMSELFTEST": got["STREAMSELFTEST"]}
@@ -423,7 +425,7 @@ def rows(text):
 
 
 def sha256(p):
-    with open(p, "rb") as f:
+    with document_archive.open_document(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
@@ -541,7 +543,7 @@ class TheParserOnRealData(unittest.TestCase):
         if not os.path.isfile(p):
             self.skipTest("no local archive on this host (captures/local is ignored)")
         self.assertEqual(sha256(p), RUN17_LOG[1], "the archived RUN 17 log is not the recorded one (a defect, never a skip)")
-        with open(p, encoding="utf-8", errors="replace") as f:
+        with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
             recs = playread.records(f.read())
         b = playread.startup_block(recs)
         r = dict((n, (s, src)) for n, s, src in b["rows"])

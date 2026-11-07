@@ -27,6 +27,8 @@ THE AUDIT PROFILE IS EXERCISED, NOT COUNTED (#44's lesson, #59 item 6): when
 the listings exist, `awin` passes this image and FAILS the play image, and
 `play` FAILS this image. The test runs the auditor; it never counts its rules.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import subprocess
@@ -68,7 +70,7 @@ SERVICE_PATH_FILES = ("gbp_vstate.c", "gbp_vqueue.c", "gbp_vwitness.c", "gbp_vpr
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -464,7 +466,7 @@ class ThePlumbing(unittest.TestCase):
         staged = os.path.join(ROOT, "build", "swiss", "14-audio", "boot.dol")
         if not os.path.exists(staged):
             self.skipTest("14-audio is not staged in this checkout")
-        with open(staged, "rb") as f:
+        with document_archive.open_document(staged, "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), AWIN_DOL_SHA256)
 
     def test_the_dolphin_target_states_its_ceiling(self):
@@ -540,7 +542,7 @@ class TheIdentityWhenBuilt(unittest.TestCase):
         dol = os.path.join(AWIN_OUT, "gbp-audio-window-probe.dol")
         artifacts.required(self, dol, "build-info.txt for this POC is present, so its DOL must be too")
         import hashlib
-        with open(dol, "rb") as f:
+        with document_archive.open_document(dol, "rb") as f:
             self.assertEqual(hashlib.sha256(f.read()).hexdigest(), m.group(1))
 
 

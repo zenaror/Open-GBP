@@ -9,6 +9,8 @@ GBP-HW-262's, the caps and the wall are the image's. Then RUN 43's figures are p
 they need, the phases, the session plans each with its own session cap, the wall ceilings, and what each store
 option buys.
 """
+
+import archived_documents as document_archive
 import os
 import sys
 import unittest
@@ -19,7 +21,7 @@ import v28budget  # noqa: E402
 
 
 def read(p):
-    with open(os.path.join(ROOT, p), encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(os.path.join(ROOT, p), encoding="utf-8", errors="replace") as f:
         return f.read()
 
 

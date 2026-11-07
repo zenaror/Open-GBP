@@ -7,6 +7,8 @@ goes through the frozen tools/v19report.py and the frozen tools/v19drain.py, and
 verdicts is checked for saying what the data does NOT establish, because this is
 the result the next phase is built on.
 """
+
+import archived_documents as document_archive
 import hashlib
 import os
 import re
@@ -32,7 +34,7 @@ D2_SHA256 = "77007cd74a06dc54e5114d01a41d2721679d5668a0c20022fe102c87ad4d65b8"
 
 
 def read(p):
-    with open(p, encoding="utf-8", errors="replace") as f:
+    with document_archive.open_document(p, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -68,7 +70,7 @@ def ctl(which):
 
 class TheFixture(unittest.TestCase):
     def test_is_the_raw_log_byte_for_byte(self):
-        with open(FIXTURE, "rb") as f:
+        with document_archive.open_document(FIXTURE, "rb") as f:
             raw = f.read()
         self.assertEqual(hashlib.sha256(raw).hexdigest(), LOG_SHA256)
         self.assertEqual(len(raw), 92486)
@@ -78,7 +80,7 @@ class TheFixture(unittest.TestCase):
     def test_the_d2_file_is_the_fill_pattern(self):
         if not os.path.exists(LOCAL_D2):
             self.skipTest("RUN 37's d2 file is not archived in this checkout (captures/local is ignored)")
-        with open(LOCAL_D2, "rb") as f:
+        with document_archive.open_document(LOCAL_D2, "rb") as f:
             raw = f.read()
         self.assertEqual(hashlib.sha256(raw).hexdigest(), D2_SHA256)
         self.assertEqual(raw, b"\xa5" * 65536)

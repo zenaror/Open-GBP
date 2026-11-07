@@ -9,6 +9,8 @@ Two properties matter and each is checked, not assumed:
   * THE TABLES ARE THE TOOL'S. GBP-HW-339's per-run and per-arm figures are formatted from tools/u045window.py's
     own output, so a record that drifted from the data fails here.
 """
+
+import archived_documents as document_archive
 import os
 import re
 import sys
@@ -37,7 +39,7 @@ MARK = "**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is re
 
 
 def now(path):
-    with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+    with document_archive.open_document(os.path.join(ROOT, path), encoding="utf-8") as f:
         return f.read()
 
 

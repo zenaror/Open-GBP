@@ -23,6 +23,8 @@ described the pre-executed state (no archive on disk, no fixtures, the
 "has run" do-not-assume bullet) are updated here; §V7.1 itself stays
 byte-identical (tests/host/test_run14.py pins it against ed7dea2).
 """
+
+import archived_documents as document_archive
 import glob
 import os
 import re
@@ -50,7 +52,7 @@ _C = {}
 
 
 def read(p):
-    with open(p, encoding="utf-8") as f:
+    with document_archive.open_document(p, encoding="utf-8") as f:
         return f.read()
 
 
