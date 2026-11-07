@@ -1126,15 +1126,20 @@ Current validated environment:
 ```text
 Ghidra: 12.1.3 PUBLIC
 Java/OpenJDK: 21
-Ghidra path:
-/home/rafael/Tools/Open-GBP/ghidra_12.1.3_PUBLIC
 ```
 
-GameCubeLoader is installed at:
+Set `GHIDRA` to the absolute path of your local Ghidra installation. The
+GameCubeLoader source directory may live separately; the extension used by
+the validated setup is installed inside Ghidra at:
 
 ```text
-/home/rafael/Tools/Open-GBP/ghidra_12.1.3_PUBLIC/Ghidra/Extensions/GameCubeLoader
+$GHIDRA/Ghidra/Extensions/GameCubeLoader
 ```
+
+Installation paths are local configuration. Check that
+`$GHIDRA/support/analyzeHeadless` and the installed extension exist before use.
+The successful import below is historical; relocating an installation does not
+constitute a new validation.
 
 Installed extension:
 
@@ -1156,7 +1161,7 @@ PowerPC:BE:32:Gekko_Broadway:default
 Headless import:
 
 ```bash
-GHIDRA="$HOME/Tools/Open-GBP/ghidra_12.1.3_PUBLIC"
+GHIDRA="/path/to/ghidra_12.1.3_PUBLIC"
 
 "$GHIDRA/support/analyzeHeadless" \
   <project-directory> \
