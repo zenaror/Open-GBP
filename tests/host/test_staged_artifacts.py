@@ -126,6 +126,10 @@ def index_rows():
     import sys
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import swiss_export
+    # An empty staging area has no index to read. If any slot exists, a missing
+    # index still fails; the original identity assertions below stay unchanged.
+    if not os.path.isfile(INDEX) and not staged_slots(SWISS):
+        return {}
     rows = {}
     for line in read(INDEX).splitlines():
         m = swiss_export.INDEX_ROW_RE.match(line)

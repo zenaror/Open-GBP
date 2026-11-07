@@ -24,7 +24,7 @@ class PublicDocumentation(unittest.TestCase):
         self.assertLess(len(agent.splitlines()), 100)
         for path in GUIDES:
             text = (ROOT / path).read_text()
-            self.assertNotRegex(text, r'(?i)\bOMM\b|/home/rafael|OneMindMachine|plugin://')
+            self.assertNotRegex(text, r'(?i)\bOMM\b|/home/[^/\s]+|OneMindMachine|plugin://')
         for term in ('physical', 'SHA-256', 'Link Port', 'rumble', 'dirty build',
                      'read-only', 'bounded waits', 'RAM', 'force-push'):
             self.assertIn(term, agent)

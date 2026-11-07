@@ -62,7 +62,13 @@ def have():
 
 
 def log(n):
-    return read(os.path.join(LOCAL, ALL[n]))
+    path = os.path.join(LOCAL, ALL[n])
+    if os.path.exists(path):
+        return read(path)
+    # Only the unconditional keypad/order checks use these minimal public fields.
+    # Full-capture checks retain have() and never consume an excerpt as a raw log.
+    from key_order_fixtures import read_excerpt
+    return read_excerpt(n)
 
 
 def record(text, name):
