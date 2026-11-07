@@ -1,4 +1,5 @@
 """Portable history checks keep the original assertions and reject missing support."""
+import artifacts
 import hashlib
 from pathlib import Path
 import shutil
@@ -11,7 +12,7 @@ import test_staged_artifacts as staged
 
 
 class KeyOrderExcerpts(unittest.TestCase):
-    def test_each_excerpt_is_pinned_and_reproducible_when_the_original_is_present(self):
+    def test_each_public_excerpt_is_pinned_and_required(self):
         entries = key.manifest()['runs']
         self.assertEqual(set(entries), {'21', '22', '25', '26'})
         for number, entry in entries.items():
@@ -20,13 +21,18 @@ class KeyOrderExcerpts(unittest.TestCase):
                 self.assertEqual((entry['source_sha256'], entry['source_bytes']), runs.HASHES[n])
                 text = key.read_excerpt(n)
                 self.assertTrue(text)
-                original = key.ROOT / entry['source']
-                if original.exists():
-                    raw = original.read_bytes()
-                    self.assertEqual(hashlib.sha256(raw).hexdigest(), entry['source_sha256'])
-                    self.assertEqual(key.extract(raw, n), text.encode())
                 if n in (21, 22):
                     self.assertEqual(len(text.splitlines()), 1)
+
+    def test_optional_originals_reproduce_exact_excerpts(self):
+        entries = key.manifest()['runs']
+        sources = {key.ROOT / entry['source']: (int(n), entry) for n, entry in entries.items()}
+        for original in artifacts.any_of(self, list(sources),
+                                        'no local archive on this host (captures/local is ignored)'):
+            n, entry = sources[original]
+            raw = original.read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), entry['source_sha256'])
+            self.assertEqual(key.extract(raw, n), key.read_excerpt(n).encode())
 
     def test_missing_public_excerpt_fails(self):
         with tempfile.TemporaryDirectory() as tmp:

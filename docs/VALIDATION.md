@@ -75,7 +75,7 @@ checks without restoring operational journals into the working tree.
 
 Minimal public keypad/order excerpts under `captures/fixtures/key-order/` let the
 historical sequence and run-order assertions execute without ignored raw captures.
-Their provenance and exact selection are documented in `captures/README.md`.
+Their provenance and exact selection are documented in `captures/fixtures/key-order/README.md`.
 Complete-capture comparisons still require the original logs. An empty Swiss
 staging area has no index to parse; any staged slot without its index remains a
 failure, and the recorded-identity assertions still run without staged bytes.
